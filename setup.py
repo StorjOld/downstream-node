@@ -10,5 +10,10 @@ setup(
     license='',
     author='Storj Labs',
     author_email='info@storj.io',
-    description=''
+    description='',
+    install_requires=[
+        'flask',
+        'mysql-python',
+        'flask-sqlalchemy',
+    ]
 )
