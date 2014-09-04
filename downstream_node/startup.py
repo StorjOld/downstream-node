@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from . import app, db
+from flask import Flask
+from flask.ext.sqlalchemy import SQLAlchemy
+
 from .config import config
 
+app = Flask(__name__)
 app.config.from_object(config)
+db = SQLAlchemy(app)
 
-db.init_app(app)
+db.create_all()
