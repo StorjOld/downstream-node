@@ -1,9 +1,61 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import hashlib
+import os
 
-from flask import jsonify
+from flask import jsonify, request
+from downstream_node.models import Challenges
 
-from .startup import app
+from downstream_node.startup import app
+from downstream_node.lib import gen_challenges
+
+
+@app.route('/api/downstream/challenge')
+def api_downstream_heartbeats_file():
+    """
+
+    :param filepath:
+    """
+    # Make assertions about the request to make sure it's valid.
+    try:
+        assert request.json
+    except AssertionError:
+        resp = jsonify(msg="No JSON received")
+        resp.status_code = 400
+        return resp
+
+    try:
+        assert 'filepath' in request.json
+    except AssertionError:
+        resp = jsonify(msg="missing filepath in request JSON")
+        resp.status_code = 400
+        return resp
+
+    filepath = request.json.get('filepath')
+
+    # Commenting out while still in development, should be used in prod
+    # try:
+    #     assert os.path.isfile(filepath)
+    # except AssertionError:
+    #     resp = jsonify(msg="filepath is not a valid filepath")
+    #     resp.status_code = 400
+    #     return resp
+
+    # Hardcode filepath to the testfile in tests while in development
+    filepath = os.path.abspath(
+        os.path.join(
+            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
+    )
+
+    root_seed = hashlib.sha256(os.urandom(32)).hexdigest
+
+    query = Challenges.query().filter(Challenges.filepath == filepath)
+
+    if not query:
+        gen_challenges(filepath, root_seed)
+        query = Challenges.query().filter(Challenges.filepath == filepath)
+
+    return jsonify(query)
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
