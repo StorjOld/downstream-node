@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
 
 from downstream_node.config import config
 from downstream_node.models import Challenges, Files
@@ -31,7 +32,7 @@ def gen_challenges(filepath, root_seed):
     secret = getattr(config, 'HEARTBEAT_SECRET')
     hb = Heartbeat(filepath, secret=secret)
     hb.generate_challenges(1000, root_seed)
-    files = Files(name=filepath)
+    files = Files(name=os.path.split(filepath)[1])
     db.session.add(files)
     for challenge in hb.challenges:
         chal = Challenges(
