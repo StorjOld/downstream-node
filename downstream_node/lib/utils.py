@@ -5,10 +5,8 @@ import json
 
 def model_to_json(model):
     """ Returns a JSON representation of an SQLAlchemy-backed object.
-
     From Zato: https://github.com/zatosource/zato
     """
-
     _json = {}
     _json['fields'] = {}
     _json['pk'] = getattr(model, 'id')
@@ -24,6 +22,7 @@ def query_to_list(query):
     for row in query.all():
         row_dict = {}
         for col in row.__mapper__.mapped_table.columns:
-            row_dict[col.name] = getattr(row, col.name)
+            if col.name != 'id':
+                row_dict[col.name] = getattr(row, col.name)
         lst.append(row_dict)
     return lst
