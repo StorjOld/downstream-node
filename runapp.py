@@ -10,6 +10,7 @@ from downstream_node.startup import app, db
 
 
 def initdb(sys=None):
+    db.engine.execute("CREATE DATABASE downstream")
     db.create_all()
 
 
