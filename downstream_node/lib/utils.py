@@ -18,3 +18,12 @@ def model_to_json(model):
 
     return json.dumps([_json])
 
+
+def query_to_list(query):
+    lst = []
+    for row in query.all():
+        row_dict = {}
+        for col in row.__mapper__.mapped_table.columns:
+            row_dict[col.name] = getattr(row, col.name)
+        lst.append(row_dict)
+    return lst
