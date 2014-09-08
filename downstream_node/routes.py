@@ -3,59 +3,47 @@
 import hashlib
 import os
 
-from flask import jsonify, request
+from flask import jsonify, request, make_response
+from downstream_node.lib.utils import model_to_json
 from downstream_node.models import Challenges
 
 from downstream_node.startup import app
 from downstream_node.lib import gen_challenges
 
 
-@app.route('/api/downstream/challenge')
-def api_downstream_heartbeats_file():
+@app.route('/api/downstream/challenge/<filename>')
+def api_downstream_challenge(filename):
     """
 
-    :param filepath:
+    :param filename:
     """
     # Make assertions about the request to make sure it's valid.
-    try:
-        assert request.json
-    except AssertionError:
-        resp = jsonify(msg="No JSON received")
-        resp.status_code = 400
-        return resp
-
-    try:
-        assert 'filepath' in request.json
-    except AssertionError:
-        resp = jsonify(msg="missing filepath in request JSON")
-        resp.status_code = 400
-        return resp
-
-    filepath = request.json.get('filepath')
 
     # Commenting out while still in development, should be used in prod
     # try:
-    #     assert os.path.isfile(filepath)
+    #     assert os.path.isfile(os.path.join('/opt/files', filename))
     # except AssertionError:
-    #     resp = jsonify(msg="filepath is not a valid filepath")
+    #     resp = jsonify(msg="file name is not valid")
     #     resp.status_code = 400
     #     return resp
 
     # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
+    filename = os.path.abspath(
         os.path.join(
             os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
     )
 
     root_seed = hashlib.sha256(os.urandom(32)).hexdigest
 
-    query = Challenges.query().filter(Challenges.filepath == filepath)
+    query = Challenges.query.filter(Challenges.filepath == filename)
 
     if not query:
-        gen_challenges(filepath, root_seed)
-        query = Challenges.query().filter(Challenges.filepath == filepath)
+        gen_challenges(filename, root_seed)
+        query = Challenges.query.filter(Challenges.filepath == filename)
 
-    return jsonify(query)
+    response = make_response(model_to_json(query.all()))
+    response.headers['Content-Type'] = 'application/json'
+    return response
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
