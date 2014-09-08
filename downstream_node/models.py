@@ -14,7 +14,7 @@ class Challenges(db.Model):
     __tablename__ = 'challenges'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    file = db.Column(db.ForeignKey('files.name'))
+    filename = db.Column(db.ForeignKey('files.name'))
     rootseed = db.Column(db.String(128), nullable=False)
     block = db.Column(db.String(128), nullable=False)
     seed = db.Column(db.String(128), nullable=False)
