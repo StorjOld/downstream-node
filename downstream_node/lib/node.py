@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from downstream_node.config import config
-from downstream_node.models import Challenges
+from downstream_node.models import Challenges, Files
 
 from heartbeat import Heartbeat
 from downstream_node.startup import db
@@ -31,10 +31,12 @@ def gen_challenges(filepath, root_seed):
     secret = getattr(config, 'HEARTBEAT_SECRET')
     hb = Heartbeat(filepath, secret=secret)
     hb.generate_challenges(1000, root_seed)
+    files = Files(name=filepath)
+    db.session.add(files)
     for challenge in hb.challenges:
         chal = Challenges(
-            filepath=filepath,
-            root_seed=root_seed,
+            filename=filepath,
+            rootseed=root_seed,
             block=challenge.block,
             seed=challenge.seed,
             response=challenge.response,
