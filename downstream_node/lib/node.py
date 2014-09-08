@@ -32,11 +32,13 @@ def gen_challenges(filepath, root_seed):
     secret = getattr(config, 'HEARTBEAT_SECRET')
     hb = Heartbeat(filepath, secret=secret)
     hb.generate_challenges(1000, root_seed)
-    files = Files(name=os.path.split(filepath)[1])
+    filename = os.path.split(filepath)[1]
+    print filename
+    files = Files(name=filename)
     db.session.add(files)
     for challenge in hb.challenges:
         chal = Challenges(
-            filename=filepath,
+            filename=filename,
             rootseed=root_seed,
             block=challenge.block,
             seed=challenge.seed,

@@ -11,11 +11,11 @@ from downstream_node.startup import app
 from downstream_node.lib import gen_challenges
 
 
-@app.route('/api/downstream/challenge/<filename>')
-def api_downstream_challenge(filename):
+@app.route('/api/downstream/challenge/<filepath>')
+def api_downstream_challenge(filepath):
     """
 
-    :param filename:
+    :param filepath:
     """
     # Make assertions about the request to make sure it's valid.
 
@@ -28,17 +28,18 @@ def api_downstream_challenge(filename):
     #     return resp
 
     # Hardcode filepath to the testfile in tests while in development
-    filename = os.path.abspath(
+    filepath = os.path.abspath(
         os.path.join(
             os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
     )
 
     root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
+    filename = os.path.split(filepath)[1]
 
     query = Challenges.query.filter(Challenges.filename == filename)
 
     if not query.all():
-        gen_challenges(filename, root_seed)
+        gen_challenges(filepath, root_seed)
         query = Challenges.query.filter(Challenges.filename == filename)
 
     return jsonify(challenges=query_to_list(query))
