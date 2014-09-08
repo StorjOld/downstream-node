@@ -3,10 +3,10 @@
 import hashlib
 import os
 
-from flask import jsonify, request, make_response
-from downstream_node.lib.utils import model_to_json
-from downstream_node.models import Challenges
+from flask import jsonify
 
+from downstream_node.lib.utils import query_to_list
+from downstream_node.models import Challenges
 from downstream_node.startup import app
 from downstream_node.lib import gen_challenges
 
@@ -33,17 +33,15 @@ def api_downstream_challenge(filename):
             os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
     )
 
-    root_seed = hashlib.sha256(os.urandom(32)).hexdigest
+    root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
 
-    query = Challenges.query.filter(Challenges.filepath == filename)
+    query = Challenges.query.filter(Challenges.filename == filename)
 
-    if not query:
+    if not query.all():
         gen_challenges(filename, root_seed)
-        query = Challenges.query.filter(Challenges.filepath == filename)
+        query = Challenges.query.filter(Challenges.filename == filename)
 
-    response = make_response(model_to_json(query.all()))
-    response.headers['Content-Type'] = 'application/json'
-    return response
+    return jsonify(challenges=query_to_list(query))
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
