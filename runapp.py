@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
-
 # Runs the development server of the downstream_node app.
 # Not for production use.
+
+import argparse
 
 from downstream_node.startup import app, db
 
