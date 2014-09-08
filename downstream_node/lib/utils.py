@@ -3,7 +3,7 @@
 import json
 
 
-def to_json(model):
+def model_to_json(model):
     """ Returns a JSON representation of an SQLAlchemy-backed object.
 
     From Zato: https://github.com/zatosource/zato
