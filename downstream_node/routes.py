@@ -50,6 +50,28 @@ def api_downstream_challenge(filepath):
     return jsonify(challenges=query_to_list(query))
 
 
+@app.route('/api/downstream/challenges/answer/<filepath>', methods=['GET', 'POST'])
+def api_downstream_challenge_answer(filepath):
+    # Make assertions about the request to make sure it's valid.
+
+    # Commenting out while still in development, should be used in prod
+    # try:
+    #     assert os.path.isfile(os.path.join('/opt/files', filename))
+    # except AssertionError:
+    #     resp = jsonify(msg="file name is not valid")
+    #     resp.status_code = 400
+    #     return resp
+    # Hardcode filepath to the testfile in tests while in development
+    filepath = os.path.abspath(
+        os.path.join(
+            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
+    )
+
+    filename = os.path.split(filepath)[1]
+    query = Challenges.query.filter(Challenges.filename == filename)
+    raise
+
+
 @app.route('/api/downstream/new/<sjcx_address>')
 def api_downstream_new_token(sjcx_address):
     return jsonify(token='dfs9mfa2')
