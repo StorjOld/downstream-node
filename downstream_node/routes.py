@@ -53,6 +53,24 @@ def api_downstream_challenge(filepath):
 @app.route('/api/downstream/challenges/answer/<filepath>', methods=['GET', 'POST'])
 def api_downstream_challenge_answer(filepath):
     # Make assertions about the request to make sure it's valid.
+    """
+
+    :param filepath:
+    :return:
+    """
+    try:
+        assert request.json
+    except AssertionError:
+        resp = jsonify(msg="missing request json")
+        resp.status_code = 400
+        return resp
+
+    try:
+        assert ['seed', 'rootseed', 'block', 'response'] in request.json.keys()
+    except AssertionError:
+        resp = jsonify(msg="missing data")
+        resp.status_code = 400
+        return resp
 
     # Commenting out while still in development, should be used in prod
     # try:
@@ -69,7 +87,23 @@ def api_downstream_challenge_answer(filepath):
 
     filename = os.path.split(filepath)[1]
     query = Challenges.query.filter(Challenges.filename == filename)
-    raise
+    challenge = filter(
+        lambda x: x.block == request.json.get('block'),
+        query.all()
+    )
+
+    # Oh, and challenge should only be len of 1, or we gots problems
+    try:
+        assert len(challenge) == 1
+    except AssertionError:
+        # And lets assume it's not our problem, but an input problem
+        abort(400)
+
+    # TODO: Fix all the things
+    # Make a heartbeat thing
+    # make new challenges
+    # assert answer is correct based on new stuff
+    # move on with our lives
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
