@@ -16,7 +16,7 @@ def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/challenge/<filepath>')
+@app.route('/api/downstream/challenges/<filepath>')
 def api_downstream_challenge(filepath):
     """
 
