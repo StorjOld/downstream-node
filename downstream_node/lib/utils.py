@@ -22,7 +22,7 @@ def query_to_list(query):
     for row in query.all():
         row_dict = {}
         for col in row.__mapper__.mapped_table.columns:
-            if col.name != 'id':
+            if col.name not in ['id', 'response']:
                 row_dict[col.name] = getattr(row, col.name)
         lst.append(row_dict)
     return lst
