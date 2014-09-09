@@ -11,6 +11,11 @@ from downstream_node.startup import app
 from downstream_node.lib import gen_challenges
 
 
+@app.route('/')
+def api_index():
+    return jsonify(msg='ok')
+
+
 @app.route('/api/downstream/challenge/<filepath>')
 def api_downstream_challenge(filepath):
     """
