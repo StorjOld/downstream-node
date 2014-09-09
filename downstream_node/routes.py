@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import hashlib
 import os
+import hashlib
 
-from flask import jsonify
+from flask import jsonify, request, abort
 
-from downstream_node.lib.utils import query_to_list
-from downstream_node.models import Challenges
 from downstream_node.startup import app
+from downstream_node.models import Challenges
 from downstream_node.lib import gen_challenges
+from downstream_node.lib.utils import query_to_list
 
 
 @app.route('/')
