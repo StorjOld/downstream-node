@@ -54,25 +54,34 @@ def api_downstream_challenge(filepath):
 
 @app.route('/api/downstream/challenges/answer/<filepath>', methods=['GET', 'POST'])
 def api_downstream_challenge_answer(filepath):
-    # Make assertions about the request to make sure it's valid.
     """
 
     :param filepath:
     :return:
     """
+    request_json = request.get_json(force=True, silent=True)
+
+    # Make assertions about the request to make sure it's valid.
     try:
-        assert request.json
+        assert request_json
     except AssertionError:
         resp = jsonify(msg="missing request json")
         resp.status_code = 400
         return resp
 
     try:
-        assert ['seed', 'rootseed', 'block', 'response'] in request.json.keys()
+        assert ['seed', 'rootseed', 'block', 'response'] in request_json.keys()
     except AssertionError:
         resp = jsonify(msg="missing data")
         resp.status_code = 400
         return resp
+
+    # Hardcode filepath to the testfile in tests while in development
+    filepath = os.path.abspath(
+        os.path.join(
+            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
+    )
+    filename = os.path.split(filepath)[1]
 
     # Commenting out while still in development, should be used in prod
     # try:
@@ -81,14 +90,11 @@ def api_downstream_challenge_answer(filepath):
     #     resp = jsonify(msg="file name is not valid")
     #     resp.status_code = 400
     #     return resp
-    # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
-        os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
-    )
 
-    filename = os.path.split(filepath)[1]
-    query = Challenges.query.filter(Challenges.filename == filename)
+    query = Challenges.query.filter(
+        Challenges.filename == filename,
+        Challenges.rootseed == request
+    )
     challenge = filter(
         lambda x: x.block == request.json.get('block'),
         query.all()
@@ -101,11 +107,18 @@ def api_downstream_challenge_answer(filepath):
         # And lets assume it's not our problem, but an input problem
         abort(400)
 
-    # TODO: Fix all the things
-    # Make a heartbeat thing
-    # make new challenges
-    # assert answer is correct based on new stuff
-    # move on with our lives
+    node_hb = Heartbeat(filepath, secret=config.SECRET_KEY)
+    node_hb = load_heartbeat(node_hb, query)
+    result = node_hb.check_answer(request_json.get('response'))
+
+    if result is True:
+        return jsonify(msg='ok', match=True)
+    elif result is False:
+        return jsonify(msg='ok', match=False)
+    else:
+        resp = jsonify(msg='error')
+        resp.status_code = 500
+        return resp
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
