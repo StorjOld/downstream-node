@@ -69,7 +69,7 @@ def api_downstream_challenge_answer(filepath):
         resp.status_code = 400
         return resp
 
-    req_json_keys = ['seed', 'rootseed', 'block', 'response']
+    req_json_keys = ['seed', 'block', 'response']
 
     try:
         assert sorted(req_json_keys) == sorted(request_json.keys())
@@ -95,7 +95,6 @@ def api_downstream_challenge_answer(filepath):
 
     query = Challenges.query.filter(
         Challenges.filename == filename,
-        Challenges.rootseed == request_json.get('rootseed'),
         Challenges.block == request_json.get('block'),
         Challenges.seed == request_json.get('seed'),
     )
