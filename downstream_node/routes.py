@@ -95,18 +95,16 @@ def api_downstream_challenge_answer(filepath):
 
     query = Challenges.query.filter(
         Challenges.filename == filename,
-        Challenges.rootseed == request
+        Challenges.rootseed == request_json.get('rootseed'),
+        Challenges.block == request_json.get('block'),
+        Challenges.seed == request_json.get('seed'),
     )
-    challenge = filter(
-        lambda x: x.block == request.json.get('block'),
-        query.all()
-    )
+    challenge = query.all()
 
     # Oh, and challenge should only be len of 1, or we gots problems
-    try:
-        assert len(challenge) == 1
-    except AssertionError:
-        # And lets assume it's not our problem, but an input problem
+    if len(challenge) == 0:
+        abort(404)
+    elif len(challenge) < 1:
         abort(400)
 
     node_hb = Heartbeat(filepath, secret=config.SECRET_KEY)
