@@ -69,8 +69,10 @@ def api_downstream_challenge_answer(filepath):
         resp.status_code = 400
         return resp
 
+    req_json_keys = ['seed', 'rootseed', 'block', 'response']
+
     try:
-        assert ['seed', 'rootseed', 'block', 'response'] in request_json.keys()
+        assert sorted(req_json_keys) == sorted(request_json.keys())
     except AssertionError:
         resp = jsonify(msg="missing data")
         resp.status_code = 400
