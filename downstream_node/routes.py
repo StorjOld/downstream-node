@@ -3,12 +3,14 @@
 import os
 import hashlib
 
+from heartbeat import Heartbeat
 from flask import jsonify, request, abort
 
 from downstream_node.startup import app
+from downstream_node.config import config
 from downstream_node.models import Challenges
 from downstream_node.lib import gen_challenges
-from downstream_node.lib.utils import query_to_list
+from downstream_node.lib.utils import query_to_list, load_heartbeat
 
 
 @app.route('/')
