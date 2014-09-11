@@ -9,8 +9,7 @@ import argparse
 from downstream_node.startup import app, db
 
 
-def initdb(sys=None):
-    db.engine.execute("CREATE DATABASE downstream")
+def initdb():
     db.create_all()
 
 
