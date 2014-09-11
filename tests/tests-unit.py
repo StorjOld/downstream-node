@@ -8,7 +8,7 @@ from downstream_node.startup import app, db
 from downstream_node.models import Challenges
 
 
-class TestDownstream(unittest.TestCase):
+class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
@@ -76,6 +76,18 @@ class TestDownstream(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(json.loads(r.data).get('msg'), 'ok')
         self.assertIs(json.loads(r.data).get('match'), True)
+
+
+class TestDownstreamModels(unittest.TestCase):
+    pass
+
+
+class TestDownstreamNodeFuncs(unittest.TestCase):
+    pass
+
+
+class TestDownstreamUtils(unittest.TestCase):
+    pass
 
 
 if __name__ == '__main__':
