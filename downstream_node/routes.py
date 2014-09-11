@@ -52,7 +52,7 @@ def api_downstream_challenge(filepath):
     return jsonify(challenges=query_to_list(query))
 
 
-@app.route('/api/downstream/challenges/answer/<filepath>', methods=['GET', 'POST'])
+@app.route('/api/downstream/challenges/answer/<filepath>', methods=['POST'])
 def api_downstream_challenge_answer(filepath):
     """
 
