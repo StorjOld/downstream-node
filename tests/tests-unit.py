@@ -4,15 +4,18 @@ import json
 
 import unittest
 
-from downstream_node.startup import app
+from downstream_node.startup import app, db
+from downstream_node.models import Challenges
 
 
 class TestDownstream(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
+        db.create_all()
 
     def tearDown(self):
+        db.engine.execute('DROP TABLE challenges,files')
         del self.app
 
     def test_api_downstream_challenge(self):
