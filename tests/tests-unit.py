@@ -29,8 +29,53 @@ class TestDownstream(unittest.TestCase):
         self.assertEqual(r_json.get('challenges')[0].get('filename'), 'thirty-two_meg.testfile')
 
     def test_api_downstream_challenge_answer(self):
-        r = self.app.get('api/downstream/challenges/answer/test')
+        # Prime DB
+        self.app.get('/api/downstream/challenges/test')
 
+        r = self.app.get('/api/downstream/challenges/answer/test')
+        self.assertEqual(r.status_code, 405)
+
+        r = self.app.post('/api/downstream/challenges/answer/test')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(json.loads(r.data).get('msg'), 'missing request json')
+
+        data = {
+            'seed': 'test seed'
+        }
+        r = self.app.post(
+            '/api/downstream/challenges/answer/test',
+            data=json.dumps(data)
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(json.loads(r.data).get('msg'), 'missing data')
+
+        data.update({
+            'response': 'test response',
+            'block': 12345
+        })
+        r = self.app.post(
+            '/api/downstream/challenges/answer/test',
+            data=json.dumps(data)
+        )
+        self.assertEqual(r.status_code, 404)
+
+        chals = Challenges(
+            filename='thirty-two_meg.testfile',
+            rootseed='test root seed',
+            seed='test seed',
+            block=12345,
+            response='test response'
+        )
+        db.session.add(chals)
+        db.session.commit()
+
+        r = self.app.post(
+            '/api/downstream/challenges/answer/test',
+            data=json.dumps(data)
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.loads(r.data).get('msg'), 'ok')
+        self.assertIs(json.loads(r.data).get('match'), True)
 
 
 if __name__ == '__main__':
