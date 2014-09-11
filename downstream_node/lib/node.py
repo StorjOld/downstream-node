@@ -33,9 +33,9 @@ def gen_challenges(filepath, root_seed):
     hb = Heartbeat(filepath, secret=secret)
     hb.generate_challenges(1000, root_seed)
     filename = os.path.split(filepath)[1]
-    print filename
     files = Files(name=filename)
     db.session.add(files)
+    db.session.commit()
     for challenge in hb.challenges:
         chal = Challenges(
             filename=filename,
