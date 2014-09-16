@@ -59,7 +59,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 404)
 
-        chals = Challenges(
+        chals = models.Challenges(
             filename='thirty-two_meg.testfile',
             rootseed='test root seed',
             seed='test seed',
@@ -79,8 +79,19 @@ class TestDownstreamRoutes(unittest.TestCase):
 
 
 class TestDownstreamModels(unittest.TestCase):
-    pass
+    def test_files(self):
+        self.assertEqual(getattr(models.Files, '__tablename__'), 'files')
+        self.assertTrue(hasattr(models.Files, 'id'))
+        self.assertTrue(hasattr(models.Files, 'name'))
 
+    def test_challenges(self):
+        self.assertEqual(getattr(models.Challenges, '__tablename__'), 'challenges')
+        self.assertTrue(hasattr(models.Challenges, 'id'))
+        self.assertTrue(hasattr(models.Challenges, 'filename'))
+        self.assertTrue(hasattr(models.Challenges, 'rootseed'))
+        self.assertTrue(hasattr(models.Challenges, 'block'))
+        self.assertTrue(hasattr(models.Challenges, 'seed'))
+        self.assertTrue(hasattr(models.Challenges, 'response'))
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     pass
