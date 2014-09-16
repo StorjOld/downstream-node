@@ -3,9 +3,9 @@
 import json
 
 import unittest
-
 from downstream_node.startup import app, db
-from downstream_node.models import Challenges
+
+from downstream_node import models
 
 
 class TestDownstreamRoutes(unittest.TestCase):
