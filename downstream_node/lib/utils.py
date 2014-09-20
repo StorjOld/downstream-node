@@ -1,24 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import json
+
 from heartbeat import Challenge
 
 
-def model_to_json(model):
-    """ Returns a JSON representation of an SQLAlchemy-backed object.
-    From Zato: https://github.com/zatosource/zato
-    """
-    _json = {}
-    _json['fields'] = {}
-    _json['pk'] = getattr(model, 'id')
-
-    for col in model._sa_class_manager.mapper.mapped_table.columns:
-        _json['fields'][col.name] = getattr(model, col.name)
-
-    return json.dumps([_json])
-
-
 def query_to_list(query):
+    """ Takes a model query thing nad returns a list of dicts with the data
+    Example:
+
+    ..:
+        result = utils.query_to_list(MyTable.query)
+
+    :param query: Query object
+    :return: List of dicts representing a model
+    """
     lst = []
     for row in query.all():
         row_dict = {}
@@ -30,6 +25,12 @@ def query_to_list(query):
 
 
 def load_heartbeat(heartbeat, query):
+    """ Loads a Heartbeat object with query data
+
+    :param heartbeat: Heartbeat instance object
+    :param query: query as a SQLAlchemy query result
+    :return: Loaded Heartbeat
+    """
     challenges = []
     for row in query:
         challenge = Challenge(row.block, row.seed)
