@@ -14,5 +14,5 @@
 
   # command to run tests
   script:
-#    - flake8 downstream_node/
+    - flake8 downstream_node/
     - nosetests -v tests/
