@@ -3,7 +3,8 @@ downstream-node
 
 ## Build Status
 
-Master: No Tests
+Master: [![Build Status](https://travis-ci.org/Storj/downstream-node.svg?branch=master)](https://travis-ci.org/Storj/downstream-node)
+
 Devel: [![Build Status](https://travis-ci.org/Storj/downstream-node.svg?branch=devel)](https://travis-ci.org/Storj/downstream-node)
 
 The server-side stuff for (downstream)[https://github.com/Storj/downstream].  Includes the library and API.
