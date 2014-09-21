@@ -11,7 +11,6 @@
     - 'mysql -e "create database if not exists downstream;" -u root'
   install:
     - "pip install ."
-    - "pip install git+https://github.com/Storj/heartbeat.git@master"
 
   # command to run tests
   script: nosetests -v tests/
