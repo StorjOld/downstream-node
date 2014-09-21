@@ -37,7 +37,7 @@ def api_downstream_challenge(filepath):
     # Hardcode filepath to the testfile in tests while in development
     filepath = os.path.abspath(
         os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
+            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
     )
 
     root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
@@ -81,7 +81,7 @@ def api_downstream_challenge_answer(filepath):
     # Hardcode filepath to the testfile in tests while in development
     filepath = os.path.abspath(
         os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')
+            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
     )
     filename = os.path.split(filepath)[1]
 
