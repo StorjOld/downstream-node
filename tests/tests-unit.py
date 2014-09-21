@@ -4,6 +4,7 @@ import json
 import os
 
 import unittest
+
 from heartbeat import Heartbeat
 
 from downstream_node.startup import app, db
@@ -27,7 +28,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
 
-        r_json = json.loads(r.data)
+        r_json = json.loads(r.data.decode('utf-8'))
         self.assertIsInstance(r_json, dict)
         self.assertEqual(len(r_json.get('challenges')), 1000)
         self.assertEqual(r_json.get('challenges')[0].get('filename'), 'thirty-two_meg.testfile')
@@ -41,7 +42,7 @@ class TestDownstreamRoutes(unittest.TestCase):
 
         r = self.app.post('/api/downstream/challenges/answer/test')
         self.assertEqual(r.status_code, 400)
-        self.assertEqual(json.loads(r.data).get('msg'), 'missing request json')
+        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'missing request json')
 
         data = {
             'seed': 'test seed'
@@ -51,7 +52,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             data=json.dumps(data)
         )
         self.assertEqual(r.status_code, 400)
-        self.assertEqual(json.loads(r.data).get('msg'), 'missing data')
+        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'missing data')
 
         data.update({
             'response': 'test response',
@@ -78,8 +79,8 @@ class TestDownstreamRoutes(unittest.TestCase):
             data=json.dumps(data)
         )
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(json.loads(r.data).get('msg'), 'ok')
-        self.assertIs(json.loads(r.data).get('match'), True)
+        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'ok')
+        self.assertIs(json.loads(r.data.decode('utf-8')).get('match'), True)
 
 
 class TestDownstreamModels(unittest.TestCase):
