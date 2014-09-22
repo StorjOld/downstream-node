@@ -21,12 +21,12 @@ if sys.version_info < (3,):
 setup(
     name='downstream-node',
     version=__version__,
-    packages=['downstream_node'],
-    url='',
-    license='',
+    # packages=['downstream_node'],
+    url='https://github.com/Storj/downstream-node',
+    license='MIT',
     author='Storj Labs',
     author_email='info@storj.io',
-    description='',
+    description='Verification node for the Storj network',
     install_requires=install_requires,
     dependency_links=[
         'git+https://github.com/Storj/heartbeat.git@v0.1.2#egg=heartbeat-0.1.2'
