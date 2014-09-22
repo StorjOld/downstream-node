@@ -17,6 +17,6 @@
   script:
     - flake8 downstream_node/
     - nosetests -v --with-coverage --cover-package=downstream_node tests/
-    
+
   notifications:
     slack: storj:IwoHonDxA5lauvwcKZRMkfps
