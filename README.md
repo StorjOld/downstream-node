@@ -9,6 +9,34 @@ Devel: [![Build Status](https://travis-ci.org/Storj/downstream-node.svg?branch=d
 
 The server-side stuff for (downstream)[https://github.com/Storj/downstream].  Includes the library and API.
 
+## What is this I don't even?
+
+`downstream-node` is the server to [downstream-farmer](https://github.com/Storj/downstream-farmer).  Yep, it a client/server relationship. `downstream-node` requires MySQL and a working config.
+
+*The implied first step is to download and install MySQL server.*
+
+Get `downstream-node`:
+
+```
+$ pip install git+https://github.com/Storj/downstream-node.git
+```
+
+Edit the config with the appropriate details:
+
+```
+$ vim downstream-node/config/config.py
+```
+
+Create the database and schema, and start the server:
+
+```
+$ mysql -e "create database if not exists downstream;"
+$ python downstream-node/runapp.py --initdb
+$ python downstream-node/runapp.py
+```
+
+**If this is at all confusing, we're doing it as a functional test in the travis.yml file, so watch it in action on Travis-CI.**
+
 downstream
 ==========
 Web application where the client downloads and proves file existence to a single node. Used mostly on Metadisk nodes or standalone verification nodes.
