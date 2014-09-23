@@ -42,10 +42,13 @@ def api_downstream_challenge(filepath):
 
     root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
     filename = os.path.split(filepath)[1]
+    app.logger.debug('Fetching challenges for %s' % filename)
 
     query = Challenges.query.filter(Challenges.filename == filename)
 
     if not query.all():
+        app.logger.debug('No entry in database for file %s;'
+                         ' generating challenes' % filename)
         gen_challenges(filepath, root_seed)
         query = Challenges.query.filter(Challenges.filename == filename)
 
@@ -65,6 +68,7 @@ def api_downstream_challenge_answer(filepath):
     try:
         assert request_json
     except AssertionError:
+        app.logger.debug('Request missing JSON request body')
         resp = jsonify(msg="missing request json")
         resp.status_code = 400
         return resp
@@ -74,6 +78,7 @@ def api_downstream_challenge_answer(filepath):
     try:
         assert sorted(req_json_keys) == sorted(request_json.keys())
     except AssertionError:
+        app.logger.debug('Incoming request did not have all keys.')
         resp = jsonify(msg="missing data")
         resp.status_code = 400
         return resp
@@ -84,6 +89,7 @@ def api_downstream_challenge_answer(filepath):
             os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
     )
     filename = os.path.split(filepath)[1]
+    app.logger.debug('Incoming request for file %s' % filename)
 
     # Commenting out while still in development, should be used in prod
     # try:
@@ -102,8 +108,11 @@ def api_downstream_challenge_answer(filepath):
 
     # Oh, and challenge should only be len of 1, or we gots problems
     if len(challenge) == 0:
+        app.logger.debug('Nothing found in DB for file %s' % filename)
         abort(404)
     elif len(challenge) < 1:
+        app.logger.debug('More than one entry in DB '
+                         'with same file, block, seed')
         abort(400)
 
     node_hb = Heartbeat(filepath, secret=config.SECRET_KEY)
@@ -111,8 +120,10 @@ def api_downstream_challenge_answer(filepath):
     result = node_hb.check_answer(request_json.get('response'))
 
     if result is True:
+        app.logger.debug('Match found on file %s' % filename)
         return jsonify(msg='ok', match=True)
     elif result is False:
+        app.logger.debug('Match not found on file %s' % filename)
         return jsonify(msg='ok', match=False)
     else:
         resp = jsonify(msg='error')
