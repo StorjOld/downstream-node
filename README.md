@@ -37,7 +37,7 @@ mysql> flush privileges;
 Edit the config with the appropriate details:
 
 ```
-$ vim config/config.py
+$ vim downstream_node/config/config.py
 ```
 
 Modify the database line for the user configuration we just created in MySQL:
