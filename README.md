@@ -10,27 +10,47 @@ The server-side stuff for [downstream](https://github.com/Storj/downstream).  In
 
 `downstream-node` is the server to [downstream-farmer](https://github.com/Storj/downstream-farmer).  Yep, it a client/server relationship. `downstream-node` requires MySQL and a working config.
 
-*The implied first step is to download and install MySQL server.*
+*The implied first step is to download and install MySQL server.*  For example, on Ubuntu:
+
+```
+$ apt-get -y install mysql-server
+```
 
 Get `downstream-node`:
 
 ```
 $ git clone https://github.com/Storj/downstream-node.git
+$ cd downstream-node
+$ pip install -r requirements.txt
+```
+
+Set up the database:
 
 ```
+mysql> create database downstream;
+mysql> create user 'downstream'@'localhost' identified by 'password';
+mysql> grant all on downstream.* to 'downstream'@'localhost';
+mysql> flush privileges;
+```
+
 
 Edit the config with the appropriate details:
 
 ```
-$ vim downstream-node/config/config.py
+$ vim config/config.py
 ```
 
-Create the database and schema, and start the server:
+Modify the database line for the user configuration we just created in MySQL:
 
 ```
-$ mysql -e "create database if not exists downstream;"
-$ python downstream-node/runapp.py --initdb
-$ python downstream-node/runapp.py
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream'
+```
+
+Create the DB schema, and start the server in development mode (bound to localhost:5000):
+
+```
+$ python runapp.py --initdb
+$ python runapp.py
 ```
 
 **If this is at all confusing, we're doing it as a functional test in the travis.yml file, so watch it in action on Travis-CI.**
