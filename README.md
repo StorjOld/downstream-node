@@ -15,7 +15,8 @@ The server-side stuff for [downstream](https://github.com/Storj/downstream).  In
 Get `downstream-node`:
 
 ```
-$ pip install git+https://github.com/Storj/downstream-node.git
+$ git clone https://github.com/Storj/downstream-node.git
+
 ```
 
 Edit the config with the appropriate details:
