@@ -10,9 +10,11 @@
   before_install:
     - 'mysql -e "create database if not exists downstream;" -u root'
   install:
-    - "pip install coverage flake8"
+    - "pip install coverage flake8 coveralls"
     - "pip install --process-dependency-links ."
-
+  after_success:
+    - coveralls
+ 
   # command to run tests
   script:
     - flake8 downstream_node/
