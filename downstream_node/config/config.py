@@ -7,7 +7,7 @@ import os
 SECRET_KEY = os.urandom(32)
 
 # SQLAlchemy (DB)
-SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream' #NOQA
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream'  # NOQA
 
 # Heartbeat
 HEARTBEAT_SECRET = (
