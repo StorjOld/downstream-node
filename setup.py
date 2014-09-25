@@ -19,9 +19,9 @@ if sys.version_info < (3,):
     install_requires.extend(extras)
 
 setup(
-    name='downstream-node',
+    name='downstream_node',
     version=__version__,
-    # packages=['downstream_node'],
+    packages=['downstream_node','downstream_node.config','downstream_node.lib'],
     url='https://github.com/Storj/downstream-node',
     license='MIT',
     author='Storj Labs',

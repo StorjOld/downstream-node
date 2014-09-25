@@ -6,6 +6,8 @@ import hashlib
 from heartbeat import Heartbeat
 from flask import jsonify, request, abort
 
+from werkzeug import utils
+
 from downstream_node.startup import app
 from downstream_node.config import config
 from downstream_node.models import Challenges
@@ -27,21 +29,16 @@ def api_downstream_challenge(filepath):
     # Make assertions about the request to make sure it's valid.
 
     # Commenting out while still in development, should be used in prod
-    # try:
-    #     assert os.path.isfile(os.path.join('/opt/files', filename))
-    # except AssertionError:
-    #     resp = jsonify(msg="file name is not valid")
-    #     resp.status_code = 400
-    #     return resp
-
-    # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
-        os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
-    )
+    filename = utils.secure_filename(filepath)
+    filepath = os.path.join(config.FILES_PATH, filename)
+    try:
+        assert os.path.isfile(filepath)
+    except AssertionError:
+        resp = jsonify(msg="file name is not valid")
+        resp.status_code = 400
+        return resp
 
     root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
-    filename = os.path.split(filepath)[1]
     app.logger.debug('Fetching challenges for %s' % filename)
 
     query = Challenges.query.filter(Challenges.filename == filename)
@@ -84,20 +81,17 @@ def api_downstream_challenge_answer(filepath):
         return resp
 
     # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
-        os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
-    )
-    filename = os.path.split(filepath)[1]
+    filename = utils.secure_filename(filepath)
+    filepath = os.path.join(config.FILES_PATH, filename)
     app.logger.debug('Incoming request for file %s' % filename)
 
     # Commenting out while still in development, should be used in prod
-    # try:
-    #     assert os.path.isfile(os.path.join('/opt/files', filename))
-    # except AssertionError:
-    #     resp = jsonify(msg="file name is not valid")
-    #     resp.status_code = 400
-    #     return resp
+    try:
+        assert os.path.isfile(filepath)
+    except AssertionError:
+        resp = jsonify(msg="file name is not valid")
+        resp.status_code = 400
+        return resp
 
     query = Challenges.query.filter(
         Challenges.filename == filename,

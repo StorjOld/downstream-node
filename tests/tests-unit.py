@@ -11,6 +11,7 @@ from downstream_node.startup import app, db
 
 from downstream_node import models
 from downstream_node.lib import node, utils
+from downstream_node.config import config
 
 
 class TestDownstreamRoutes(unittest.TestCase):
@@ -18,29 +19,33 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.app = app.test_client()
         app.config['TESTING'] = True
         db.create_all()
+        self.testfile = os.path.abspath(os.path.join(config.FILES_PATH,'test.file'))
+        with open(self.testfile,'wb+') as f:
+            f.write(os.urandom(1000))
 
     def tearDown(self):
         db.engine.execute('DROP TABLE challenges,files')
+        os.remove(self.testfile)
         del self.app
 
     def test_api_downstream_challenge(self):
-        r = self.app.get('/api/downstream/challenges/test')
+        r = self.app.get('/api/downstream/challenges/test.file')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
 
         r_json = json.loads(r.data.decode('utf-8'))
         self.assertIsInstance(r_json, dict)
         self.assertEqual(len(r_json.get('challenges')), 1000)
-        self.assertEqual(r_json.get('challenges')[0].get('filename'), 'thirty-two_meg.testfile')
+        self.assertEqual(r_json.get('challenges')[0].get('filename'), 'test.file')
 
     def test_api_downstream_challenge_answer(self):
         # Prime DB
-        self.app.get('/api/downstream/challenges/test')
+        self.app.get('/api/downstream/challenges/test.file')
 
-        r = self.app.get('/api/downstream/challenges/answer/test')
+        r = self.app.get('/api/downstream/challenges/answer/test.file')
         self.assertEqual(r.status_code, 405)
 
-        r = self.app.post('/api/downstream/challenges/answer/test')
+        r = self.app.post('/api/downstream/challenges/answer/test.file')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'missing request json')
 
@@ -48,7 +53,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             'seed': 'test seed'
         }
         r = self.app.post(
-            '/api/downstream/challenges/answer/test',
+            '/api/downstream/challenges/answer/test.file',
             data=json.dumps(data)
         )
         self.assertEqual(r.status_code, 400)
@@ -59,13 +64,13 @@ class TestDownstreamRoutes(unittest.TestCase):
             'block': 12345
         })
         r = self.app.post(
-            '/api/downstream/challenges/answer/test',
+            '/api/downstream/challenges/answer/test.file',
             data=json.dumps(data)
         )
         self.assertEqual(r.status_code, 404)
 
         chals = models.Challenges(
-            filename='thirty-two_meg.testfile',
+            filename='test.file',
             rootseed='test root seed',
             seed='test seed',
             block=12345,
@@ -75,7 +80,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         db.session.commit()
 
         r = self.app.post(
-            '/api/downstream/challenges/answer/test',
+            '/api/downstream/challenges/answer/test.file',
             data=json.dumps(data)
         )
         self.assertEqual(r.status_code, 200)
@@ -101,9 +106,12 @@ class TestDownstreamModels(unittest.TestCase):
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
-        self.testfile = os.path.abspath('tests/thirty-two_meg.testfile')
+        self.testfile = os.path.abspath('tests/test.file')
+        with open(self.testfile,'wb+') as f:
+            f.write(os.urandom(1000))
 
     def tearDown(self):
+        os.remove(self.testfile)
         pass
 
     def test_create_token(self):
@@ -137,12 +145,16 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
 class TestDownstreamUtils(unittest.TestCase):
     def setUp(self):
-        self.testfile = os.path.abspath('tests/thirty-two_meg.testfile')
         self.app = app.test_client()
         app.config['TESTING'] = True
+        app.config['FILES_PATH'] = 'tests'
+        self.testfile = os.path.abspath(os.path.join(config.FILES_PATH,'test.file'))
+        with open(self.testfile,'wb+') as f:
+            f.write(os.urandom(1000))
         db.create_all()
 
     def tearDown(self):
+        os.remove(self.testfile)
         db.session.close()
         db.engine.execute('DROP TABLE challenges,files')
         del self.app

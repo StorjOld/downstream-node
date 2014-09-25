@@ -7,7 +7,7 @@ import os
 SECRET_KEY = os.urandom(32)
 
 # SQLAlchemy (DB)
-SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream' #NOQA
 
 # Heartbeat
 HEARTBEAT_SECRET = (
@@ -15,4 +15,4 @@ HEARTBEAT_SECRET = (
     r'f0\x7fF\xd9\x0b=\x91J\xe5\x0b\xeb\xc1D\xcd\x8d'
 )
 
-FILES_PATH = '/opt/files'
+FILES_PATH = 'tmp'
