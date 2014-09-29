@@ -48,7 +48,7 @@ def api_downstream_challenge(filepath):
 
     if not query.all():
         app.logger.debug('No entry in database for file %s;'
-                         ' generating challenes' % filename)
+                         ' generating challenges' % filename)
         gen_challenges(filepath, root_seed)
         query = Challenges.query.filter(Challenges.filename == filename)
 
