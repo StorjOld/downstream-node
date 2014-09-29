@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import pickle
 
 import unittest
 
-from heartbeat import Heartbeat
+from heartbeat import Heartbeat, heartbeat_type
 
 from downstream_node.startup import app, db
-
 from downstream_node import models
 from downstream_node.lib import node, utils
 from downstream_node.config import config
@@ -24,103 +24,72 @@ class TestDownstreamRoutes(unittest.TestCase):
             f.write(os.urandom(1000))
 
     def tearDown(self):
-        db.engine.execute('DROP TABLE challenges,files')
+        db.session.close()
+        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
         os.remove(self.testfile)
         del self.app
 
-    def test_api_downstream_challenge(self):
-        r = self.app.get('/api/downstream/challenges/test.file')
+    def test_api_downstream_new(self):
+        test_address = '13FfNS1wu6u7G9ZYQnyxYP1YRntEqAyEJJ'
+        address = models.Addresses(address=test_address)
+        db.session.add(address)
+        db.session.commit()
+        
+        r = self.app.get('/api/downstream/new/{0}'.format(test_address))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
-
+        
         r_json = json.loads(r.data.decode('utf-8'))
-        self.assertIsInstance(r_json, dict)
-        self.assertEqual(len(r_json.get('challenges')), 1000)
-        self.assertEqual(r_json.get('challenges')[0].get('filename'), 'test.file')
-
-    def test_api_downstream_challenge_answer(self):
-        # Prime DB
-        self.app.get('/api/downstream/challenges/test.file')
-
-        r = self.app.get('/api/downstream/challenges/answer/test.file')
-        self.assertEqual(r.status_code, 405)
-
-        r = self.app.post('/api/downstream/challenges/answer/test.file')
-        self.assertEqual(r.status_code, 400)
-        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'missing request json')
-
-        data = {
-            'seed': 'test seed'
-        }
-        r = self.app.post(
-            '/api/downstream/challenges/answer/test.file',
-            data=json.dumps(data)
-        )
-        self.assertEqual(r.status_code, 400)
-        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'missing data')
-
-        data.update({
-            'response': 'test response',
-            'block': 12345
-        })
-        r = self.app.post(
-            '/api/downstream/challenges/answer/test.file',
-            data=json.dumps(data)
-        )
-        self.assertEqual(r.status_code, 404)
-
-        chals = models.Challenges(
-            filename='test.file',
-            rootseed='test root seed',
-            seed='test seed',
-            block=12345,
-            response='test response'
-        )
-        db.session.add(chals)
-        db.session.commit()
-
-        r = self.app.post(
-            '/api/downstream/challenges/answer/test.file',
-            data=json.dumps(data)
-        )
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(json.loads(r.data.decode('utf-8')).get('msg'), 'ok')
-        self.assertIs(json.loads(r.data.decode('utf-8')).get('match'), True)
-
-
-class TestDownstreamModels(unittest.TestCase):
-    def test_files(self):
-        self.assertEqual(getattr(models.Files, '__tablename__'), 'files')
-        self.assertTrue(hasattr(models.Files, 'id'))
-        self.assertTrue(hasattr(models.Files, 'name'))
-
-    def test_challenges(self):
-        self.assertEqual(getattr(models.Challenges, '__tablename__'), 'challenges')
-        self.assertTrue(hasattr(models.Challenges, 'id'))
-        self.assertTrue(hasattr(models.Challenges, 'filename'))
-        self.assertTrue(hasattr(models.Challenges, 'rootseed'))
-        self.assertTrue(hasattr(models.Challenges, 'block'))
-        self.assertTrue(hasattr(models.Challenges, 'seed'))
-        self.assertTrue(hasattr(models.Challenges, 'response'))
+        
+        r_token = r_json['token']
+        
+        r_beat = heartbeat_type().fromdict(r_json['heartbeat'])
+        
+        token = models.Tokens.query.filter(models.Tokens.token==r_token).first()
+        
+        self.assertEqual(token.token,r_token)
+        self.assertEqual(pickle.loads(token.heartbeat),r_beat)
 
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
+        db.create_all()
         self.testfile = os.path.abspath('tests/test.file')
         with open(self.testfile,'wb+') as f:
             f.write(os.urandom(1000))
+            
+        self.test_address = '13FfNS1wu6u7G9ZYQnyxYP1YRntEqAyEJJ'
+        
+        address = models.Addresses(address=self.test_address)
+        db.session.add(address)
+        db.session.commit()
 
     def tearDown(self):
+        db.session.close()
+        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
         os.remove(self.testfile)
         pass
 
     def test_create_token(self):
-        with self.assertRaises(NotImplementedError):
-            node.create_token()
+        (token,beat) = node.create_token(self.test_address)
+        
+        # verify that the info is in the database
+        token = models.Tokens.query.filter(models.Tokens.token==token).first()
+        
+        dbbeat = pickle.loads(token.heartbeat)
+        
+        self.assertEqual(beat,dbbeat)
 
     def test_delete_token(self):
-        with self.assertRaises(NotImplementedError):
-            node.delete_token()
+        (t,beat) = node.create_token(self.test_address)
+    
+        token = models.Tokens.query.filter(models.Tokens.token==t).first()
+        
+        node.delete_token(token.token)
+        
+        token = models.Tokens.query.filter(models.Tokens.token==t).first()
+        
+        self.assertIsNone(token)
 
     def test_add_file(self):
         with self.assertRaises(NotImplementedError):
@@ -129,18 +98,6 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_remove_file(self):
         with self.assertRaises(NotImplementedError):
             node.remove_file()
-
-    def test_gen_challenges(self):
-        db.create_all()
-        node.gen_challenges(self.testfile, 'test root seed')
-        challenges = models.Challenges.query.all()
-        db.session.close()
-        db.engine.execute('DROP TABLE challenges,files')
-        self.assertEqual(len(challenges), 1000)
-
-    def test_update_challenges(self):
-        with self.assertRaises(NotImplementedError):
-            node.update_challenges()
 
 
 class TestDownstreamUtils(unittest.TestCase):
@@ -154,23 +111,10 @@ class TestDownstreamUtils(unittest.TestCase):
         db.create_all()
 
     def tearDown(self):
-        os.remove(self.testfile)
         db.session.close()
-        db.engine.execute('DROP TABLE challenges,files')
+        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
+        os.remove(self.testfile)
         del self.app
-
-    def test_query_to_list(self):
-        node.gen_challenges(self.testfile, 'test root seed')
-        result = utils.query_to_list(models.Challenges.query)
-        self.assertIsInstance(result, list)
-        [self.assertIsInstance(item, dict) for item in result]
-
-    def test_load_heartbeat(self):
-        test_hb = Heartbeat(self.testfile, 'test secret')
-        node.gen_challenges(self.testfile, 'test root seed')
-        result = models.Challenges.query.all()
-        hb = utils.load_heartbeat(test_hb, result)
-        self.assertEqual(len(hb.challenges), 1000)
 
 
 if __name__ == '__main__':

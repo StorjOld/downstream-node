@@ -7,8 +7,7 @@ from downstream_node import __version__
 install_requires = [
     'flask',
     'pymysql',
-    'flask-sqlalchemy',
-    'heartbeat==0.1.2',
+    'flask-sqlalchemy'
 ]
 
 # Requirements for Python 2
@@ -27,8 +26,5 @@ setup(
     author='Storj Labs',
     author_email='info@storj.io',
     description='Verification node for the Storj network',
-    install_requires=install_requires,
-    dependency_links=[
-        'git+https://github.com/Storj/heartbeat.git@v0.1.2#egg=heartbeat-0.1.2'
-    ],
+    install_requires=install_requires
 )

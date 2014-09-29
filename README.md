@@ -85,16 +85,6 @@ Remove the file from the list of files that we monitor.
 
     remove_file(chunk_hash)
 
-### Generate Challenges
-Using the [heartbeat](https://github.com/storj/heartbeat) lib we can generate and store the hash challenges for our file. We should also store the merkle root of our challenges. 
-
-    gen_challenges(file_path, root_seed)
-
-### Update Challenges
-Update and validate the current challenges
-
-    update_challenges()
-
 ## Node Public API
 
 ### New Token 
@@ -102,24 +92,47 @@ Provides a client with a new random secret token associated on the with the pass
     
     GET /api/downstream/new/<sjcx_address>
 
+```json
+{
+	"token": "dfs9mfa2"
+	"heartbeat": { heartbeat_object }
+}
 ```
-dfs9mfa2
+
+where `heartbeat_object` is given by a call to
+
+```python
+heartbeat_object = json.dumps(heartbeat.get_public().todict())
+```
+
+Possible errors:
+```json
+{"status": "invalid_address"}
+{"status": "error"}
 ```
 
 ### Get Chunk Contract
 
-Gives the farmer a data contract. Allow the client to download another chunk of data, including how often the server will check for the data (specified in seconds), and the initial challenge. ** Don't actually implement this fully yet. See prototype functions below.**
+Gives the farmer a data contract. Allow the client to download another chunk of data, including how often the server will check for the data (specified in seconds), and the initial challenge.
 
     GET /api/downstream/chunk/<token>
 
 ```json
 {
-    "url": "http://node1.storj.io/api/download/05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7",
+    "file_url": "http://node1.storj.io/api/download/05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7",
+	"tag_url": "http://node1.storj.io/api/download/93242efb527ac57f72798647824aa8839eb82045ed9fcf7f9d218c631d218c63",
     "file_hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", 
-    "challenge": "0.012381234",
+    "challenge": { challenge_object },
     "interval": 60
 }
 ```
+
+Where the `challenge_object` is given by a call to 
+
+```python
+challenge_object = json.dumps(heartbeat.gen_challenge(...).todict())
+```
+
 Possible errors:
 ```json
 { "status": "no_chunks" }
@@ -154,8 +167,10 @@ Gets the current contract statuses from the perspective of the node.
         {"hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7"},
         {"hash": "fc3d80e28d20a3db5576b8b7fd66176a3a9a857ca89b8cec4b3b832aafc77c8a"}],
     "due_contracts":[
-        {"hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", "challenge": "0.012381234"},
-        {"hash": "fc3d80e28d20a3db5576b8b7fd66176a3a9a857ca89b8cec4b3b832aafc77c8a", "challenge": "0.034385411"}]
+        {"hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", 
+		 "challenge": { challenge_object }}
+        {"hash": "fc3d80e28d20a3db5576b8b7fd66176a3a9a857ca89b8cec4b3b832aafc77c8a", 
+		 "challenge": { challenge_object }}]
 }
 ```
 
@@ -163,7 +178,22 @@ Gets the current contract statuses from the perspective of the node.
 
 Allows the client to answer a challenge.
 
-    GET /api/downstream/challenge/<token>/<file_hash>/<hash_response>
+    POST /api/downstream/answer/<token>/<file_hash>
+	
+Parameters:
+```json
+{
+	"proof": { proof_object }
+}
+```
+
+Where `proof_object` will be given by a call to 
+
+```python
+proof_object = json.dumps(heartbeat.prove(...).todict())
+```
+
+Responses:
 
 ```json
 {"status": "pass"}

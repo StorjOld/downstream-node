@@ -1,24 +1,45 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import pickle
+import binascii
 
-from downstream_node.config import config
-from downstream_node.models import Challenges, Files
+from ..config import config
+from ..models import Challenges, Files, Addresses, Tokens
 
 from heartbeat import Heartbeat
-from downstream_node.startup import db
+from ..startup import db
 
-__all__ = ['create_token', 'delete_token', 'add_file', 'remove_file',
-           'gen_challenges', 'update_challenges']
-
-
-def create_token(*args, **kwargs):
-    raise NotImplementedError
+__all__ = ['create_token', 'delete_token', 'add_file', 'remove_file']
 
 
-def delete_token(*args, **kwargs):
-    raise NotImplementedError
+def create_token(sjcx_address):
+    # confirm that sjcx_address is in the list of addresses
+    # for now we have a white list
+    address = Addresses.query.filter(Addresses.address == sjcx_address).first()
+    
+    if (address is None):
+        raise RuntimeError('Invalid address given: address must be in whitelist.')
+    
+    beat = Heartbeat()
+    
+    token = Tokens(token = binascii.hexlify(os.urandom(16)).decode('ascii'),
+                    address = address.address,
+                    heartbeat = pickle.dumps(beat))
+                    
+    db.session.add(token)
+    db.session.commit()
+    
+    return (token.token,beat)
 
+def delete_token(token):
+    token = Tokens.query.filter(Tokens.token == token).first()
+
+    if (token is None):
+        raise RuntimeError('Invalid token given.  Token does not exist.')
+        
+    db.session.delete(token)
+    db.session.commit()
 
 def add_file(*args, **kwargs):
     raise NotImplementedError
@@ -27,26 +48,3 @@ def add_file(*args, **kwargs):
 def remove_file(*args, **kwargs):
     raise NotImplementedError
 
-
-def gen_challenges(filepath, root_seed):
-    secret = getattr(config, 'HEARTBEAT_SECRET')
-    hb = Heartbeat(filepath, secret=secret)
-    hb.generate_challenges(1000, root_seed)
-    filename = os.path.split(filepath)[1]
-    files = Files(name=filename)
-    db.session.add(files)
-    db.session.commit()
-    for challenge in hb.challenges:
-        chal = Challenges(
-            filename=filename,
-            rootseed=root_seed,
-            block=challenge.block,
-            seed=challenge.seed,
-            response=challenge.response,
-        )
-        db.session.add(chal)
-    db.session.commit()
-
-
-def update_challenges(*args, **kwargs):
-    raise NotImplementedError

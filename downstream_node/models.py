@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from downstream_node.startup import db
+from .startup import db
 
 
 class Files(db.Model):
@@ -19,3 +19,15 @@ class Challenges(db.Model):
     block = db.Column(db.Integer(), nullable=False)
     seed = db.Column(db.String(128), nullable=False)
     response = db.Column(db.String(128))
+
+class Addresses(db.Model):
+    __tablename__ = 'addresses'
+    
+    address = db.Column(db.String(128),primary_key=True)
+    
+class Tokens(db.Model):
+    __tablename__ = 'tokens'
+    
+    token = db.Column(db.String(32), primary_key=True, nullable=False)
+    address = db.Column(db.ForeignKey('addresses.address'))
+    heartbeat = db.Column(db.LargeBinary(), nullable=False)
