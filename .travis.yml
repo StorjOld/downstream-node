@@ -13,7 +13,8 @@
     - "pip install coverage flake8 coveralls"
     - "pip install --process-dependency-links ."
   after_success:
-  - coveralls
+    - coveralls
+
   # command to run tests
   script:
     - flake8 downstream_node/
