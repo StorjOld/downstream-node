@@ -25,7 +25,7 @@ class TestDownstreamRoutes(unittest.TestCase):
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         del self.app
 
@@ -66,7 +66,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         pass
 
@@ -93,7 +93,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
     def test_add_file(self):
         with self.assertRaises(NotImplementedError):
-            node.add_file()
+            node.add_file(None,None,None)
 
     def test_remove_file(self):
         with self.assertRaises(NotImplementedError):
@@ -112,7 +112,7 @@ class TestDownstreamUtils(unittest.TestCase):
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE tokens,challenges,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         del self.app
 
