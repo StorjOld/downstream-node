@@ -3,11 +3,10 @@
 import json
 import os
 import pickle
-
 import unittest
 
-from heartbeat import Heartbeat, heartbeat_type
-
+from heartbeat import Heartbeat
+from RandomIO import RandomIO
 from downstream_node.startup import app, db
 from downstream_node import models
 from downstream_node.lib import node, utils
@@ -43,7 +42,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_token = r_json['token']
         
-        r_beat = heartbeat_type().fromdict(r_json['heartbeat'])
+        r_beat = Heartbeat.fromdict(r_json['heartbeat'])
         
         token = models.Tokens.query.filter(models.Tokens.token==r_token).first()
         
@@ -71,17 +70,17 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         pass
 
     def test_create_token(self):
-        (token,beat) = node.create_token(self.test_address)
+        token = node.create_token(self.test_address)
         
         # verify that the info is in the database
         token = models.Tokens.query.filter(models.Tokens.token==token).first()
         
-        dbbeat = pickle.loads(token.heartbeat)
+        beat = node.get_heartbeat(token.token)
         
-        self.assertEqual(beat,dbbeat)
+        self.assertIsInstance(beat,Heartbeat)
 
     def test_delete_token(self):
-        (t,beat) = node.create_token(self.test_address)
+        t = node.create_token(self.test_address)
     
         token = models.Tokens.query.filter(models.Tokens.token==t).first()
         
@@ -92,12 +91,27 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertIsNone(token)
 
     def test_add_file(self):
-        with self.assertRaises(NotImplementedError):
-            node.add_file(None,None,None)
+        hash = node.add_file(self.testfile)
+        
+        file = models.Files.query.filter(models.Files.hash==hash).first()
+        
+        self.assertEqual(file.path,self.testfile)
+        self.assertEqual(file.redundancy,3)
+        self.assertEqual(file.interval,60)
+        
+        db.session.delete(file)
+        db.session.commit()
 
     def test_remove_file(self):
-        with self.assertRaises(NotImplementedError):
-            node.remove_file()
+        # add a file
+        hash = node.add_file(self.testfile)
+        
+        file = models.Files.query.filter(models.Files.hash==hash).first()
+        
+        # add a token
+        token = node.create_token(self.test_address)
+        
+        raise NotImplementedError
 
 
 class TestDownstreamUtils(unittest.TestCase):

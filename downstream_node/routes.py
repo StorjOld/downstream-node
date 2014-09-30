@@ -16,7 +16,8 @@ def api_index():
 def api_downstream_new_token(sjcx_address):
     # generate a new token
     try:
-        (token, beat) = create_token(sjcx_address)
+        token = create_token(sjcx_address)
+        beat = get_heartbeat(token)
         return jsonify(token=token, heartbeat=beat.todict())
     except Exception as ex:
         return jsonify(status='error',
