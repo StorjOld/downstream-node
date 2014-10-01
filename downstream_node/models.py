@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from .startup import db
 
+
 class File(db.Model):
     __tablename__ = 'files'
 
@@ -38,4 +39,7 @@ class Contract(db.Model):
     # for prototyping, include file seed for regeneration
     seed = db.Column(db.String(128))
 
-    file = db.relationship('File',backref=db.backref('contracts',lazy='dynamic',cascade='all, delete-orphan'))
+    file = db.relationship('File',
+                           backref=db.backref('contracts',
+                                              lazy='dynamic',
+                                              cascade='all, delete-orphan'))

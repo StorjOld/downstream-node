@@ -8,7 +8,7 @@ from flask import jsonify
 
 from .startup import app
 from .lib import create_token, get_chunk_contract
-from . import models
+
 
 @app.route('/')
 def api_index():
@@ -21,7 +21,7 @@ def api_downstream_new_token(sjcx_address):
     try:
         db_token = create_token(sjcx_address)
         pub_beat = pickle.loads(db_token.heartbeat).get_public()
-        return jsonify(token=db_token.token, 
+        return jsonify(token=db_token.token,
                        heartbeat=pub_beat.todict())
     except Exception as ex:
         return jsonify(status='error',
@@ -32,17 +32,18 @@ def api_downstream_new_token(sjcx_address):
 def api_downstream_chunk_contract(token):
     try:
         db_contract = get_chunk_contract(token)
-        tag_path = os.path.join(app.config['TAGS_PATH'],db_contract.file.hash)
-        with open(tag_path,'rb') as f:
+        tag_path = os.path.join(app.config['TAGS_PATH'],
+                                db_contract.file.hash)
+        with open(tag_path, 'rb') as f:
             tag = pickle.loads(f.read())
         chal = pickle.loads(db_contract.challenge)
-        
+
         return jsonify(seed=db_contract.seed,
                        file_hash=db_contract.file_hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
                        expiration=db_contract.expiration)
-        
+
     except Exception as ex:
         return jsonify(status='error',
                        message=str(ex))
