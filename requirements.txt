@@ -1,4 +1,5 @@
 flask
 pymysql
 flask-sqlalchemy
-git+https://github.com/Storj/heartbeat.git@v0.1.2
+
+-e git+https://github.com/Storj/heartbeat.git@v0.1.2#egg=heartbeat
