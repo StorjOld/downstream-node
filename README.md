@@ -119,18 +119,19 @@ Gives the farmer a data contract. Allow the client to download another chunk of 
 
 ```json
 {
-    "file_url": "http://node1.storj.io/api/download/05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7",
-	"tag_url": "http://node1.storj.io/api/download/93242efb527ac57f72798647824aa8839eb82045ed9fcf7f9d218c631d218c63",
+    "seed": "31cc380527ac57f72798647824aa8839eb82045e",
     "file_hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", 
     "challenge": { challenge_object },
-    "interval": 60
+	"tag": { tag_object },
+    "expiration": "2014-10-02 14:22:09"
 }
 ```
 
-Where the `challenge_object` is given by a call to 
+Where the `challenge_object` and `tag_object` are given by a calls to 
 
 ```python
 challenge_object = json.dumps(heartbeat.gen_challenge(...).todict())
+tag_object = json.dumps(tag.todict())
 ```
 
 Possible errors:
