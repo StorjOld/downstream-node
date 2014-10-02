@@ -10,7 +10,8 @@
   before_install:
     - 'mysql -e "create database if not exists downstream;" -u root'
   install:
-    - "pip install coverage flake8 coveralls ."
+    - "pip install coverage flake8 coveralls"
+    - "pip install -r requirements.txt ."
   after_success:
     - coveralls
 
