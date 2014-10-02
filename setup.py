@@ -9,7 +9,7 @@ install_requires = [
     'flask',
     'pymysql',
     'flask-sqlalchemy',
-    'storj-heartbeat==0.1.4'
+    'storj-heartbeat'
 ]
 
 # Requirements for Python 2
