@@ -12,7 +12,7 @@ from heartbeat import Heartbeat
 from RandomIO import RandomIO
 from downstream_node.startup import app, db
 from downstream_node import models
-from downstream_node.lib import node, utils
+from downstream_node.lib import node
 from downstream_node.config import config
 
 
