@@ -9,6 +9,7 @@ install_requires = [
     'flask',
     'pymysql',
     'flask-sqlalchemy',
+    'RandomIO',
     'storj-heartbeat'
 ]
 
