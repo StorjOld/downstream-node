@@ -158,7 +158,12 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.status_code,500)
         
         r_json = json.loads(r.data.decode('utf-8'))
-        print(r_json['message'])
+        
+        # cleanup
+        db_contract = node.lookup_contract(r_token, r_hash)
+        
+        os.remove(db_contract.file.path)
+        os.remove(db_contract.tag_path)
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
