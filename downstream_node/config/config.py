@@ -11,3 +11,5 @@ SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
 
 FILES_PATH = 'tmp/'
 TAGS_PATH = 'tags/'
+
+TEST_FILE_SIZE = 100

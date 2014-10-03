@@ -16,33 +16,35 @@ from ..startup import db, app
 __all__ = ['create_token',
            'delete_token',
            'get_chunk_contract',
+           'lookup_contract',
            'add_file',
-           'remove_file']
+           'remove_file',
+           'verify_proof']
 
 
 def create_token(sjcx_address):
     # confirm that sjcx_address is in the list of addresses
     # for now we have a white list
-    address = Address.query.filter(Address.address == sjcx_address).first()
+    db_address = Address.query.filter(Address.address == sjcx_address).first()
 
-    if (address is None):
+    if (db_address is None):
         # just put it in the db for testing
-        address = Address(address=sjcx_address)
-        db.session.add(address)
+        db_address = Address(address=sjcx_address)
+        db.session.add(db_address)
         db.session.commit()
         # raise RuntimeError(
         #    'Invalid address given: address must be in whitelist.')
 
     beat = Heartbeat()
 
-    token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
-                  address=address.address,
-                  heartbeat=pickle.dumps(beat))
+    db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
+                     address_id=db_address.id,
+                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL))
 
-    db.session.add(token)
+    db.session.add(db_token)
     db.session.commit()
 
-    return token
+    return db_token
 
 
 def delete_token(token):
@@ -85,33 +87,37 @@ def get_chunk_contract(token):
     # for prototyping, we generate a file for each contract.
     seed = binascii.hexlify(os.urandom(16))
 
-    file = add_file(RandomIO(seed).genfile(100, app.config['FILES_PATH']), 1)
+    db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
+                                              app.config['FILES_PATH']), 1)
 
     beat = pickle.loads(db_token.heartbeat)
 
-    with open(file.path, 'rb') as f:
+    with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
     chal = beat.gen_challenge(state)
 
-    contract = Contract(token=token,
-                        file_hash=file.hash,
-                        state=pickle.dumps(state),
-                        challenge=pickle.dumps(chal),
-                        expiration=(datetime.utcnow() +
-                                    timedelta(seconds=file.interval)),
-                        # for prototyping, include seed
-                        seed = seed)
+    tag_path = os.path.join(app.config['TAGS_PATH'], db_file.hash)
 
-    db.session.add(contract)
+    db_contract = Contract(token_id=db_token.id,
+                           file_id=db_file.id,
+                           state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
+                           challenge=pickle.dumps(chal,
+                                                  pickle.HIGHEST_PROTOCOL),
+                           tag_path=tag_path,
+                           expiration=(datetime.utcnow() +
+                                       timedelta(seconds=db_file.interval)),
+                           # for prototyping, include seed
+                           seed = seed)
+
+    db.session.add(db_contract)
     db.session.commit()
 
     # and write the tag to our temporary files
-    path = os.path.join(app.config['TAGS_PATH'], file.hash)
-    with open(path, 'wb') as f:
-        f.write(pickle.dumps(tag))
+    with open(db_contract.tag_path, 'wb') as f:
+        pickle.dump(tag, f, pickle.HIGHEST_PROTOCOL)
 
-    return contract
+    return db_contract
 
 
 def add_file(chunk_path, redundancy=3, interval=60):
@@ -125,25 +131,61 @@ def add_file(chunk_path, redundancy=3, interval=60):
 
     hash = h.hexdigest()
 
-    file = File(hash=hash,
-                path=chunk_path,
-                redundancy=redundancy,
-                interval=interval,
-                added=datetime.utcnow())
+    db_file = File(hash=hash,
+                   path=chunk_path,
+                   redundancy=redundancy,
+                   interval=interval,
+                   added=datetime.utcnow())
 
-    db.session.add(file)
+    db.session.add(db_file)
     db.session.commit()
 
-    return file
+    return db_file
 
 
 def remove_file(hash):
     # remove the file... contracts should also be deleted by cascading
-    file = File.query.filter(File.hash == hash).first()
+    db_file = File.query.filter(File.hash == hash).first()
 
-    if (file is None):
+    if (db_file is None):
         raise RuntimeError(
             'File does not exist.  Cannot remove non existant file')
 
-    db.session.delete(file)
+    db.session.delete(db_file)
     db.session.commit()
+
+
+def lookup_contract(token, file_hash):
+    db_token = Token.query.filter(Token.token == token).first()
+
+    if (db_token is None):
+        raise RuntimeError('Invalid token')
+
+    db_file = File.query.filter(File.hash == file_hash).first()
+
+    if (db_file is None):
+        raise RuntimeError('Invalid file hash')
+
+    db_contract = Contract.query.filter(Contract.token_id == db_token.id,
+                                        Contract.file_id == db_file.id).first()
+
+    if (db_contract is None):
+        raise RuntimeError('Contract does not exist.')
+
+    return db_contract
+
+
+def verify_proof(token, file_hash, proof):
+
+    db_contract = lookup_contract(token, file_hash)
+
+    # check the contract has not expired
+    if (db_contract.expiration < datetime.utcnow()):
+        # contract has expired
+        return False
+
+    beat = pickle.loads(db_contract.token.heartbeat)
+    state = pickle.loads(db_contract.state)
+    chal = pickle.loads(db_contract.challenge)
+
+    return beat.verify(proof, chal, state)

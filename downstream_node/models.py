@@ -6,7 +6,8 @@ from .startup import db
 class File(db.Model):
     __tablename__ = 'files'
 
-    hash = db.Column(db.String(128), primary_key=True)
+    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
+    hash = db.Column(db.String(128), nullable=False, unique=True)
     path = db.Column(db.String(128), unique=True)
     redundancy = db.Column(db.Integer(), nullable=False)
     interval = db.Column(db.Integer(), nullable=False)
@@ -16,28 +17,41 @@ class File(db.Model):
 class Address(db.Model):
     __tablename__ = 'addresses'
 
-    address = db.Column(db.String(128), primary_key=True)
+    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
+    address = db.Column(db.String(128), nullable=False, unique=True)
 
 
 class Token(db.Model):
     __tablename__ = 'tokens'
 
-    token = db.Column(db.String(32), primary_key=True)
-    address = db.Column(db.ForeignKey('addresses.address'))
+    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
+    token = db.Column(db.String(32), nullable=False, unique=True)
+    address_id = db.Column(db.ForeignKey('addresses.id'))
     heartbeat = db.Column(db.LargeBinary(), nullable=False)
+
+    address = db.relationship('Address',
+                              backref=db.backref('tokens',
+                                                 lazy='dynamic',
+                                                 cascade='all, delete-orphan'))
 
 
 class Contract(db.Model):
     __tablename__ = 'contracts'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    token = db.Column(db.ForeignKey('tokens.token'))
-    file_hash = db.Column(db.ForeignKey('files.hash'))
+    token_id = db.Column(db.ForeignKey('tokens.id'))
+    file_id = db.Column(db.ForeignKey('files.id'))
     state = db.Column(db.LargeBinary(), nullable=False)
     challenge = db.Column(db.LargeBinary(), nullable=False)
+    tag_path = db.Column(db.String(128), unique=True)
     expiration = db.Column(db.DateTime(), nullable=False)
     # for prototyping, include file seed for regeneration
     seed = db.Column(db.String(128))
+
+    token = db.relationship('Token',
+                            backref=db.backref('contracts',
+                                               lazy='dynamic',
+                                               cascade='all, delete-orphan'))
 
     file = db.relationship('File',
                            backref=db.backref('contracts',

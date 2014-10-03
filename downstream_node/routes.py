@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import pickle
 
-from flask import jsonify
+from flask import jsonify, request
 
 from .startup import app
-from .lib import create_token, get_chunk_contract
+from .lib import (create_token, get_chunk_contract, lookup_contract,
+                  verify_proof)
+from heartbeat import Heartbeat
 
 
 @app.route('/')
@@ -24,45 +25,67 @@ def api_downstream_new_token(sjcx_address):
         return jsonify(token=db_token.token,
                        heartbeat=pub_beat.todict())
     except Exception as ex:
-        return jsonify(status='error',
+        resp = jsonify(status='error',
                        message=str(ex))
+        resp.status_code = 500
+        return resp
 
 
 @app.route('/api/downstream/chunk/<token>')
 def api_downstream_chunk_contract(token):
     try:
         db_contract = get_chunk_contract(token)
-        tag_path = os.path.join(app.config['TAGS_PATH'],
-                                db_contract.file.hash)
-        with open(tag_path, 'rb') as f:
+
+        with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.loads(f.read())
         chal = pickle.loads(db_contract.challenge)
 
         return jsonify(seed=db_contract.seed,
-                       file_hash=db_contract.file_hash,
+                       file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
                        expiration=db_contract.expiration)
 
     except Exception as ex:
-        return jsonify(status='error',
+        resp = jsonify(status='error',
                        message=str(ex))
+        resp.status_code = 500
+        return resp
 
 
-@app.route('/api/downstream/remove/<token>/<file_hash>', methods=['DELETE'])
-def api_downstream_end_contract(token, file_hash):
-    return jsonify(status='no_token')
-    return jsonify(status='no_hash')
-    return jsonify(status='error')
-    return jsonify(status='ok')
+@app.route('/api/downstream/challenge/<token>/<file_hash>')
+def api_downstream_chunk_contract_status(token, file_hash):
+    try:
+        db_contract = lookup_contract(token, file_hash)
 
+        return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
+                       expiration=db_contract.expiration)
 
-@app.route('/api/downstream/due/<account_token>')
-def api_downstream_chunk_contract_status(account_token):
-    return jsonify(contracts="data")
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_cude = 500
+        return resp
 
 
 @app.route('/api/downstream/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
-    return jsonify(status="pass")
-    return jsonify(status="fail")
+    try:
+        dict = request.get_json(silent=True)
+
+        if (dict is False or 'proof' not in dict):
+            raise RuntimeError('Posted data must be an JSON encoded \
+proof object: {"proof":"...proof object..."}')
+
+        proof = Heartbeat.proof_type().fromdict(dict['proof'])
+
+        if (not verify_proof(token, file_hash, proof)):
+            raise RuntimeError('Invalid proof, or proof expired.')
+
+        return jsonify(status='ok')
+
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp

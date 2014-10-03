@@ -21,9 +21,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.app = app.test_client()
         app.config['TESTING'] = True
         db.create_all()
-        self.testfile = os.path.abspath(os.path.join(config.FILES_PATH,'test.file'))
-        with open(self.testfile,'wb+') as f:
-            f.write(os.urandom(1000))
+        self.testfile = RandomIO().genfile(1000)
         
         self.test_address = '13FfNS1wu6u7G9ZYQnyxYP1YRntEqAyEJJ'
         address = models.Address(address=self.test_address)
@@ -35,6 +33,16 @@ class TestDownstreamRoutes(unittest.TestCase):
         db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         del self.app
+    
+    def test_api_index(self):
+        r = self.app.get('/')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['msg'],'ok')
 
     def test_api_downstream_new(self):
         
@@ -74,7 +82,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_seed = r_json['seed']
         r_hash = r_json['file_hash']
         
-        contents = RandomIO(r_seed).read(100)
+        contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
         
         chal = Heartbeat.challenge_type().fromdict(r_json['challenge'])
         
@@ -88,24 +96,74 @@ class TestDownstreamRoutes(unittest.TestCase):
         f = io.BytesIO(contents)
         proof = r_beat.prove(f,chal,tag)
         
-        token = models.Token.query.filter(models.Token.token == r_token).first()
-        beat = pickle.loads(token.heartbeat)
+        db_token = models.Token.query.filter(models.Token.token == r_token).first()
+        beat = pickle.loads(db_token.heartbeat)
         
-        contract = models.Contract.query.filter(models.Contract.token == r_token,
-                                                models.Contract.file_hash == r_hash).first()
-        state = pickle.loads(contract.state)
+        db_file = models.File.query.filter(models.File.hash == r_hash).first()
+        
+        db_contract = models.Contract.query.filter(models.Contract.token_id == db_token.id,
+                                                   models.Contract.file_id == db_file.id).first()
+        state = pickle.loads(db_contract.state)
         
         # verify proof
         valid = beat.verify(proof,chal,state)
         
         self.assertTrue(valid)
+        
+        # cleanup
+        
+        os.remove(db_contract.file.path)
+        os.remove(db_contract.tag_path)
+        
+    def test_api_downstream_answer(self):
+        r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        beat = Heartbeat.fromdict(r_json['heartbeat'])
+        
+        r_token = r_json['token']
+        
+        r = self.app.get('/api/downstream/chunk/{0}'.format(r_token))
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        r_seed = r_json['seed']
+        r_hash = r_json['file_hash']
+        
+        contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
+        
+        chal = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        
+        tag = Heartbeat.tag_type().fromdict(r_json['tag'])
+        
+        f = io.BytesIO(contents)
+        proof = beat.prove(f,chal,tag)
+        
+        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                          data=json.dumps({"proof":proof.todict()}),
+                          content_type='application/json')
+        self.assertEqual(r.status_code,200)
+        self.assertEqual(r.content_type,'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['status'],'ok')
+        
+        # test invalid proof
+        
+        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                          data=json.dumps({"proof":"invalid proof object"}),
+                          content_type='application/json')
+        self.assertEqual(r.status_code,500)
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        print(r_json['message'])
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
         db.create_all()
-        self.testfile = os.path.abspath('tests/test.file')
-        with open(self.testfile,'wb+') as f:
-            f.write(os.urandom(1000))
+        self.testfile = RandomIO().genfile(1000)
             
         self.test_address = '13FfNS1wu6u7G9ZYQnyxYP1YRntEqAyEJJ'
         
@@ -155,6 +213,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db_file = node.add_file(self.testfile)
         
         hash = db_file.hash
+        id = db_file.id
         
         # add some contracts for this file
         for j in range(0,3):
@@ -167,8 +226,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                 
             chal = beat.gen_challenge(state)
             
-            contract = models.Contract(token = db_token.token,
-                                       file_hash = hash,
+            contract = models.Contract(token_id = db_token.id,
+                                       file_id = db_file.id,
                                        state = pickle.dumps(state),
                                        challenge = pickle.dumps(chal),
                                        expiration = datetime.utcnow() + timedelta(seconds = db_file.interval))
@@ -182,15 +241,15 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # confirm that there are no files
         
-        q_file = models.File.query.filter(models.File.hash == hash).first()
+        db_file = models.File.query.filter(models.File.hash == hash).first()
         
-        self.assertIsNone(q_file)
+        self.assertIsNone(db_file)
         
         # confirm there are no contracts for this file
         
-        q_contracts = models.Contract.query.filter(models.Contract.file_hash == hash).all()
+        db_contracts = models.Contract.query.filter(models.Contract.file_id == id).all()
         
-        self.assertEqual(len(q_contracts),0)
+        self.assertEqual(len(db_contracts),0)
     
     def test_remove_file_nonexistant(self):
         with self.assertRaises(RuntimeError) as ex:
@@ -207,17 +266,90 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with open(db_contract.file.path,'rb') as f:
             contents = f.read()
             
-        self.assertEqual(RandomIO(db_contract.seed).read(100), contents)
+        self.assertEqual(RandomIO(db_contract.seed).read(app.config['TEST_FILE_SIZE']), contents)
         
         # remove file
         os.remove(db_contract.file.path)
         
         # check presence of tag
-        tag_path = os.path.join(app.config['TAGS_PATH'],db_contract.file_hash)
-        self.assertTrue(os.path.isfile(tag_path))
+        self.assertTrue(os.path.isfile(db_contract.tag_path))
         
         # remove tag
-        os.remove(tag_path)
+        os.remove(db_contract.tag_path)
+        
+    def test_verify_proof(self):
+        db_token = node.create_token(self.test_address)
+        
+        db_contract = node.get_chunk_contract(db_token.token)
+        
+        beat = pickle.loads(db_token.heartbeat)
+        
+        # get tags
+        with open(db_contract.tag_path,'rb') as f:
+            tag = pickle.load(f)
+        
+        chal = pickle.loads(db_contract.challenge)
+        
+        # generate a proof
+        with open(db_contract.file.path,'rb') as f:
+            proof = beat.prove(f,chal,tag)
+            
+        self.assertTrue(node.verify_proof(db_token.token,db_contract.file.hash,proof))
+
+        # check nonexistent token
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.verify_proof('invalid token',db_contract.file.hash,proof)
+            
+        self.assertEqual(str(ex.exception),'Invalid token')
+        
+        os.remove(db_contract.file.path)
+        os.remove(db_contract.tag_path)
+        
+        # check nonexistent file
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.verify_proof(db_token.token,'invalid file hash',proof)
+            
+        self.assertEqual(str(ex.exception),'Invalid file hash')
+        
+        db_token = node.create_token(self.test_address)
+        
+        # check nonexistent contract
+        
+        db_file = node.add_file(self.testfile)
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.verify_proof(db_token.token,db_file.hash,proof)
+            
+        self.assertEqual(str(ex.exception),'Contract does not exist.')
+        
+        # check expiration
+        db_token = node.create_token(self.test_address)
+            
+        beat = pickle.loads(db_token.heartbeat)
+        
+        with open(db_file.path,'rb') as f:
+            (tag,state) = beat.encode(f)
+            
+        chal = beat.gen_challenge(state)
+        
+        db_contract = models.Contract(token_id = db_token.id,
+                                      file_id = db_file.id,
+                                      state = pickle.dumps(state),
+                                      challenge = pickle.dumps(chal),
+                                      expiration = datetime.utcnow()-timedelta(seconds=1))
+                             
+        db.session.add(db_contract)
+        db.session.commit()
+        
+        with open(db_contract.file.path,'rb') as f:
+            proof = beat.prove(f,chal,tag)
+        
+        self.assertFalse(node.verify_proof(db_token.token,db_contract.file.hash,proof))
+        
+        node.remove_file(db_file.hash)
+
 
 class TestDownstreamUtils(unittest.TestCase):
     def setUp(self):
