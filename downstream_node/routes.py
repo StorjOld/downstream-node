@@ -80,7 +80,7 @@ def api_downstream_challenge_answer(token, file_hash):
     try:
         d = request.get_json(silent=True)
 
-        if (dict is False or not isinstance(d,dict) or 'proof' not in d):
+        if (dict is False or not isinstance(d, dict) or 'proof' not in d):
             raise RuntimeError('Posted data must be an JSON encoded \
 proof object: {"proof":"...proof object..."}')
 
