@@ -23,10 +23,11 @@ __all__ = ['create_token',
 
 
 def create_token(sjcx_address):
-    """Creates a token for the given address. For now, addresses will not be enforced, and anyone
-    can acquire a token.
+    """Creates a token for the given address. For now, addresses will not be
+    enforced, and anyone can acquire a token.
 
-    :param sjcx_address: address to use for token creation.  for now, just allow any address.
+    :param sjcx_address: address to use for token creation.  for now, just
+    allow any address.
     :returns: the token database object
     """
     # confirm that sjcx_address is in the list of addresses
@@ -69,12 +70,13 @@ def delete_token(token):
 
 
 def get_chunk_contract(token):
-    """In the final version, this function should analyze currently available file chunks and 
-    disburse contracts for files that need higher redundancy counts.  
-    In this prototype, this function should generate a random file with a seed.  The seed 
-    can then be passed to a prototype farmer who can generate the file for themselves.  
-    The contract will include the next heartbeat challenge, and the current heartbeat state 
-    for the encoded file.
+    """In the final version, this function should analyze currently available
+    file chunks and disburse contracts for files that need higher redundancy
+    counts.
+    In this prototype, this function should generate a random file with a seed.
+    The seed can then be passed to a prototype farmer who can generate the file
+    for themselves.  The contract will include the next heartbeat challenge,
+    and the current heartbeat state for the encoded file.
 
    :param token: the token to associate this contract with
    :returns: the chunk database object
@@ -151,7 +153,7 @@ def get_chunk_contract(token):
 def add_file(chunk_path, redundancy=3, interval=60):
     """This function adds a file to the databse to be tracked by the
     application.
-    
+
     :param chunk_path: the path to the file to track
     :param redundancy: the desired redundancy of the file
     :param interval: the desired heartbeat check interval
@@ -182,7 +184,7 @@ def add_file(chunk_path, redundancy=3, interval=60):
 def remove_file(hash):
     """This function removes a file from tracking in the database.  It
     will also remove any associated contracts
-    
+
     :param hash: the hash of the file to remove
     """
     # remove the file... contracts should also be deleted by cascading
@@ -199,7 +201,7 @@ def remove_file(hash):
 def lookup_contract(token, file_hash):
     """This function looks up a contract by token and file hash and returns
     the database object of that contract.
-    
+
     :param token: the token associated with this contract
     :param file_hash: the file hash associated with this contract
     :returns: the contract database object
@@ -224,8 +226,9 @@ def lookup_contract(token, file_hash):
 
 
 def verify_proof(token, file_hash, proof):
-    """This queries the DB to retrieve the heartbeat, state and challenge for the contract id, and 
-    then checks the given proof.  Returns true if the proof is valid.
+    """This queries the DB to retrieve the heartbeat, state and challenge for
+    the contract id, and then checks the given proof.  Returns true if the
+    proof is valid.
 
     :param token: the token for the farmer that this proof corresponds to
     :param file_hash: the file hash for this proof
