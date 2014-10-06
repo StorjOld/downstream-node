@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import pickle
 
 from flask import jsonify, request
@@ -40,13 +41,19 @@ def api_downstream_chunk_contract(token):
             tag = pickle.loads(f.read())
         chal = pickle.loads(db_contract.challenge)
 
+        # now since we are prototyping, we can delete the tag and file
+        os.remove(db_contract.file.path)
+        os.remove(db_contract.tag_path)
+
         return jsonify(seed=db_contract.seed,
+                       size=db_contract.size,
                        file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
                        expiration=db_contract.expiration)
 
     except Exception as ex:
+        print(str(ex))
         resp = jsonify(status='error',
                        message=str(ex))
         resp.status_code = 500

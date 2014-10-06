@@ -97,20 +97,27 @@ def get_chunk_contract(token):
 
     chal = beat.gen_challenge(state)
 
-    tag_path = os.path.join(app.config['TAGS_PATH'], db_file.hash)
-
     db_contract = Contract(token_id=db_token.id,
                            file_id=db_file.id,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
                            challenge=pickle.dumps(chal,
                                                   pickle.HIGHEST_PROTOCOL),
-                           tag_path=tag_path,
                            expiration=(datetime.utcnow() +
                                        timedelta(seconds=db_file.interval)),
                            # for prototyping, include seed
-                           seed = seed)
+                           seed = seed,
+                           size = app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
+    db.session.commit()
+
+    # the tag path is tied to the contract id.  in the final application
+    # there will be some management for the tags since once they have been
+    # downloaded by the farmer, they should be deleted.  might require a
+    # tags database table.
+    tag_path = os.path.join(app.config['TAGS_PATH'], str(db_contract.id))
+
+    db_contract.tag_path = tag_path
     db.session.commit()
 
     # and write the tag to our temporary files

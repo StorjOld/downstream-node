@@ -109,11 +109,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         valid = beat.verify(proof,chal,state)
         
         self.assertTrue(valid)
-        
-        # cleanup
-        
-        os.remove(db_contract.file.path)
-        os.remove(db_contract.tag_path)
+
         
     def test_api_downstream_answer(self):
         r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
@@ -158,12 +154,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.status_code,500)
         
         r_json = json.loads(r.data.decode('utf-8'))
-        
-        # cleanup
-        db_contract = node.lookup_contract(r_token, r_hash)
-        
-        os.remove(db_contract.file.path)
-        os.remove(db_contract.tag_path)
+
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
@@ -271,7 +262,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with open(db_contract.file.path,'rb') as f:
             contents = f.read()
             
-        self.assertEqual(RandomIO(db_contract.seed).read(app.config['TEST_FILE_SIZE']), contents)
+        self.assertEqual(RandomIO(db_contract.seed).read(db_contract.size), contents)
         
         # remove file
         os.remove(db_contract.file.path)
