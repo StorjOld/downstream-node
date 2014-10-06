@@ -71,20 +71,23 @@ def api_downstream_chunk_contract_status(token, file_hash):
     except Exception as ex:
         resp = jsonify(status='error',
                        message=str(ex))
-        resp.status_cude = 500
+        resp.status_code = 500
         return resp
 
 
 @app.route('/api/downstream/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
     try:
-        dict = request.get_json(silent=True)
+        d = request.get_json(silent=True)
 
-        if (dict is False or 'proof' not in dict):
+        if (dict is False or not isinstance(d,dict) or 'proof' not in d):
             raise RuntimeError('Posted data must be an JSON encoded \
 proof object: {"proof":"...proof object..."}')
 
-        proof = Heartbeat.proof_type().fromdict(dict['proof'])
+        try:
+            proof = Heartbeat.proof_type().fromdict(d['proof'])
+        except:
+            raise RuntimeError('Proof corrupted.')
 
         if (not verify_proof(token, file_hash, proof)):
             raise RuntimeError('Invalid proof, or proof expired.')

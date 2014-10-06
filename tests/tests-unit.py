@@ -63,6 +63,12 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(token.token,r_token)
         self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
         
+        # assert that we can add any address
+        r = self.app.get('/api/downstream/new/1J29dwrT4UBkW6R8dq6qocBXQwHHzB2NHS')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        # assert address has to be valid
         r = self.app.get('/api/downstream/new/nonexistentaddress')
         self.assertEqual(r.status_code, 500)
         self.assertEqual(r.content_type, 'application/json')
@@ -145,6 +151,11 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         os.remove(db_contract.file.path)
         
+        # test invalid token or hash
+        r = self.app.get('/api/downstream/challenge/invalid_token/invalid_hash')
+        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.content_type, 'application/json')
+        
     def test_api_downstream_answer(self):
         r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         
@@ -182,12 +193,41 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # test invalid proof
         
+        proof = Heartbeat.proof_type()()
+        
+        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                          data=json.dumps({"proof":proof.todict()}),
+                          content_type='application/json')
+        self.assertEqual(r.status_code,500)
+        self.assertEqual(r.content_type,'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['message'],'Invalid proof, or proof expired.')
+        
+        # test corrupt proof
+        
         r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
                           data=json.dumps({"proof":"invalid proof object"}),
                           content_type='application/json')
         self.assertEqual(r.status_code,500)
+        self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
+
+        self.assertEqual(r_json['message'],'Proof corrupted.')
+        
+        # test invalid json
+        
+        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                          data=json.dumps("invalid proof object"),
+                          content_type='application/json')
+        self.assertEqual(r.status_code,500)
+
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['message'],'Posted data must be an JSON encoded \
+proof object: {"proof":"...proof object..."}')
 
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
