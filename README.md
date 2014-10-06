@@ -63,7 +63,7 @@ Web application where the client downloads and proves file existence to a single
  
 
 #### Node library functions
-This modification will add the following methods to the node library:
+The following functions are available in this prototype
 
 ```python
 create_token(sjcx_address)
