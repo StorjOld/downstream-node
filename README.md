@@ -62,140 +62,102 @@ Web application where the client downloads and proves file existence to a single
 *Note: This is a proof of concept intended to be used to collect uptime and redundancy statistics. It should not be used for production services as authentication keys are passed in plaintext. Furthermore, data should not be passed from node to client to prevent arbitrary code execution until proper sandboxing is place.*
  
 
-## Node Private Functions
+#### Node library functions
+This modification will add the following methods to the node library:
 
-### Create Token
-Creates a random secret token, and stores in the database. This serves as the identification and authorization key for the particular address. A particular address may create multiple tokens. Files are pegged to the authentication token not the address. This function should reject an address if it is not listed in the address whitelist from the crowdsale.
+```python
+create_token(sjcx_address)
+    """Creates a token for the given address. For now, addresses will not be enforced, and anyone
+    can acquire a token.
 
-    create_token(sjcx_address)
+    :param sjcx_address: address to use for token creation.  for now, just allow any address.
+    :returns: the token
+    """
 
-### Delete Token
-Removes the token from the database, and reassigns any chunks associated with it.
+delete_token(token)
+    """Deletes the given token.
 
-    delete_token(token)
+    :param token: token to delete
+    """
 
-### Add File
-This is a multi-step process where we add a file to a list of files that we monitor. If this is a Metadisk node we simply pass the encrypted file chunk, if it is not then we have to pass it though our encrypting and hashing progress. After uploading we need to generate a series of hash challenges.  
+get_chunk_contract(token)
+    """In the final version, this function should analyze currently available file chunks and 
+    disburse contracts for files that need higher redundancy counts.  
+    In this prototype, this function should generate a random file with a seed.  The seed 
+    can then be passed to a prototype farmer who can generate the file for themselves.  
+    The contract will include the next heartbeat challenge, and the current heartbeat state 
+    for the encoded file.
 
-    add_file(chunk_path, redundancy, interval)
+   :param token: the token to associate this contract with
+   :returns: the chunk
+     """
 
-### Remove File
-Remove the file from the list of files that we monitor.
+verify_proof(token,file_hash,proof)
+    """This queries the DB to retrieve the heartbeat, state and challenge for the contract id, and 
+    then checks the given proof.  Returns true if the proof is valid.
 
-    remove_file(chunk_hash)
+    :param token: the token for the farmer that this proof corresponds to
+    :param file_hash: the file hash for this proof
+    :param proof: a heartbeat proof object that has been returned by the farmer
+    :returns: boolean true if the proof is valid, false otherwise
+    """
+```
 
-## Node Public API
+#### Database Tables
+To write these functions the database models have to be modified to include contracts and tokens tables.
 
-### New Token 
-Provides a client with a new random secret token associated on the with the passed address. 
-    
+#### HTTP Routes
+Additionally the following prototype routes should be exposed for the public API:
+
+Get a new token for a given address.  For now, don't check address, just return a token.
+
     GET /api/downstream/new/<sjcx_address>
-
-```json
+Response:
+```
 {
-	"token": "dfs9mfa2"
-	"heartbeat": { heartbeat_object }
+    "token": "ceb722d954ef9d1af3eed2bbe0aeb954",
+    "heartbeat": "...heartbeat object string representation..."
 }
 ```
 
-where `heartbeat_object` is given by a call to
-
-```python
-heartbeat_object = json.dumps(heartbeat.get_public().todict())
-```
-
-Possible errors:
-```json
-{"status": "invalid_address"}
-{"status": "error"}
-```
-
-### Get Chunk Contract
-
-Gives the farmer a data contract. Allow the client to download another chunk of data, including how often the server will check for the data (specified in seconds), and the initial challenge.
+Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration, the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>
-
-```json
+Response:
+```
 {
-    "seed": "31cc380527ac57f72798647824aa8839eb82045e",
-    "file_hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", 
-    "challenge": { challenge_object },
-	"tag": { tag_object },
-    "expiration": "2014-10-02 14:22:09"
+    "challenge": "...challenge object string representation...",
+    "expiration": "2014-10-03 17:29:01",
+    "file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
+    "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
+	"size": "1000",
+    "tag": "...tag object string representation..."
 }
 ```
 
-Where the `challenge_object` and `tag_object` are given by a calls to 
+Gets the currently due challenge for this token and file hash.
 
-```python
-challenge_object = json.dumps(heartbeat.gen_challenge(...).todict())
-tag_object = json.dumps(tag.todict())
+    GET /api/downstream/challenge/<token>/<file_hash>
+Response:
 ```
-
-Possible errors:
-```json
-{ "status": "no_chunks" }
-{ "status": "no_token" }
-{ "status": "error" }
-```
-
-### End Chunk Contract 
-
-Client removing a chunk from its list.
-
-    GET /api/downstream/remove/<token>/<file_hash>
-```json
-{ "status": "ok" }
-```
-Possible errors:
-```json
-{ "status": "no_token" }
-{ "status": "no_hash" }
-{ "status": "error" }
-```
-
-### Chunk Contract Status
-
-Gets the current contract statuses from the perspective of the node. 
-
-    GET /api/downstream/due/<account token>
-
-```json
 {
-    "all_contracts":[
-        {"hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7"},
-        {"hash": "fc3d80e28d20a3db5576b8b7fd66176a3a9a857ca89b8cec4b3b832aafc77c8a"}],
-    "due_contracts":[
-        {"hash": "05ecf7f9d218c631cc380527ac57f72798647824aa8839eb82045ed9fc3360c7", 
-		 "challenge": { challenge_object }}
-        {"hash": "fc3d80e28d20a3db5576b8b7fd66176a3a9a857ca89b8cec4b3b832aafc77c8a", 
-		 "challenge": { challenge_object }}]
+   "challenge": "...challenge object string representation...",
+   "expiration": "2014-10-03 17:29:01",
 }
 ```
 
-### Answer Chunk Contract
-
-Allows the client to answer a challenge.
+Posts an answer for the current challenge on token and file hash.
 
     POST /api/downstream/answer/<token>/<file_hash>
-	
 Parameters:
-```json
+```
 {
-	"proof": { proof_object }
+    "proof": "...proof object string representation..."
 }
 ```
-
-Where `proof_object` will be given by a call to 
-
-```python
-proof_object = json.dumps(heartbeat.prove(...).todict())
+Response:
 ```
-
-Responses:
-
-```json
-{"status": "pass"}
-{"status": "fail"}
+{
+    "status": "ok"
+}
 ```
