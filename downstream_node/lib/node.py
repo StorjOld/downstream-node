@@ -3,6 +3,7 @@
 import os
 import pickle
 import binascii
+import base58
 from datetime import datetime, timedelta
 
 from Crypto.Hash import SHA256
@@ -35,6 +36,10 @@ def create_token(sjcx_address):
     db_address = Address.query.filter(Address.address == sjcx_address).first()
 
     if (db_address is None):
+        try:
+            base58.b58decode_check(sjcx_address)
+        except:
+            raise RuntimeError('Invalid address given.')
         # just put it in the db for testing
         db_address = Address(address=sjcx_address)
         db.session.add(db_address)

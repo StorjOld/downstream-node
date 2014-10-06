@@ -63,6 +63,14 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(token.token,r_token)
         self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
         
+        r = self.app.get('/api/downstream/new/nonexistentaddress')
+        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.content_type, 'application/json')
+
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['message'],'Invalid address given.')
+        
     def test_api_downstream_chunk(self):
         
         r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
@@ -109,7 +117,33 @@ class TestDownstreamRoutes(unittest.TestCase):
         valid = beat.verify(proof,chal,state)
         
         self.assertTrue(valid)
+        
+        # and also check error code
+        r = self.app.get('/api/downstream/chunk/invalidtoken')
+        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.content_type, 'application/json')
 
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['message'],'Invalid token given.')
+        
+    def test_api_downstream_challenge(self):
+        db_token = node.create_token(self.test_address)
+        
+        db_contract = node.get_chunk_contract(db_token.token)
+    
+        r = self.app.get('/api/downstream/challenge/{0}/{1}'.format(db_token.token,db_contract.file.hash))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        challenge = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        
+        self.assertEqual(challenge,pickle.loads(db_contract.challenge))
+        self.assertEqual(datetime.strptime(r_json['expiration'],'%Y-%m-%dT%H:%M:%S'),db_contract.expiration)
+        
+        os.remove(db_contract.file.path)
         
     def test_api_downstream_answer(self):
         r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
@@ -180,6 +214,12 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
         
         self.assertIsInstance(pickle.loads(db_token.heartbeat),Heartbeat)
+        
+        # test random address
+        with self.assertRaises(RuntimeError) as ex:
+            db_token = node.create_token('randomaddress')
+        
+        self.assertEqual(str(ex.exception),'Invalid address given.')
 
     def test_delete_token(self):
         db_token = node.create_token(self.test_address)
@@ -191,6 +231,11 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db_token = models.Token.query.filter(models.Token.token==t).first()
         
         self.assertIsNone(db_token)
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.delete_token('nonexistent token')
+            
+        self.assertEqual(str(ex.exception),'Invalid token given. Token does not exist.')
 
     def test_add_file(self):
         db_file = node.add_file(self.testfile)
@@ -272,6 +317,11 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # remove tag
         os.remove(db_contract.tag_path)
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.get_chunk_contract('nonexistent token')
+        
+        self.assertEqual(str(ex.exception),'Invalid token given.')
         
     def test_verify_proof(self):
         db_token = node.create_token(self.test_address)
