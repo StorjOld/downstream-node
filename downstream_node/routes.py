@@ -42,9 +42,7 @@ def api_downstream_chunk_contract(token):
         chal = pickle.loads(db_contract.challenge)
 
         # now since we are prototyping, we can delete the tag and file
-        print('removing {0}'.format(db_contract.file.path))
         os.remove(db_contract.file.path)
-        print('removing {0}'.format(db_contract.tag_path))
         os.remove(db_contract.tag_path)
 
         return jsonify(seed=db_contract.seed,
