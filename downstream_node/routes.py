@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import os
-import hashlib
+import pickle
 
+from flask import jsonify, request
+
+from .startup import app
+from .lib import (create_token, get_chunk_contract, lookup_contract,
+                  verify_proof)
 from heartbeat import Heartbeat
-from flask import jsonify, request, abort
-
-from downstream_node.startup import app
-from downstream_node.config import config
-from downstream_node.models import Challenges
-from downstream_node.lib import gen_challenges
-from downstream_node.lib.utils import query_to_list, load_heartbeat
 
 
 @app.route('/')
@@ -18,146 +17,85 @@ def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/challenges/<filepath>')
-def api_downstream_challenge(filepath):
-    """
-
-    :param filepath:
-    """
-    # Make assertions about the request to make sure it's valid.
-
-    # Commenting out while still in development, should be used in prod
-    # try:
-    #     assert os.path.isfile(os.path.join('/opt/files', filename))
-    # except AssertionError:
-    #     resp = jsonify(msg="file name is not valid")
-    #     resp.status_code = 400
-    #     return resp
-
-    # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
-        os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
-    )
-
-    root_seed = hashlib.sha256(os.urandom(32)).hexdigest()
-    filename = os.path.split(filepath)[1]
-    app.logger.debug('Fetching challenges for %s' % filename)
-
-    query = Challenges.query.filter(Challenges.filename == filename)
-
-    if not query.all():
-        app.logger.debug('No entry in database for file %s;'
-                         ' generating challenes' % filename)
-        gen_challenges(filepath, root_seed)
-        query = Challenges.query.filter(Challenges.filename == filename)
-
-    return jsonify(challenges=query_to_list(query))
-
-
-@app.route('/api/downstream/challenges/answer/<filepath>', methods=['POST'])
-def api_downstream_challenge_answer(filepath):
-    """
-
-    :param filepath:
-    :return:
-    """
-    request_json = request.get_json(force=True, silent=True)
-
-    # Make assertions about the request to make sure it's valid.
+@app.route('/api/downstream/new/<sjcx_address>')
+def api_downstream_new_token(sjcx_address):
+    # generate a new token
     try:
-        assert request_json
-    except AssertionError:
-        app.logger.debug('Request missing JSON request body')
-        resp = jsonify(msg="missing request json")
-        resp.status_code = 400
-        return resp
-
-    req_json_keys = ['seed', 'block', 'response']
-
-    try:
-        assert sorted(req_json_keys) == sorted(request_json.keys())
-    except AssertionError:
-        app.logger.debug('Incoming request did not have all keys.')
-        resp = jsonify(msg="missing data")
-        resp.status_code = 400
-        return resp
-
-    # Hardcode filepath to the testfile in tests while in development
-    filepath = os.path.abspath(
-        os.path.join(
-            os.path.split(__file__)[0], '..', 'tests', 'thirty-two_meg.testfile')  # NOQA
-    )
-    filename = os.path.split(filepath)[1]
-    app.logger.debug('Incoming request for file %s' % filename)
-
-    # Commenting out while still in development, should be used in prod
-    # try:
-    #     assert os.path.isfile(os.path.join('/opt/files', filename))
-    # except AssertionError:
-    #     resp = jsonify(msg="file name is not valid")
-    #     resp.status_code = 400
-    #     return resp
-
-    query = Challenges.query.filter(
-        Challenges.filename == filename,
-        Challenges.block == request_json.get('block'),
-        Challenges.seed == request_json.get('seed'),
-    )
-    challenge = query.all()
-
-    # Oh, and challenge should only be len of 1, or we gots problems
-    if len(challenge) == 0:
-        app.logger.debug('Nothing found in DB for file %s' % filename)
-        abort(404)
-    elif len(challenge) < 1:
-        app.logger.debug('More than one entry in DB '
-                         'with same file, block, seed')
-        abort(400)
-
-    node_hb = Heartbeat(filepath, secret=config.SECRET_KEY)
-    node_hb = load_heartbeat(node_hb, query)
-    result = node_hb.check_answer(request_json.get('response'))
-
-    if result is True:
-        app.logger.debug('Match found on file %s' % filename)
-        return jsonify(msg='ok', match=True)
-    elif result is False:
-        app.logger.debug('Match not found on file %s' % filename)
-        return jsonify(msg='ok', match=False)
-    else:
-        resp = jsonify(msg='error')
+        db_token = create_token(sjcx_address)
+        pub_beat = pickle.loads(db_token.heartbeat).get_public()
+        return jsonify(token=db_token.token,
+                       heartbeat=pub_beat.todict())
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
         resp.status_code = 500
         return resp
 
 
-@app.route('/api/downstream/new/<sjcx_address>')
-def api_downstream_new_token(sjcx_address):
-    return jsonify(token='dfs9mfa2')
-
-
 @app.route('/api/downstream/chunk/<token>')
 def api_downstream_chunk_contract(token):
-    return jsonify(status='no_chunks')
-    return jsonify(status='no_token')
-    return jsonify(status='error')
-    return jsonify(status='ok')
+    try:
+        db_contract = get_chunk_contract(token)
+
+        with open(db_contract.tag_path, 'rb') as f:
+            tag = pickle.loads(f.read())
+        chal = pickle.loads(db_contract.challenge)
+
+        # now since we are prototyping, we can delete the tag and file
+        os.remove(db_contract.file.path)
+        os.remove(db_contract.tag_path)
+
+        return jsonify(seed=db_contract.seed,
+                       size=db_contract.size,
+                       file_hash=db_contract.file.hash,
+                       challenge=chal.todict(),
+                       tag=tag.todict(),
+                       expiration=db_contract.expiration.isoformat())
+
+    except Exception as ex:
+        print(str(ex))
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
 
 
-@app.route('/api/downstream/remove/<token>/<file_hash>', methods=['DELETE'])
-def api_downstream_end_contract(token, file_hash):
-    return jsonify(status='no_token')
-    return jsonify(status='no_hash')
-    return jsonify(status='error')
-    return jsonify(status='ok')
+@app.route('/api/downstream/challenge/<token>/<file_hash>')
+def api_downstream_chunk_contract_status(token, file_hash):
+    try:
+        db_contract = lookup_contract(token, file_hash)
+
+        return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
+                       expiration=db_contract.expiration.isoformat())
+
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
 
 
-@app.route('/api/downstream/due/<account_token>')
-def api_downstream_chunk_contract_status(account_token):
-    return jsonify(contracts="data")
+@app.route('/api/downstream/answer/<token>/<file_hash>', methods=['POST'])
+def api_downstream_challenge_answer(token, file_hash):
+    try:
+        d = request.get_json(silent=True)
 
+        if (dict is False or not isinstance(d, dict) or 'proof' not in d):
+            raise RuntimeError('Posted data must be an JSON encoded \
+proof object: {"proof":"...proof object..."}')
 
-@app.route('/api/downstream/challenge/<token>/<file_hash>/<hash_response>')
-def api_downstream_answer_chunk_contract(token, file_hash, hash_response):
-    return jsonify(status="pass")
-    return jsonify(status="fail")
+        try:
+            proof = Heartbeat.proof_type().fromdict(d['proof'])
+        except:
+            raise RuntimeError('Proof corrupted.')
+
+        if (not verify_proof(token, file_hash, proof)):
+            raise RuntimeError('Invalid proof, or proof expired.')
+
+        return jsonify(status='ok')
+
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
