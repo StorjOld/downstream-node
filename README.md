@@ -19,9 +19,9 @@ $ apt-get -y install mysql-server
 Get `downstream-node`:
 
 ```
-$ git clone https://github.com/Storj/downstream-node.git
+$ git clone -b devel https://github.com/Storj/downstream-node.git
 $ cd downstream-node
-$ pip install -r requirements.txt
+$ pip install -r requirements.txt .
 ```
 
 Set up the database:
