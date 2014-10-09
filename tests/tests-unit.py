@@ -346,7 +346,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # prototyping: verify the file it created
         with open(db_contract.file.path,'rb') as f:
             contents = f.read()
-            
+
         self.assertEqual(RandomIO(db_contract.seed).read(db_contract.size), contents)
         
         # remove file
@@ -436,7 +436,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         node.remove_file(db_file.hash)
 
-
+       
 class TestDownstreamUtils(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()

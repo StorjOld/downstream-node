@@ -42,9 +42,9 @@ class Contract(db.Model):
     token_id = db.Column(db.ForeignKey('tokens.id'))
     file_id = db.Column(db.ForeignKey('files.id'))
     state = db.Column(db.LargeBinary(), nullable=False)
-    challenge = db.Column(db.LargeBinary(), nullable=False)
+    challenge = db.Column(db.LargeBinary())
     tag_path = db.Column(db.String(128), unique=True)
-    expiration = db.Column(db.DateTime(), nullable=False)
+    expiration = db.Column(db.DateTime())
     # for prototyping, include file seed for regeneration, and file size
     seed = db.Column(db.String(128))
     size = db.Column(db.Integer())

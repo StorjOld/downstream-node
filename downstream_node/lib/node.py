@@ -113,7 +113,7 @@ def get_chunk_contract(token):
     # file = candidates[0]
 
     # for prototyping, we generate a file for each contract.
-    seed = binascii.hexlify(os.urandom(16))
+    seed = binascii.hexlify(os.urandom(16)).decode()
 
     db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
                                               app.config['FILES_PATH']), 1)
@@ -123,21 +123,18 @@ def get_chunk_contract(token):
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
-    chal = beat.gen_challenge(state)
-
     db_contract = Contract(token_id=db_token.id,
                            file_id=db_file.id,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
-                           challenge=pickle.dumps(chal,
-                                                  pickle.HIGHEST_PROTOCOL),
-                           expiration=(datetime.utcnow() +
-                                       timedelta(seconds=db_file.interval)),
+                           # we insert the challenge below
                            # for prototyping, include seed
-                           seed = seed,
-                           size = app.config['TEST_FILE_SIZE'])
+                           seed=seed,
+                           size=app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
     db.session.commit()
+
+    update_challenge(db_token.token, db_file.hash)
 
     # the tag path is tied to the contract id.  in the final application
     # there will be some management for the tags since once they have been
@@ -228,6 +225,32 @@ def lookup_contract(token, file_hash):
         raise RuntimeError('Contract does not exist.')
 
     return db_contract
+
+
+def update_challenge(token, file_hash):
+    """This function updates the challenge for the associated contract
+    and returns it.
+
+    :param token: the token associated with this contract
+    :param file_hash: the file hash associated with this contract
+    :returns: the new challenge
+    """
+
+    db_contract = lookup_contract(token, file_hash)
+
+    beat = pickle.loads(db_contract.token.heartbeat)
+
+    state = pickle.loads(db_contract.state)
+
+    chal = beat.gen_challenge(state)
+
+    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.expiration = (datetime.utcnow() +
+                              timedelta(seconds=db_contract.file.interval))
+
+    db.session.commit()
+
+    return db_contract.challenge
 
 
 def verify_proof(token, file_hash, proof):
