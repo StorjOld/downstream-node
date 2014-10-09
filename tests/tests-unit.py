@@ -52,8 +52,6 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        print(r_json)
-        
         r_token = r_json['token']
         
         r_beat = Heartbeat.fromdict(r_json['heartbeat'])
@@ -137,14 +135,20 @@ class TestDownstreamRoutes(unittest.TestCase):
         db_token = node.create_token(self.test_address)
         
         db_contract = node.get_chunk_contract(db_token.token)
+        
+        token = db_token.token
+        hash = db_contract.file.hash
     
-        r = self.app.get('/api/downstream/challenge/{0}/{1}'.format(db_token.token,db_contract.file.hash))
+        r = self.app.get('/api/downstream/challenge/{0}/{1}'.format(token,hash))
+        
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
         challenge = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        
+        db_contract = node.lookup_contract(token, hash)
         
         self.assertEqual(challenge,pickle.loads(db_contract.challenge))
         self.assertEqual(datetime.strptime(r_json['expiration'],'%Y-%m-%dT%H:%M:%S'),db_contract.expiration)

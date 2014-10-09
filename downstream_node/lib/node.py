@@ -20,7 +20,8 @@ __all__ = ['create_token',
            'lookup_contract',
            'add_file',
            'remove_file',
-           'verify_proof']
+           'verify_proof',
+           'update_challenge']
 
 
 def create_token(sjcx_address):
@@ -233,7 +234,7 @@ def update_challenge(token, file_hash):
 
     :param token: the token associated with this contract
     :param file_hash: the file hash associated with this contract
-    :returns: the new challenge
+    :returns: the contract with the challenge
     """
 
     db_contract = lookup_contract(token, file_hash)
@@ -250,7 +251,7 @@ def update_challenge(token, file_hash):
 
     db.session.commit()
 
-    return db_contract.challenge
+    return db_contract
 
 
 def verify_proof(token, file_hash, proof):

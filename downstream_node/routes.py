@@ -7,8 +7,8 @@ import pickle
 from flask import jsonify, request
 
 from .startup import app
-from .lib import (create_token, get_chunk_contract, lookup_contract,
-                  verify_proof)
+from .lib import (create_token, get_chunk_contract,
+                  verify_proof,  update_challenge)
 from heartbeat import Heartbeat
 
 
@@ -53,7 +53,6 @@ def api_downstream_chunk_contract(token):
                        expiration=db_contract.expiration.isoformat())
 
     except Exception as ex:
-        print(str(ex))
         resp = jsonify(status='error',
                        message=str(ex))
         resp.status_code = 500
@@ -62,8 +61,10 @@ def api_downstream_chunk_contract(token):
 
 @app.route('/api/downstream/challenge/<token>/<file_hash>')
 def api_downstream_chunk_contract_status(token, file_hash):
+    """For prototyping, this will generate a new challenge
+    """
     try:
-        db_contract = lookup_contract(token, file_hash)
+        db_contract = update_challenge(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
                        expiration=db_contract.expiration.isoformat())
