@@ -10,7 +10,6 @@ from Crypto.Hash import SHA256
 
 from ..models import Address, Token, File, Contract
 
-from heartbeat import Heartbeat
 from RandomIO import RandomIO
 from ..startup import db, app
 
@@ -48,7 +47,7 @@ def create_token(sjcx_address):
         # raise RuntimeError(
         #    'Invalid address given: address must be in whitelist.')
 
-    beat = Heartbeat()
+    beat = app.config['HEARTBEAT']()
 
     db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
                      address_id=db_address.id,

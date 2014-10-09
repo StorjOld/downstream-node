@@ -8,7 +8,7 @@ import io
 
 from datetime import datetime, timedelta
 
-from heartbeat import Heartbeat
+import heartbeat
 from RandomIO import RandomIO
 from downstream_node.startup import app, db
 from downstream_node import models
@@ -54,7 +54,11 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_token = r_json['token']
         
-        r_beat = Heartbeat.fromdict(r_json['heartbeat'])
+        r_type = r_json['type']
+        
+        self.assertEqual(r_type,app.config['HEARTBEAT'].__name__)
+        
+        r_beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
         
         token = models.Token.query.filter(models.Token.token==r_token).first()
         
@@ -81,7 +85,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        r_beat = Heartbeat.fromdict(r_json['heartbeat'])
+        r_beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
         
         r_token = r_json['token']
         
@@ -96,13 +100,13 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
         
-        chal = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
         
-        self.assertIsInstance(chal,Heartbeat.challenge_type())
+        self.assertIsInstance(chal,app.config['HEARTBEAT'].challenge_type())
         
-        tag = Heartbeat.tag_type().fromdict(r_json['tag'])
+        tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
         
-        self.assertIsInstance(tag,Heartbeat.tag_type())
+        self.assertIsInstance(tag,app.config['HEARTBEAT'].tag_type())
         
         # now form proof...
         f = io.BytesIO(contents)
@@ -146,7 +150,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        challenge = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        challenge = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
         
         db_contract = node.lookup_contract(token, hash)
         
@@ -165,7 +169,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        beat = Heartbeat.fromdict(r_json['heartbeat'])
+        beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
         
         r_token = r_json['token']
         
@@ -178,9 +182,9 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
         
-        chal = Heartbeat.challenge_type().fromdict(r_json['challenge'])
+        chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
         
-        tag = Heartbeat.tag_type().fromdict(r_json['tag'])
+        tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
         
         f = io.BytesIO(contents)
         proof = beat.prove(f,chal,tag)
@@ -197,7 +201,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # test invalid proof
         
-        proof = Heartbeat.proof_type()()
+        proof = app.config['HEARTBEAT'].proof_type()()
         
         r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
                           data=json.dumps({"proof":proof.todict()}),
@@ -257,7 +261,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # verify that the info is in the database
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
         
-        self.assertIsInstance(pickle.loads(db_token.heartbeat),Heartbeat)
+        self.assertIsInstance(pickle.loads(db_token.heartbeat),app.config['HEARTBEAT'])
         
         # test random address
         with self.assertRaises(RuntimeError) as ex:

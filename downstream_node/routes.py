@@ -9,7 +9,6 @@ from flask import jsonify, request
 from .startup import app
 from .lib import (create_token, get_chunk_contract,
                   verify_proof,  update_challenge)
-from heartbeat import Heartbeat
 
 
 @app.route('/')
@@ -24,6 +23,7 @@ def api_downstream_new_token(sjcx_address):
         db_token = create_token(sjcx_address)
         pub_beat = pickle.loads(db_token.heartbeat).get_public()
         return jsonify(token=db_token.token,
+                       type=app.config['HEARTBEAT'].__name__,
                        heartbeat=pub_beat.todict())
     except Exception as ex:
         resp = jsonify(status='error',
@@ -86,7 +86,7 @@ def api_downstream_challenge_answer(token, file_hash):
 proof object: {"proof":"...proof object..."}')
 
         try:
-            proof = Heartbeat.proof_type().fromdict(d['proof'])
+            proof = app.config['HEARTBEAT'].proof_type().fromdict(d['proof'])
         except:
             raise RuntimeError('Proof corrupted.')
 
