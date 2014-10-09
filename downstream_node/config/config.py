@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-from heartbeat import SwPriv
+import heartbeat
 
 # Flask
 SECRET_KEY = os.urandom(32)
@@ -15,4 +15,4 @@ TAGS_PATH = 'tags/'
 
 TEST_FILE_SIZE = 100
 
-HEARTBEAT = SwPriv.SwPriv
+HEARTBEAT = heartbeat.Merkle.Merkle

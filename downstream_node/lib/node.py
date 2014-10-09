@@ -247,6 +247,7 @@ def update_challenge(token, file_hash):
     db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
     db_contract.expiration = (datetime.utcnow() +
                               timedelta(seconds=db_contract.file.interval))
+    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
 
     db.session.commit()
 
