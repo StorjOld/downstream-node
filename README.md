@@ -130,7 +130,7 @@ Response:
     "expiration": "2014-10-03 17:29:01",
     "file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
     "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
-	"size": "1000",
+	"size": 1000,
     "tag": "...tag object string representation..."
 }
 ```

@@ -10,7 +10,6 @@ from Crypto.Hash import SHA256
 
 from ..models import Address, Token, File, Contract
 
-from heartbeat import Heartbeat
 from RandomIO import RandomIO
 from ..startup import db, app
 
@@ -20,7 +19,8 @@ __all__ = ['create_token',
            'lookup_contract',
            'add_file',
            'remove_file',
-           'verify_proof']
+           'verify_proof',
+           'update_challenge']
 
 
 def create_token(sjcx_address):
@@ -47,7 +47,7 @@ def create_token(sjcx_address):
         # raise RuntimeError(
         #    'Invalid address given: address must be in whitelist.')
 
-    beat = Heartbeat()
+    beat = app.config['HEARTBEAT']()
 
     db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
                      address_id=db_address.id,
@@ -113,7 +113,7 @@ def get_chunk_contract(token):
     # file = candidates[0]
 
     # for prototyping, we generate a file for each contract.
-    seed = binascii.hexlify(os.urandom(16))
+    seed = binascii.hexlify(os.urandom(16)).decode()
 
     db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
                                               app.config['FILES_PATH']), 1)
@@ -123,21 +123,18 @@ def get_chunk_contract(token):
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
-    chal = beat.gen_challenge(state)
-
     db_contract = Contract(token_id=db_token.id,
                            file_id=db_file.id,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
-                           challenge=pickle.dumps(chal,
-                                                  pickle.HIGHEST_PROTOCOL),
-                           expiration=(datetime.utcnow() +
-                                       timedelta(seconds=db_file.interval)),
+                           # we insert the challenge below
                            # for prototyping, include seed
-                           seed = seed,
-                           size = app.config['TEST_FILE_SIZE'])
+                           seed=seed,
+                           size=app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
     db.session.commit()
+
+    update_challenge(db_token.token, db_file.hash)
 
     # the tag path is tied to the contract id.  in the final application
     # there will be some management for the tags since once they have been
@@ -226,6 +223,33 @@ def lookup_contract(token, file_hash):
 
     if (db_contract is None):
         raise RuntimeError('Contract does not exist.')
+
+    return db_contract
+
+
+def update_challenge(token, file_hash):
+    """This function updates the challenge for the associated contract
+    and returns it.
+
+    :param token: the token associated with this contract
+    :param file_hash: the file hash associated with this contract
+    :returns: the contract with the challenge
+    """
+
+    db_contract = lookup_contract(token, file_hash)
+
+    beat = pickle.loads(db_contract.token.heartbeat)
+
+    state = pickle.loads(db_contract.state)
+
+    chal = beat.gen_challenge(state)
+
+    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.expiration = (datetime.utcnow() +
+                              timedelta(seconds=db_contract.file.interval))
+    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
+
+    db.session.commit()
 
     return db_contract
 
