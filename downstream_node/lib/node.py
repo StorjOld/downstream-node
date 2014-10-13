@@ -278,7 +278,7 @@ def update_contract(token, file_hash):
     chal = beat.gen_challenge(state)
 
     new_expiration = db_contract.expiration \
-        + timedelta(db_contract.file.interval)
+        + timedelta(seconds=db_contract.file.interval)
 
     db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
     db_contract.expiration = new_expiration
