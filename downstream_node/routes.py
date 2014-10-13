@@ -8,7 +8,7 @@ from flask import jsonify, request
 
 from .startup import app
 from .lib import (create_token, get_chunk_contract,
-                  verify_proof,  update_challenge)
+                  verify_proof,  update_contract)
 
 
 @app.route('/')
@@ -64,12 +64,13 @@ def api_downstream_chunk_contract_status(token, file_hash):
     """For prototyping, this will generate a new challenge
     """
     try:
-        db_contract = update_challenge(token, file_hash)
+        db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
                        expiration=db_contract.expiration.isoformat())
 
     except Exception as ex:
+        print(ex)
         resp = jsonify(status='error',
                        message=str(ex))
         resp.status_code = 500
