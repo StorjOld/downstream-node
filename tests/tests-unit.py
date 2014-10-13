@@ -373,6 +373,25 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         self.assertEqual(str(ex.exception),'Invalid token given.')
         
+    def test_update_contract_expired(self):
+        db_file = node.add_file(self.testfile)
+        
+        db_token = node.create_token(self.test_address)
+
+        contract = models.Contract(token_id = db_token.id,
+                                   file_id = db_file.id,
+                                   state = pickle.dumps('test state'),
+                                   challenge = pickle.dumps('test challenge'),
+                                   expiration = datetime.utcnow() - timedelta(seconds = db_file.interval))
+                                       
+        db.session.add(contract)
+        db.session.commit()
+        
+        with self.assertRaises(RuntimeError) as ex:
+            node.update_contract(db_token.token, db_file.hash)
+            
+        self.assertEqual(str(ex.exception),'Contract has expired.')
+        
     def test_verify_proof(self):
         db_token = node.create_token(self.test_address)
         
