@@ -127,7 +127,7 @@ def get_chunk_contract(token):
                            file_id=db_file.id,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
                            # expiration and answered will be updated and
-                           # challenge will be inserted when we call 
+                           # challenge will be inserted when we call
                            # update_contract() below
                            expiration=datetime.utcnow(),
                            answered=True,
@@ -233,7 +233,7 @@ def lookup_contract(token, file_hash):
 
 def contract_valid(contract):
     """This function checks whether a contract is still valid
-    
+
     A contract is valid if:
         1) the current time is less than the expiration time OR
         2) the challenge has been answered and the current time
@@ -253,37 +253,38 @@ def contract_valid(contract):
 
 
 def update_contract(token, file_hash):
-    """This function updates the contract associated with the token 
+    """This function updates the contract associated with the token
     and file_hash.
 
     :param token: the token associated with this contract
     :param file_hash: the file hash associated with this contract
     :returns: the contract after it has been updated.
-    """ 
+    """
     db_contract = lookup_contract(token, file_hash)
 
     if (not contract_valid(db_contract)):
         raise RuntimeError('Contract has expired.')
-        
-    # if the current challenge is good, 
+
+    # if the current challenge is good,
     # and has a valid challenge, use it
     if (datetime.utcnow() < db_contract.expiration
-        and db_contract.challenge is not None):
+            and db_contract.challenge is not None):
         return db_contract
-    
+
     beat = pickle.loads(db_contract.token.heartbeat)
 
     state = pickle.loads(db_contract.state)
 
     chal = beat.gen_challenge(state)
 
-    new_expiration = db_contract.expiration + timedelta(db_contract.file.interval)
-    
+    new_expiration = db_contract.expiration \
+        + timedelta(db_contract.file.interval)
+
     db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
     db_contract.expiration = new_expiration
     db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
     db_contract.answered = False
-    
+
     db.session.add(db_contract)
     db.session.commit()
 
@@ -310,9 +311,9 @@ def verify_proof(token, file_hash, proof):
     chal = pickle.loads(db_contract.challenge)
 
     valid = beat.verify(proof, chal, state)
-    
+
     if (valid):
         db_contract.answered = True
         db.session.commit()
-    
+
     return valid
