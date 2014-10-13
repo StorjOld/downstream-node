@@ -3,5 +3,5 @@ pymysql
 flask-sqlalchemy
 base58
 
--e git+https://github.com/Storj/heartbeat.git#egg=storj-heartbeat
--e git+https://github.com/Storj/RandomIO.git#egg=RandomIO
+git+https://github.com/Storj/heartbeat.git#egg=storj-heartbeat
+git+https://github.com/Storj/RandomIO.git#egg=RandomIO

@@ -8,11 +8,11 @@ import heartbeat
 SECRET_KEY = os.urandom(32)
 
 # SQLAlchemy (DB)
-SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:RR6WZXK9JrGhdtoqmRCSnF84RRiHn8PmkLAHNtucBvI@localhost/downstream'  # NOQA
 
-FILES_PATH = 'tmp/'
-TAGS_PATH = 'tags/'
+FILES_PATH = '/var/tmp/'
+TAGS_PATH = '/var/tmp/'
 
 TEST_FILE_SIZE = 100
 
-HEARTBEAT = heartbeat.Merkle.Merkle
+HEARTBEAT = heartbeat.SwPriv.SwPriv
