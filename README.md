@@ -16,6 +16,12 @@ The server-side stuff for [downstream](https://github.com/Storj/downstream).  In
 $ apt-get -y install mysql-server
 ```
 
+Get libcrypto which is required for some dependencies of downstream-node.
+
+```
+$ apt-get install libcrypto++-dev
+```
+
 Get `downstream-node`:
 
 ```
