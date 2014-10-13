@@ -20,6 +20,7 @@ class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.testfile = RandomIO().genfile(1000)
         
@@ -240,6 +241,7 @@ proof object: {"proof":"...proof object..."}')
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.testfile = RandomIO().genfile(1000)
             
@@ -453,6 +455,7 @@ class TestDownstreamUtils(unittest.TestCase):
         self.testfile = os.path.abspath(os.path.join(config.FILES_PATH,'test.file'))
         with open(self.testfile,'wb+') as f:
             f.write(os.urandom(1000))
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
 
     def tearDown(self):
