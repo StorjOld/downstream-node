@@ -44,6 +44,16 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
         
         self.assertEqual(r_json['msg'],'ok')
+        
+    def test_api_status(self):
+        db_token = node.create_token(self.test_address)
+        
+        db_contract = node.get_chunk_contract(db_token.token)
+    
+        r = self.app.get('/api/downstream/status')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
 
     def test_api_downstream_new(self):
         

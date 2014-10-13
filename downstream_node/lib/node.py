@@ -129,6 +129,7 @@ def get_chunk_contract(token):
                            # expiration and answered will be updated and
                            # challenge will be inserted when we call
                            # update_contract() below
+                           start=datetime.utcnow(),
                            expiration=datetime.utcnow(),
                            answered=True,
                            # for prototyping, include seed

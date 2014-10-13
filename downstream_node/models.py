@@ -44,6 +44,7 @@ class Contract(db.Model):
     state = db.Column(db.LargeBinary(), nullable=False)
     challenge = db.Column(db.LargeBinary())
     tag_path = db.Column(db.String(128), unique=True)
+    start = db.Column(db.DateTime())
     expiration = db.Column(db.DateTime())
     answered = db.Column(db.Boolean(), default=False)
     # for prototyping, include file seed for regeneration, and file size
