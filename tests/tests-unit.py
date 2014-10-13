@@ -6,6 +6,7 @@ import pickle
 import unittest
 import io
 
+import mock
 from datetime import datetime, timedelta
 
 import heartbeat
@@ -54,6 +55,13 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
+        
+    def test_api_status_error(self):
+        with mock.patch('flask_sqlalchemy.BaseQuery.filter') as patch:
+            patch.side_effect = RuntimeError('test error')
+            r = self.app.get('/api/downstream/status')
+            self.assertEqual(r.status_code, 500)
+            self.assertEqual(r.content_type, 'application/json')
 
     def test_api_downstream_new(self):
         
