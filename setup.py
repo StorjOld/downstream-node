@@ -14,13 +14,6 @@ install_requires = [
     'base58'
 ]
 
-# Requirements for Python 2
-if sys.version_info < (3,):
-    extras = [
-        'mysql-python',
-    ]
-    install_requires.extend(extras)
-
 setup(
     name='downstream-node',
     version=__version__,
