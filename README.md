@@ -167,3 +167,100 @@ Response:
     "status": "ok"
 }
 ```
+
+Finally, some statistics about the node can be retrieved through a status API as follows.
+
+The status API is required to produce the following information for each farmer:
+
+1. Farmer ID (token hash)
+2. SJCX address
+3. Geographic Location
+4. Percentage uptime since creation
+5. Number of heartbeats completed
+6. Whether the farmer is currently online
+7. A hash of the IP address of the farmer
+8. Total data size hosted by the farmer in bytes
+
+The list of all farmer ids can be retrieved with
+
+     GET /api/downstream/status/list
+
+which returns all the farmers ids
+
+```json
+{
+   "farmers":
+   [
+      "fa1e4944e48ed7bd3739",
+      "997e717ba92078118cce",
+      "0f297828e2a687943fc4",
+      "81b6a0d841a3184028e6",
+      "49eb47ea315d53399f69",
+      "b2ca01ff2113559b231d",
+      "68ff46d440255ac29a3c",
+      "479935fca9ce02f62788",
+      "33d63de99f0aad6279ba",
+      "8088d59b6adf8faf9974",
+      "ddbeb08b93b1d06e9939",
+      "e7a5558e62d315a54058",
+      "1de67bc29901db705ea1",
+      "e94902cda505de115027",
+      "c9c1f91a6362af0babad",
+      "e87f8117d0d10a8d6479",
+      "5f652023fb6b8034fb5c",
+      "b05bd26f9f28035a3006",
+      "e78d8f0edd1a50bce83b",
+      "dc4ce32c7c8a7d0a3cb9"
+   ]
+}
+```
+
+Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `iphash`, `contracts`, `size`, or `online`by using
+
+    GET /api/downstream/status/list/by/<sortby>
+
+or in descending order
+
+    GET /api/downstream/status/list/by/d/<sortby>
+
+It is also possible to limit the number of responses
+
+    GET /api/downstream/status/list/by/<sortby>/<limit>
+
+and specify a page number
+
+    GET /api/downstream/status/list/by/<sortby>/<limit>/<page>
+
+So some examples
+
+    GET /api/downstream/status/list/by/d/uptime/25
+
+will return the 25 farmers with the highest uptime percentage
+
+    GET /api/downstream/status/list/by/d/contracts/15/2
+
+will return the third page (rows 30-44) of the farmers with the most contracts.
+
+And then the individual farmer information can be retrieved with:
+
+    GET /api/downstream/status/show/<token_hash>
+
+```json
+{
+      "id": "45bd945fa10e3f059834",
+      "address": "18d6KhnTg9dM9jtb1MWXdbibu3Pwt1QHQt",
+      "location": {"name": "West Jerusalem", "country": "Israel", "lon": "35.21961", "zipcode": "", "state": "Jerusalem District", "lat": "31.78199"},
+      "uptime": 0.96015,
+      "heartbeats": 241,
+      "iphash": "d55529c83953e218cc58",
+      "contracts": 2,
+      "size": 200,
+      "online": true
+}
+```
+
+Planning on making the id the first 20 characters of the hex representation of the token hash.
+
+Will probably cache the farmer list on the server side to improve performance.
+
+Currently planning on using geodis or GeoIP for geographic resolution.
