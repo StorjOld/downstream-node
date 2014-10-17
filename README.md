@@ -215,7 +215,7 @@ which returns all the farmers ids
 }
 ```
 
-Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `iphash`, `contracts`, `size`, or `online`by using
+Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `iphash`, `contracts`, `size`, or `online` by using
 
     GET /api/downstream/status/list/by/<sortby>
 
@@ -243,7 +243,7 @@ will return the third page (rows 30-44) of the farmers with the most contracts.
 
 And then the individual farmer information can be retrieved with:
 
-    GET /api/downstream/status/show/<token_hash>
+    GET /api/downstream/status/show/<id>
 
 ```json
 {

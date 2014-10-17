@@ -325,7 +325,8 @@ def verify_proof(token, file_hash, proof):
 
     valid = beat.verify(proof, chal, state)
 
-    if (valid):
+    if (valid and not db_contract.answered):
+        db_contract.token.hbcount += 1
         db_contract.answered = True
         db.session.commit()
 

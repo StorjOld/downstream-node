@@ -37,6 +37,7 @@ class Token(db.Model):
     ip_address = db.Column(db.String(32), nullable=False, unique=False)
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     iphash = db.Column(db.String(32), nullable=False, unique=False)
+    hbcount = db.Column(db.Integer(), nullable=False, default=0)
 
     address = db.relationship('Address',
                               backref=db.backref('tokens',
@@ -63,7 +64,30 @@ class Token(db.Model):
     def uptime(self):
         return select([cast(func.sum(Contract.uptime), Float)/cast(func.sum(Contract.totaltime), Float)]).\
                 where(Contract.token_id == self.id)
-           
+                
+    @hybrid_property
+    def contract_count(self):
+        return self.contracts.count()
+        
+    @contract_count.expression
+    def contract_count(self):
+        return select([func.count()]).where(Contract.token_id == self.id)
+        
+    @hybrid_property
+    def size(self):
+        return sum(c.size for c in self.contracts)
+        
+    @size.expression
+    def size(self):
+        return select([func.sum(Contract.size)]).where(Contract.token_id == self.id)
+    
+    @hybrid_property
+    def addr(self):
+        return self.address.address
+        
+    @addr.expression
+    def addr(self):
+        return select([Address.address]).where(Address.id == self.address_id)
 
 class Contract(db.Model):
     __tablename__ = 'contracts'

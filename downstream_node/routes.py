@@ -35,13 +35,13 @@ def api_index():
            defaults={'d': True})
 def api_downstream_status_list(d, sortby, limit, page):
     #try:
-        sort_map = {'id':Token.id,
-                    'address':Token.address,
+        sort_map = {'id':Token.farmer_id,
+                    'address':Token.addr,
                     'uptime':Token.uptime,
-                    'heartbeats':None,
+                    'heartbeats':Token.hbcount,
                     'iphash':Token.iphash,
-                    'contracts':None,
-                    'size':None,
+                    'contracts':Token.contract_count,
+                    'size':Token.size,
                     'online':Token.online}
         
         if (sortby not in sort_map):
@@ -54,28 +54,37 @@ def api_downstream_status_list(d, sortby, limit, page):
             sort_stmt = desc(sort_stmt)
         farmer_list = Token.query.order_by(sort_stmt).all()
         
-        farmers = list(
-            map(lambda x: {'id': x.farmer_id,
-                           'online': x.online,
-                           'uptime': round(x.uptime*100,2)},
-                           #'uptime': int((datetime.utcnow()-x.start).
-                           #              total_seconds())},
-                farmer_list))
+        farmers = list(map(lambda a: a.farmer_id,farmer_list))
 
-        return jsonify(d=d,
-                       sortby=sortby,
-                       limit=limit,
-                       page=page,
-                       farmers=farmers)
+        return jsonify(farmers=farmers)
     #except Exception as ex:
     #    resp = jsonify(status='error',
     #                   message=str(ex))
     #    resp.status_code = 500
     #   return resp
 
-@app.route('/api/downstream/status/show/<token_hash>')
-def api_downstream_status_show(token_hash):
-    pass
+@app.route('/api/downstream/status/show/<farmer_id>')
+def api_downstream_status_show(farmer_id):
+    #try:
+        a = Token.query.filter(Token.farmer_id == farmer_id).first()
+        
+        if (a is None):
+            raise RuntimeError('Nonexistant farmer id.')
+        
+        return jsonify(id=a.farmer_id,
+                       address=a.address.address,
+                       location=None,
+                       uptime=round(a.uptime*100,2),
+                       heartbeats=a.hbcount,
+                       iphash=a.iphash,
+                       contracts=a.contract_count,
+                       size=a.size,
+                       online=a.online)
+    #except Exception as ex:
+    #    resp = jsonify(status='error',
+    #                   message=str(ex))
+    #    resp.status_code = 500
+    #   return resp
 
 @app.route('/api/downstream/new/<sjcx_address>')
 def api_downstream_new_token(sjcx_address):
