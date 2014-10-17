@@ -23,7 +23,7 @@ __all__ = ['create_token',
            'update_contract']
 
 
-def create_token(sjcx_address):
+def create_token(sjcx_address, remote_addr):
     """Creates a token for the given address. For now, addresses will not be
     enforced, and anyone can acquire a token.
 
@@ -47,11 +47,23 @@ def create_token(sjcx_address):
         # raise RuntimeError(
         #    'Invalid address given: address must be in whitelist.')
 
+    db_token = Token.query.filter(Token.ip_address == remote_addr).all()
+    
+    #if (len(db_token) > 0):
+    #    raise RuntimeError('Cannot request more than one token per IP address.  Sorry.')
+        
     beat = app.config['HEARTBEAT']()
 
-    db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
+    token = os.urandom(16)
+    token_string = binascii.hexlify(token).decode('ascii')
+    token_hash = SHA256.new(token).hexdigest()[:20]    
+    
+    db_token = Token(token=token_string,
                      address_id=db_address.id,
-                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL))
+                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
+                     ip_address=remote_addr,
+                     farmer_id=token_hash,
+                     iphash=SHA256.new(remote_addr.encode()).hexdigest()[:32])
 
     db.session.add(db_token)
     db.session.commit()

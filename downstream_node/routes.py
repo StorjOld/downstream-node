@@ -6,44 +6,82 @@ import pickle
 
 from flask import jsonify, request
 
-from .startup import app
+from .startup import app, db
 from .lib import (create_token, get_chunk_contract,
                   verify_proof,  update_contract,
                   lookup_contract)
-from .models import Contract
+from .models import Contract, Token
 from datetime import datetime
-
+from sqlalchemy import select,desc
 
 @app.route('/')
 def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/status')
-def api_downstream_status():
-    try:
-        contracts = Contract.query.filter(Contract.expiration
-                                          > datetime.utcnow()).all()
-
+@app.route('/api/downstream/status/list',
+           defaults={'d': False, 'sortby': 'id', 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/by/<sortby>',
+           defaults={'d': False, 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/by/d/<sortby>',
+           defaults={'d': True, 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/by/<sortby>/<limit>',
+           defaults={'d': False, 'page': 0})
+@app.route('/api/downstream/status/list/by/d/<sortby>/<limit>',
+           defaults={'d': True, 'page': 0})
+@app.route('/api/downstream/status/list/by/<sortby>/<limit>/<page>',
+           defaults={'d': False})
+@app.route('/api/downstream/status/list/by/d/<sortby>/<limit>/<page>',
+           defaults={'d': True})
+def api_downstream_status_list(d, sortby, limit, page):
+    #try:
+        sort_map = {'id':Token.id,
+                    'address':Token.address,
+                    'uptime':Token.uptime,
+                    'heartbeats':None,
+                    'iphash':Token.iphash,
+                    'contracts':None,
+                    'size':None,
+                    'online':Token.online}
+        
+        if (sortby not in sort_map):
+            raise RuntimeError('Invalid sort')
+        
+        #contracts = Contract.query.filter(Contract.expiration
+        #                                  > datetime.utcnow()).all()
+        sort_stmt = sort_map[sortby]
+        if (d):
+            sort_stmt = desc(sort_stmt)
+        farmer_list = Token.query.order_by(sort_stmt).all()
+        
         farmers = list(
-            map(lambda x: {'id': x.id,
-                           'uptime': int((datetime.utcnow()-x.start).
-                                         total_seconds())},
-                contracts))
+            map(lambda x: {'id': x.farmer_id,
+                           'online': x.online,
+                           'uptime': round(x.uptime*100,2)},
+                           #'uptime': int((datetime.utcnow()-x.start).
+                           #              total_seconds())},
+                farmer_list))
 
-        return jsonify(farmers=farmers)
-    except Exception as ex:
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+        return jsonify(d=d,
+                       sortby=sortby,
+                       limit=limit,
+                       page=page,
+                       farmers=farmers)
+    #except Exception as ex:
+    #    resp = jsonify(status='error',
+    #                   message=str(ex))
+    #    resp.status_code = 500
+    #   return resp
 
+@app.route('/api/downstream/status/show/<token_hash>')
+def api_downstream_status_show(token_hash):
+    pass
 
 @app.route('/api/downstream/new/<sjcx_address>')
 def api_downstream_new_token(sjcx_address):
     # generate a new token
-    try:
-        db_token = create_token(sjcx_address)
+    try:      
+        db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,
