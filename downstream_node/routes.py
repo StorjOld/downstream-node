@@ -19,19 +19,23 @@ def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/status/list',
+@app.route('/api/downstream/status/list/',
            defaults={'d': False, 'sortby': 'id', 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/<int:limit>',
+           defaults={'d': False, 'sortby': 'id', 'page': None})
+@app.route('/api/downstream/status/list/<int:limit>/<int:page>',
+           defaults={'d': False, 'sortby': 'id'})
 @app.route('/api/downstream/status/list/by/<sortby>',
            defaults={'d': False, 'limit': None, 'page': None})
 @app.route('/api/downstream/status/list/by/d/<sortby>',
            defaults={'d': True, 'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/by/<sortby>/<limit>',
+@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>',
            defaults={'d': False, 'page': 0})
-@app.route('/api/downstream/status/list/by/d/<sortby>/<limit>',
+@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>',
            defaults={'d': True, 'page': 0})
-@app.route('/api/downstream/status/list/by/<sortby>/<limit>/<page>',
+@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>/<int:page>',
            defaults={'d': False})
-@app.route('/api/downstream/status/list/by/d/<sortby>/<limit>/<page>',
+@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
            defaults={'d': True})
 def api_downstream_status_list(d, sortby, limit, page):
     #try:
@@ -52,7 +56,16 @@ def api_downstream_status_list(d, sortby, limit, page):
         sort_stmt = sort_map[sortby]
         if (d):
             sort_stmt = desc(sort_stmt)
-        farmer_list = Token.query.order_by(sort_stmt).all()
+            
+        farmer_list_query = Token.query.order_by(sort_stmt)
+        
+        if (limit is not None):
+            farmer_list_query = farmer_list_query.limit(limit)
+        
+        if (page is not None):
+            farmer_list_query = farmer_list_query.offset(limit*page)
+        
+        farmer_list = farmer_list_query.all()
         
         farmers = list(map(lambda a: a.farmer_id,farmer_list))
 
