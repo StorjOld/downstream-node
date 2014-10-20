@@ -97,11 +97,11 @@ def api_downstream_status_show(farmer_id):
     #    resp.status_code = 500
     #   return resp
 
-@app.route('/api/downstream/new/<sjcx_address>')
+@app.route('/api/downstream/new/<sjcx_address>',defaults={'test_ip':None})
 @app.route('/api/downstream/new/<sjcx_address>/<test_ip>')
 def api_downstream_new_token(sjcx_address,test_ip):
     # generate a new token
-    #try:
+    try:
         if (test_ip is None):
             test_ip = request.remote_addr
         db_token = create_token(sjcx_address, test_ip)
@@ -110,11 +110,11 @@ def api_downstream_new_token(sjcx_address,test_ip):
         return jsonify(token=db_token.token,
                        type=type(beat).__name__,
                        heartbeat=pub_beat.todict())
-    #except Exception as ex:
-    #    resp = jsonify(status='error',
-    #                   message=str(ex))
-    #    resp.status_code = 500
-    #    return resp
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
 
 
 @app.route('/api/downstream/chunk/<token>')

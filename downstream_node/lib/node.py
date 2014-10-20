@@ -67,15 +67,15 @@ def create_token(sjcx_address, remote_addr):
     reader = maxminddb.Reader(app.config['MMDB_PATH'])
     mmloc = reader.get(remote_addr)
     if (mmloc is not None):
-        if (mmloc['country'] is not None):
+        if ('country' in mmloc):
             location['country'] = mmloc['country']['names']['en']
-        if (mmloc['subdivisions'] is not None):
+        if ('subdivisions' in mmloc):
             location['state'] = mmloc['subdivisions'][0]['names']['en']
-        if (mmloc['city'] is not None):
+        if ('city' in mmloc):
             location['city'] = mmloc['city']['names']['en']
-        if (mmloc['postal'] is not None):
+        if ('postal' in mmloc):
             location['zip'] = mmloc['postal']['code']
-        if (mmloc['location'] is not None):
+        if ('location' in mmloc):
             location['lat'] = mmloc['location']['latitude']
             location['lon'] = mmloc['location']['longitude']
     reader.close()
