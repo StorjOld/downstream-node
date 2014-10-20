@@ -59,7 +59,8 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-                reader.get.return_value = dict()
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -81,7 +82,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # assert that we can add any address
         with patch('downstream_node.routes.request') as request:
-            request.remote_addr = 'test.ip.address'
+            request.remote_addr = 'test.ip.address1'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
                 reader.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/1J29dwrT4UBkW6R8dq6qocBXQwHHzB2NHS')
@@ -90,7 +91,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # assert address has to be valid
         with patch('downstream_node.routes.request') as request:
-            request.remote_addr = 'test.ip.address'
+            request.remote_addr = 'test.ip.address2'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
                 reader.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/nonexistentaddress')
@@ -105,7 +106,8 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-                reader.get.return_value = dict()
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -162,7 +164,8 @@ class TestDownstreamRoutes(unittest.TestCase):
         
     def test_api_downstream_challenge(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value = dict()
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address')
         
         db_contract = node.get_chunk_contract(db_token.token)
@@ -195,7 +198,8 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-                reader.get.return_value = dict()
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -375,7 +379,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_create_token(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
             reader.get.return_value = dict()
-            db_token = node.create_token(self.test_address,'test.ip.address1')
+            db_token = node.create_token(self.test_address,'test.ip.address0')
         
         # verify that the info is in the database
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
@@ -395,7 +399,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             for l in [self.full_location, self.partial_location, self.no_location]:
                 reader.return_value = Mock()
                 reader.return_value.get.return_value = l
-                db_token = node.create_token(self.test_address,'test.ip.address2')
+                db_token = node.create_token(self.test_address,'test.ip.address1')
                 location = pickle.loads(db_token.location)
                 if ('country' in l):
                     self.assertEqual(location['country'],l['country']['names']['en'])
@@ -436,7 +440,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_delete_token(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader: 
             reader.get.return_value = self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            db_token = node.create_token(self.test_address,'test.ip.address2')
         
         t = db_token.token
         
@@ -473,8 +477,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # add some contracts for this file
         for j in range(0,3):
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-                reader.get.return_value=self.full_location
-                db_token = node.create_token(self.test_address,'test.ip.address')
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                db_token = node.create_token(self.test_address,'test.ip.address3.{0}'.format(j))
             
             beat = pickle.loads(db_token.heartbeat)
             
@@ -516,8 +521,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
     def test_get_chunk_contract(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value = self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address4')
         
         db_contract = node.get_chunk_contract(db_token.token)
         
@@ -545,8 +551,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db_file = node.add_file(self.testfile)
         
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value=self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address5')
 
         contract = models.Contract(token_id = db_token.id,
                                    file_id = db_file.id,
@@ -564,8 +571,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
     def test_verify_proof(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value=self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address6')
         
         db_contract = node.get_chunk_contract(db_token.token)
         
@@ -602,7 +610,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
             reader.get.return_value=self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            db_token = node.create_token(self.test_address,'test.ip.address7')
         
         # check nonexistent contract
         
@@ -616,7 +624,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # check expiration
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
             reader.get.return_value=self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address')
+            db_token = node.create_token(self.test_address,'test.ip.address8')
             
         beat = pickle.loads(db_token.heartbeat)
         
