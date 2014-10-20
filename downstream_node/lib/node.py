@@ -50,19 +50,20 @@ def create_token(sjcx_address, remote_addr):
         #    'Invalid address given: address must be in whitelist.')
 
     db_token = Token.query.filter(Token.ip_address == remote_addr).all()
-    
-    #if (len(db_token) > 0):
-    #    raise RuntimeError('Cannot request more than one token per IP address.  Sorry.')
-    
-    # this code may need to be rethought for scalability, but for now, we're going with
-    # just opening a reader each time we get a location
-    
-    location = {'country':None,
-                'state':None,
-                'city':None,
-                'zip':None,
-                'lat':None,
-                'lon':None}
+
+    if (len(db_token) > 0):
+        raise RuntimeError('Cannot request more than one token per IP address.'
+                           ' Sorry.')
+
+    # this code may need to be rethought for scalability, but for now,
+    # we're going with just opening a reader each time we get a location
+
+    location = {'country': None,
+                'state': None,
+                'city': None,
+                'zip': None,
+                'lat': None,
+                'lon': None}
 
     reader = maxminddb.Reader(app.config['MMDB_PATH'])
     mmloc = reader.get(remote_addr)
@@ -83,8 +84,8 @@ def create_token(sjcx_address, remote_addr):
 
     token = os.urandom(16)
     token_string = binascii.hexlify(token).decode('ascii')
-    token_hash = SHA256.new(token).hexdigest()[:20]    
-    
+    token_hash = SHA256.new(token).hexdigest()[:20]
+
     db_token = Token(token=token_string,
                      address_id=db_address.id,
                      heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),

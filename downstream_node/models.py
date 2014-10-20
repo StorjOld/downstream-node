@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from .startup import db
-from sqlalchemy import select,func,and_,Float,text
+from sqlalchemy import select, func, and_, Float, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import cast
-from Crypto.Hash import SHA256
 from datetime import datetime
 
 
@@ -47,48 +46,52 @@ class Token(db.Model):
 
     @hybrid_property
     def online(self):
-        return any(c.expiration>datetime.utcnow() for c in self.contracts)
-        
+        return any(c.expiration > datetime.utcnow() for c in self.contracts)
+
     @online.expression
     def online(self):
-        return exists().where(and_(Contract.expiration>datetime.utcnow(),
+        return exists().where(and_(Contract.expiration > datetime.utcnow(),
                                    Contract.token_id == self.id))
-    
+
     @hybrid_property
     def uptime(self):
-        # we want the sum of the uptimes of all the contracts divided by the sum of the total time of all the contracts
+        # we want the sum of the uptimes of all the contracts divided
+        # by the sum of the total time of all the contracts
         uptime = sum(c.uptime.total_seconds() for c in self.contracts)
         total = sum(c.totaltime.total_seconds() for c in self.contracts)
-        return float(uptime)/float(total) if total>0 else 0
-    
+        return float(uptime) / float(total) if total > 0 else 0
+
     @uptime.expression
     def uptime(self):
-        return select([cast(func.sum(Contract.uptime), Float)/cast(func.sum(Contract.totaltime), Float)]).\
-                where(Contract.token_id == self.id)
-                
+        return select([cast(func.sum(Contract.uptime), Float) /
+                       cast(func.sum(Contract.totaltime), Float)]).\
+            where(Contract.token_id == self.id)
+
     @hybrid_property
     def contract_count(self):
         return self.contracts.count()
-        
+
     @contract_count.expression
     def contract_count(self):
         return select([func.count()]).where(Contract.token_id == self.id)
-        
+
     @hybrid_property
     def size(self):
         return sum(c.size for c in self.contracts)
-        
+
     @size.expression
     def size(self):
-        return select([func.sum(Contract.size)]).where(Contract.token_id == self.id)
-    
+        return select([func.sum(Contract.size)]).\
+            where(Contract.token_id == self.id)
+
     @hybrid_property
     def addr(self):
         return self.address.address
-        
+
     @addr.expression
     def addr(self):
         return select([Address.address]).where(Address.id == self.address_id)
+
 
 class Contract(db.Model):
     __tablename__ = 'contracts'
@@ -126,16 +129,26 @@ class Contract(db.Model):
             return now-self.start
         else:
             return self.expiration-self.start
-            
+
     @uptime.expression
     def uptime(self):
+        # this code is MySQL specific.  if we switch to another database
+        # we will need to port this to another language, possibly.
         now = datetime.utcnow()
-        return func.IF(self.expiration > now, func.TIMESTAMPDIFF(text('SECOND'),now,self.start), func.TIMESTAMPDIFF(text('SECOND'),self.expiration,self.start))
-    
+        return func.IF(self.expiration > now,
+                       func.TIMESTAMPDIFF(text('SECOND'),
+                                          now,
+                                          self.start),
+                       func.TIMESTAMPDIFF(text('SECOND'),
+                                          self.expiration,
+                                          self.start))
+
     @hybrid_property
-    def totaltime(self):        
+    def totaltime(self):
         return datetime.utcnow() - self.start
-        
+
     @totaltime.expression
     def totaltime(self):
-        return func.TIMESTAMPDIFF(text('SECOND'),datetime.utcnow(),self.start)
+        return func.TIMESTAMPDIFF(text('SECOND'),
+                                  datetime.utcnow(),
+                                  self.start)

@@ -6,13 +6,13 @@ import pickle
 
 from flask import jsonify, request
 
-from .startup import app, db
+from .startup import app
 from .lib import (create_token, get_chunk_contract,
                   verify_proof,  update_contract,
                   lookup_contract)
-from .models import Contract, Token
-from datetime import datetime
-from sqlalchemy import select,desc
+from .models import Token
+from sqlalchemy import desc
+
 
 @app.route('/')
 def api_index():
@@ -38,15 +38,15 @@ def api_index():
 @app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
            defaults={'d': True})
 def api_downstream_status_list(d, sortby, limit, page):
-    #try:
-        sort_map = {'id':Token.farmer_id,
-                    'address':Token.addr,
-                    'uptime':Token.uptime,
-                    'heartbeats':Token.hbcount,
-                    'iphash':Token.iphash,
-                    'contracts':Token.contract_count,
-                    'size':Token.size,
-                    'online':Token.online}
+    try:
+        sort_map = {'id': Token.farmer_id,
+                    'address': Token.addr,
+                    'uptime': Token.uptime,
+                    'heartbeats': Token.hbcount,
+                    'iphash': Token.iphash,
+                    'contracts': Token.contract_count,
+                    'size': Token.size,
+                    'online': Token.online}
 
         if (sortby not in sort_map):
             raise RuntimeError('Invalid sort')
@@ -65,18 +65,19 @@ def api_downstream_status_list(d, sortby, limit, page):
 
         farmer_list = farmer_list_query.all()
 
-        farmers = list(map(lambda a: a.farmer_id,farmer_list))
+        farmers = list(map(lambda a: a.farmer_id, farmer_list))
 
         return jsonify(farmers=farmers)
-    #except Exception as ex:
-    #    resp = jsonify(status='error',
-    #                   message=str(ex))
-    #    resp.status_code = 500
-    #   return resp
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
+
 
 @app.route('/api/downstream/status/show/<farmer_id>')
 def api_downstream_status_show(farmer_id):
-    #try:
+    try:
         a = Token.query.filter(Token.farmer_id == farmer_id).first()
 
         if (a is None):
@@ -85,21 +86,22 @@ def api_downstream_status_show(farmer_id):
         return jsonify(id=a.farmer_id,
                        address=a.address.address,
                        location=pickle.loads(a.location),
-                       uptime=round(a.uptime*100,2),
+                       uptime=round(a.uptime*100, 2),
                        heartbeats=a.hbcount,
                        iphash=a.iphash,
                        contracts=a.contract_count,
                        size=a.size,
                        online=a.online)
-    #except Exception as ex:
-    #    resp = jsonify(status='error',
-    #                   message=str(ex))
-    #    resp.status_code = 500
-    #   return resp
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
 
-@app.route('/api/downstream/new/<sjcx_address>',defaults={'test_ip':None})
+
+@app.route('/api/downstream/new/<sjcx_address>', defaults={'test_ip': None})
 @app.route('/api/downstream/new/<sjcx_address>/<test_ip>')
-def api_downstream_new_token(sjcx_address,test_ip):
+def api_downstream_new_token(sjcx_address, test_ip):
     # generate a new token
     try:
         if (test_ip is None):
