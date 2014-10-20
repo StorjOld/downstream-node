@@ -39,6 +39,14 @@ mysql> grant all on downstream.* to 'downstream'@'localhost';
 mysql> flush privileges;
 ```
 
+It is necessary to pull in the IP lookup database from maxmind:
+
+```
+mkdir data && cd data
+curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
+gunzip GeoLite2-City.mmdb.gz
+cd ..
+```
 
 Edit the config with the appropriate details:
 
