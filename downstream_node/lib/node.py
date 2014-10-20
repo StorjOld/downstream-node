@@ -4,6 +4,8 @@ import os
 import pickle
 import binascii
 import base58
+import maxminddb
+
 from datetime import datetime, timedelta
 
 from Crypto.Hash import SHA256
@@ -23,7 +25,7 @@ __all__ = ['create_token',
            'update_contract']
 
 
-def create_token(sjcx_address):
+def create_token(sjcx_address, remote_addr):
     """Creates a token for the given address. For now, addresses will not be
     enforced, and anyone can acquire a token.
 
@@ -47,11 +49,50 @@ def create_token(sjcx_address):
         # raise RuntimeError(
         #    'Invalid address given: address must be in whitelist.')
 
+    db_token = Token.query.filter(Token.ip_address == remote_addr).all()
+
+    if (len(db_token) > 0):
+        raise RuntimeError('Cannot request more than one token per IP address.'
+                           ' Sorry.')
+
+    # this code may need to be rethought for scalability, but for now,
+    # we're going with just opening a reader each time we get a location
+
+    location = {'country': None,
+                'state': None,
+                'city': None,
+                'zip': None,
+                'lat': None,
+                'lon': None}
+
+    reader = maxminddb.Reader(app.config['MMDB_PATH'])
+    mmloc = reader.get(remote_addr)
+    if (mmloc is not None):
+        if ('country' in mmloc):
+            location['country'] = mmloc['country']['names']['en']
+        if ('subdivisions' in mmloc):
+            location['state'] = mmloc['subdivisions'][0]['names']['en']
+        if ('city' in mmloc):
+            location['city'] = mmloc['city']['names']['en']
+        if ('postal' in mmloc):
+            location['zip'] = mmloc['postal']['code']
+        if ('location' in mmloc):
+            location['lat'] = mmloc['location']['latitude']
+            location['lon'] = mmloc['location']['longitude']
+    reader.close()
     beat = app.config['HEARTBEAT']()
 
-    db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
+    token = os.urandom(16)
+    token_string = binascii.hexlify(token).decode('ascii')
+    token_hash = SHA256.new(token).hexdigest()[:20]
+
+    db_token = Token(token=token_string,
                      address_id=db_address.id,
-                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL))
+                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
+                     ip_address=remote_addr,
+                     farmer_id=token_hash,
+                     iphash=SHA256.new(remote_addr.encode()).hexdigest()[:32],
+                     location=pickle.dumps(location))
 
     db.session.add(db_token)
     db.session.commit()
@@ -313,7 +354,8 @@ def verify_proof(token, file_hash, proof):
 
     valid = beat.verify(proof, chal, state)
 
-    if (valid):
+    if (valid and not db_contract.answered):
+        db_contract.token.hbcount += 1
         db_contract.answered = True
         db.session.commit()
 

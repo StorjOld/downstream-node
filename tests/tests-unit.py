@@ -5,8 +5,10 @@ import os
 import pickle
 import unittest
 import io
+import base58
 
 import mock
+from mock import Mock, patch
 from datetime import datetime, timedelta
 
 import heartbeat
@@ -47,25 +49,19 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['msg'],'ok')
         
     def test_api_status(self):
-        db_token = node.create_token(self.test_address)
-        
-        db_contract = node.get_chunk_contract(db_token.token)
-    
-        r = self.app.get('/api/downstream/status')
+        r = self.app.get('/api/downstream/status/list/')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
-        
-    def test_api_status_error(self):
-        with mock.patch('flask_sqlalchemy.BaseQuery.filter') as patch:
-            patch.side_effect = RuntimeError('test error')
-            r = self.app.get('/api/downstream/status')
-            self.assertEqual(r.status_code, 500)
-            self.assertEqual(r.content_type, 'application/json')
 
     def test_api_downstream_new(self):
         
-        r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -85,12 +81,20 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
         
         # assert that we can add any address
-        r = self.app.get('/api/downstream/new/1J29dwrT4UBkW6R8dq6qocBXQwHHzB2NHS')
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address1'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/1J29dwrT4UBkW6R8dq6qocBXQwHHzB2NHS')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
         # assert address has to be valid
-        r = self.app.get('/api/downstream/new/nonexistentaddress')
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address2'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/nonexistentaddress')
         self.assertEqual(r.status_code, 500)
         self.assertEqual(r.content_type, 'application/json')
 
@@ -99,8 +103,12 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['message'],'Invalid address given.')
         
     def test_api_downstream_chunk(self):
-        
-        r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -155,7 +163,10 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['message'],'Invalid token given.')
         
     def test_api_downstream_challenge(self):
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address')
         
         db_contract = node.get_chunk_contract(db_token.token)
         
@@ -184,7 +195,12 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_answer(self):
-        r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -263,7 +279,92 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db.create_all()
         self.testfile = RandomIO().genfile(1000)
             
-        self.test_address = '13FfNS1wu6u7G9ZYQnyxYP1YRntEqAyEJJ'
+        self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
+        
+        self.full_location = {'postal': {'code': '95014'}, 
+                              'location': {'longitude': -122.0946, 
+                                           'metro_code': 807, 
+                                           'latitude': 37.3042, 
+                                           'time_zone':'America/Los_Angeles'}, 
+                              'registered_country': {'iso_code': 'US', 
+                                                     'geoname_id': 6252001, 
+                                                     'names': {'fr': '\xc9tats-Unis', 
+                                                               'de': 'USA', 
+                                                               'en': 'United States', 
+                                                               'es': 'Estados Unidos', 
+                                                               'pt-BR': 'Estados Unidos', 
+                                                               'ru': '\u0421\u0448\u0430', 
+                                                               'ja': '\u30a2\u30e1\u30ea\u30ab\u5408\u8846\u56fd', 
+                                                               'zh-CN': '\u7f8e\u56fd'}}, 
+                              'city': {'geoname_id': 5341145, 
+                                       'names': {'en':'Cupertino', 
+                                                 'ja': '\u30af\u30d1\u30c1\u30fc\u30ce', 
+                                                 'ru': '\u041a\u0443\u043f\u0435\u0440\u0442\u0438\u043d\u043e', 
+                                                 'fr': 'Cupertino', 'de': 'Cupertino'}}, 
+                              'continent': {'geoname_id': 6255149, 
+                                            'code': 'NA', 
+                                            'names': {'fr': 'Am\xe9rique du Nord', 
+                                                      'de': 'Nordamerika', 
+                                                      'en': 'North America', 
+                                                      'es': 'Norteam\xe9rica', 
+                                                      'pt-BR': 'Am\xe9rica do Norte', 
+                                                      'ru': '\u0421\u0435\u0432\u0435\u0440\u043d\u0430\u044f \u0410\u043c\u0435\u0440\u0438\u043a\u0430', 
+                                                      'ja': '\u5317\u30a2\u30e1\u30ea\u30ab',
+                                                      'zh-CN': '\u5317\u7f8e\u6d32'}}, 
+                              'country': {'iso_code': 'US', 
+                                          'geoname_id': 6252001, 
+                                          'names': {'fr': '\xc9tats-Unis', 
+                                                    'de': 'USA', 
+                                                    'en': 'United States', 
+                                                    'es': 'Estados Unidos', 
+                                                    'pt-BR': 'Estados Unidos', 
+                                                    'ru': '\u0421\u0448\u0430', 
+                                                    'ja': '\u30a2\u30e1\u30ea\u30ab\u5408\u8846\u56fd', 
+                                                    'zh-CN': '\u7f8e\u56fd'}}, 
+                              'subdivisions': [{'iso_code': 'CA', 
+                                                'geoname_id':5332921, 
+                                                'names': {'fr': 'Californie', 
+                                                          'de': 'Kalifornien', 
+                                                          'en': 'California', 
+                                                          'es': 'California', 
+                                                          'pt-BR': 'Calif\xf3rnia', 
+                                                          'ru': '\u041a\u0430\u043b\u0438\u0444\u043e\u0440\u043d\u0438\u044f', 
+                                                          'ja': '\u30ab\u30ea\u30d5\u30a9\u30eb\u30cb\u30a2\u5dde', 
+                                                          'zh-CN': '\u52a0\u5229\u798f\u5c3c\u4e9a\u5dde'}}]}
+        self.partial_location = {'continent': {'geoname_id': 6255151, 
+                                               'code': 'OC', 
+                                               'names': {'fr': 'Oc\xe9anie', 
+                                                         'de': 'Ozeanien', 
+                                                         'en': 'Oceania', 
+                                                         'es':'Ocean\xeda', 
+                                                         'pt-BR': 'Oceania', 
+                                                         'ru': '\u041e\u043a\u0435\u0430\u043d\u0438\u044f', 
+                                                         'ja': '\u30aa\u30bb\u30a2\u30cb\u30a2', 
+                                                         'zh-CN': '\u5927\u6d0b\u6d32'}}, 
+                                               'location': {'longitude': 133.0, 
+                                                            'latitude': -27.0}, 
+                                               'country': {'iso_code': 'AU', 
+                                                           'geoname_id': 2077456, 
+                                                           'names': {'fr': 'Australie', 
+                                                                     'de': 'Australien', 
+                                                                     'en': 'Australia', 
+                                                                     'es': 'Australia', 
+                                                                     'pt-BR': 'Austr\xe1lia', 
+                                                                     'ru': '\u0410\u0432\u0441\u0442\u0440\u0430\u043b\u0438\u044f', 
+                                                                     'ja': '\u30aa\u30fc\u30b9\u30c8\u30e9\u30ea\u30a2', 
+                                                                     'zh-CN': '\u6fb3\u5927\u5229\u4e9a'}}, 
+                                               'registered_country': {'iso_code': 'AU', 
+                                                                      'geoname_id': 2077456, 
+                                                                      'names': {'fr': 'Australie', 
+                                                                                'de': 'Australien', 
+                                                                                'en': 'Australia', 
+                                                                                'es': 'Australia', 
+                                                                                'pt-BR': 'Austr\xe1lia', 
+                                                                                'ru': '\u0410\u0432\u0441\u0442\u0440\u0430\u043b\u0438\u044f', 
+                                                                                'ja': '\u30aa\u30fc\u30b9\u30c8\u30e9\u30ea\u30a2', 
+                                                                                'zh-CN': '\u6fb3\u5927\u5229\u4e9a'}}}
+
+        self.no_location = dict()
         
         address = models.Address(address=self.test_address)
         db.session.add(address)
@@ -276,21 +377,70 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         pass
 
     def test_create_token(self):
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address0')
         
         # verify that the info is in the database
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
         
         self.assertIsInstance(pickle.loads(db_token.heartbeat),app.config['HEARTBEAT'])
         
+    def test_create_token_bad_address(self):
         # test random address
-        with self.assertRaises(RuntimeError) as ex:
-            db_token = node.create_token('randomaddress')
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            with self.assertRaises(RuntimeError) as ex:
+                db_token = node.create_token('randomaddress','test.ip.address')
         
         self.assertEqual(str(ex.exception),'Invalid address given.')
+        
+    def test_create_token_location(self):
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            for l in [self.full_location, self.partial_location, self.no_location]:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = l
+                db_token = node.create_token(self.test_address,'test.ip.address1')
+                location = pickle.loads(db_token.location)
+                if ('country' in l):
+                    self.assertEqual(location['country'],l['country']['names']['en'])
+                else:
+                    self.assertIsNone(location['country'])
+                if ('subdivisions' in l):
+                    self.assertEqual(location['state'],l['subdivisions'][0]['names']['en'])
+                else:
+                    self.assertIsNone(location['state'])
+                if ('city' in l):
+                    self.assertEqual(location['city'],l['city']['names']['en'])
+                else:
+                    self.assertIsNone(location['city'])
+                if ('location' in l):
+                    self.assertEqual(location['lat'],l['location']['latitude'])
+                    self.assertEqual(location['lon'],l['location']['longitude'])
+                else:
+                    self.assertIsNone(location['lat'])
+                    self.assertIsNone(location['lon'])
+                if ('postal' in l):
+                    self.assertEqual(location['zip'],l['postal']['code'])
+                else:
+                    self.assertIsNone(location['zip'])
+                node.delete_token(db_token.token)
 
+    def test_address_resolve(self):
+        db_token = node.create_token(self.test_address,'17.0.0.1')
+        
+        location = pickle.loads(db_token.location)
+        
+        self.assertEqual(location['country'],self.full_location['country']['names']['en'])
+        self.assertEqual(location['state'],self.full_location['subdivisions'][0]['names']['en'])
+        self.assertEqual(location['city'],self.full_location['city']['names']['en'])
+        self.assertEqual(location['zip'],self.full_location['postal']['code'])
+        self.assertEqual(location['lon'],self.full_location['location']['longitude'])
+        self.assertEqual(location['lat'],self.full_location['location']['latitude'])
+                    
     def test_delete_token(self):
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader: 
+            reader.get.return_value = self.full_location
+            db_token = node.create_token(self.test_address,'test.ip.address2')
         
         t = db_token.token
         
@@ -326,7 +476,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # add some contracts for this file
         for j in range(0,3):
-            db_token = node.create_token(self.test_address)
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                db_token = node.create_token(self.test_address,'test.ip.address3.{0}'.format(j))
             
             beat = pickle.loads(db_token.heartbeat)
             
@@ -367,7 +520,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'File does not exist.  Cannot remove non existant file')
         
     def test_get_chunk_contract(self):
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address4')
         
         db_contract = node.get_chunk_contract(db_token.token)
         
@@ -394,7 +550,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_update_contract_expired(self):
         db_file = node.add_file(self.testfile)
         
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address5')
 
         contract = models.Contract(token_id = db_token.id,
                                    file_id = db_file.id,
@@ -411,7 +570,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'Contract has expired.')
         
     def test_verify_proof(self):
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address6')
         
         db_contract = node.get_chunk_contract(db_token.token)
         
@@ -446,7 +608,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             
         self.assertEqual(str(ex.exception),'Invalid file hash')
         
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.get.return_value=self.full_location
+            db_token = node.create_token(self.test_address,'test.ip.address7')
         
         # check nonexistent contract
         
@@ -458,7 +622,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'Contract does not exist.')
         
         # check expiration
-        db_token = node.create_token(self.test_address)
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.get.return_value=self.full_location
+            db_token = node.create_token(self.test_address,'test.ip.address8')
             
         beat = pickle.loads(db_token.heartbeat)
         

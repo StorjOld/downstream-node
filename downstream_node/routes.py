@@ -10,8 +10,8 @@ from .startup import app
 from .lib import (create_token, get_chunk_contract,
                   verify_proof,  update_contract,
                   lookup_contract)
-from .models import Contract
-from datetime import datetime
+from .models import Token
+from sqlalchemy import desc
 
 
 @app.route('/')
@@ -19,17 +19,53 @@ def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/status')
-def api_downstream_status():
+@app.route('/api/downstream/status/list/',
+           defaults={'d': False, 'sortby': 'id', 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/<int:limit>',
+           defaults={'d': False, 'sortby': 'id', 'page': None})
+@app.route('/api/downstream/status/list/<int:limit>/<int:page>',
+           defaults={'d': False, 'sortby': 'id'})
+@app.route('/api/downstream/status/list/by/<sortby>',
+           defaults={'d': False, 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/by/d/<sortby>',
+           defaults={'d': True, 'limit': None, 'page': None})
+@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>',
+           defaults={'d': False, 'page': 0})
+@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>',
+           defaults={'d': True, 'page': 0})
+@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>/<int:page>',
+           defaults={'d': False})
+@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
+           defaults={'d': True})
+def api_downstream_status_list(d, sortby, limit, page):
     try:
-        contracts = Contract.query.filter(Contract.expiration
-                                          > datetime.utcnow()).all()
+        sort_map = {'id': Token.farmer_id,
+                    'address': Token.addr,
+                    'uptime': Token.uptime,
+                    'heartbeats': Token.hbcount,
+                    'iphash': Token.iphash,
+                    'contracts': Token.contract_count,
+                    'size': Token.size,
+                    'online': Token.online}
 
-        farmers = list(
-            map(lambda x: {'id': x.id,
-                           'uptime': int((datetime.utcnow()-x.start).
-                                         total_seconds())},
-                contracts))
+        if (sortby not in sort_map):
+            raise RuntimeError('Invalid sort')
+
+        sort_stmt = sort_map[sortby]
+        if (d):
+            sort_stmt = desc(sort_stmt)
+
+        farmer_list_query = Token.query.order_by(sort_stmt)
+
+        if (limit is not None):
+            farmer_list_query = farmer_list_query.limit(limit)
+
+        if (page is not None):
+            farmer_list_query = farmer_list_query.offset(limit*page)
+
+        farmer_list = farmer_list_query.all()
+
+        farmers = list(map(lambda a: a.farmer_id, farmer_list))
 
         return jsonify(farmers=farmers)
     except Exception as ex:
@@ -39,11 +75,38 @@ def api_downstream_status():
         return resp
 
 
-@app.route('/api/downstream/new/<sjcx_address>')
-def api_downstream_new_token(sjcx_address):
+@app.route('/api/downstream/status/show/<farmer_id>')
+def api_downstream_status_show(farmer_id):
+    try:
+        a = Token.query.filter(Token.farmer_id == farmer_id).first()
+
+        if (a is None):
+            raise RuntimeError('Nonexistant farmer id.')
+
+        return jsonify(id=a.farmer_id,
+                       address=a.address.address,
+                       location=pickle.loads(a.location),
+                       uptime=round(a.uptime*100, 2),
+                       heartbeats=a.hbcount,
+                       iphash=a.iphash,
+                       contracts=a.contract_count,
+                       size=a.size,
+                       online=a.online)
+    except Exception as ex:
+        resp = jsonify(status='error',
+                       message=str(ex))
+        resp.status_code = 500
+        return resp
+
+
+@app.route('/api/downstream/new/<sjcx_address>', defaults={'test_ip': None})
+@app.route('/api/downstream/new/<sjcx_address>/<test_ip>')
+def api_downstream_new_token(sjcx_address, test_ip):
     # generate a new token
     try:
-        db_token = create_token(sjcx_address)
+        if (test_ip is None):
+            test_ip = request.remote_addr
+        db_token = create_token(sjcx_address, test_ip)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,

@@ -9,7 +9,7 @@ import argparse
 from downstream_node.startup import app, db
 
 
-def initdb():
+def initdb():   
     db.create_all()
 
 

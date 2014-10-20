@@ -11,13 +11,13 @@ install_requires = [
     'flask-sqlalchemy',
     'RandomIO',
     'storj-heartbeat',
-    'base58'
+    'base58',
+    'maxminddb'
 ]
 
-# Requirements for Python 2
 if sys.version_info < (3,):
     extras = [
-        'mysql-python',
+        'ipaddr',
     ]
     install_requires.extend(extras)
 
