@@ -257,8 +257,8 @@ And then the individual farmer information can be retrieved with:
 {
       "id": "45bd945fa10e3f059834",
       "address": "18d6KhnTg9dM9jtb1MWXdbibu3Pwt1QHQt",
-      "location": {"name": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zipcode": "", "state": "Jerusalem District", "lat": 31.78199},
-      "uptime": 0.96015,
+      "location": {"city": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zip": "", "state": "Jerusalem District", "lat": 31.78199},
+      "uptime": 96.015,
       "heartbeats": 241,
       "iphash": "d55529c83953e218cc58",
       "contracts": 2,
@@ -271,4 +271,4 @@ Planning on making the id the first 20 characters of the hex representation of t
 
 Will probably cache the farmer list on the server side to improve performance.
 
-Currently planning on using geodis or GeoIP for geographic resolution.
+This product includes GeoLite2 data created by MaxMind, available from [http://www.maxmind.com](http://www.maxmind.com).
