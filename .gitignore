@@ -39,6 +39,9 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
+# Data directory
+data/
+
 # Translations
 *.mo
 *.pot

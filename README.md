@@ -249,7 +249,7 @@ And then the individual farmer information can be retrieved with:
 {
       "id": "45bd945fa10e3f059834",
       "address": "18d6KhnTg9dM9jtb1MWXdbibu3Pwt1QHQt",
-      "location": {"name": "West Jerusalem", "country": "Israel", "lon": "35.21961", "zipcode": "", "state": "Jerusalem District", "lat": "31.78199"},
+      "location": {"name": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zipcode": "", "state": "Jerusalem District", "lat": 31.78199},
       "uptime": 0.96015,
       "heartbeats": 241,
       "iphash": "d55529c83953e218cc58",

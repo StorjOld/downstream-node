@@ -11,8 +11,15 @@ install_requires = [
     'flask-sqlalchemy',
     'RandomIO',
     'storj-heartbeat',
-    'base58'
+    'base58',
+    'maxminddb'
 ]
+
+if sys.version_info < (3,):
+    extras = [
+        'ipaddr',
+    ]
+    install_requires.extend(extras)
 
 setup(
     name='downstream-node',

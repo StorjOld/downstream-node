@@ -38,6 +38,7 @@ class Token(db.Model):
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     iphash = db.Column(db.String(32), nullable=False, unique=False)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
+    location = db.Column(db.LargeBinary())
 
     address = db.relationship('Address',
                               backref=db.backref('tokens',

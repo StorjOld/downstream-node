@@ -4,6 +4,8 @@ import os
 import pickle
 import binascii
 import base58
+import maxminddb
+
 from datetime import datetime, timedelta
 
 from Crypto.Hash import SHA256
@@ -51,7 +53,32 @@ def create_token(sjcx_address, remote_addr):
     
     #if (len(db_token) > 0):
     #    raise RuntimeError('Cannot request more than one token per IP address.  Sorry.')
-        
+    
+    # this code may need to be rethought for scalability, but for now, we're going with
+    # just opening a reader each time we get a location
+    
+    location = {'country':None,
+                'state':None,
+                'city':None,
+                'zip':None,
+                'lat':None,
+                'lon':None}
+
+    reader = maxminddb.Reader(app.config['MMDB_PATH'])
+    mmloc = reader.get(remote_addr)
+    if (mmloc is not None):
+        if (mmloc['country'] is not None):
+            location['country'] = mmloc['country']['names']['en']
+        if (mmloc['subdivisions'] is not None):
+            location['state'] = mmloc['subdivisions'][0]['names']['en']
+        if (mmloc['city'] is not None):
+            location['city'] = mmloc['city']['names']['en']
+        if (mmloc['postal'] is not None):
+            location['zip'] = mmloc['postal']['code']
+        if (mmloc['location'] is not None):
+            location['lat'] = mmloc['location']['latitude']
+            location['lon'] = mmloc['location']['longitude']
+    reader.close()
     beat = app.config['HEARTBEAT']()
 
     token = os.urandom(16)
@@ -63,7 +90,8 @@ def create_token(sjcx_address, remote_addr):
                      heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
                      ip_address=remote_addr,
                      farmer_id=token_hash,
-                     iphash=SHA256.new(remote_addr.encode()).hexdigest()[:32])
+                     iphash=SHA256.new(remote_addr.encode()).hexdigest()[:32],
+                     location=pickle.dumps(location))
 
     db.session.add(db_token)
     db.session.commit()
