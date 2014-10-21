@@ -12,7 +12,7 @@ from .lib import (create_token, get_chunk_contract,
                   lookup_contract)
 from .models import Token
 from sqlalchemy import desc
-
+from .exc import InvalidParameterError, NotFoundError, HttpHandler
 
 @app.route('/')
 def api_index():
@@ -38,7 +38,7 @@ def api_index():
 @app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
            defaults={'d': True})
 def api_downstream_status_list(d, sortby, limit, page):
-    try:
+    with HttpHandler() as handler:
         sort_map = {'id': Token.farmer_id,
                     'address': Token.addr,
                     'uptime': Token.uptime,
@@ -49,7 +49,7 @@ def api_downstream_status_list(d, sortby, limit, page):
                     'online': Token.online}
 
         if (sortby not in sort_map):
-            raise RuntimeError('Invalid sort')
+            raise InvalidParameterError('Invalid sort')
 
         sort_stmt = sort_map[sortby]
         if (d):
@@ -68,20 +68,17 @@ def api_downstream_status_list(d, sortby, limit, page):
         farmers = list(map(lambda a: a.farmer_id, farmer_list))
 
         return jsonify(farmers=farmers)
-    except Exception as ex:
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+
+    return handler.response
 
 
 @app.route('/api/downstream/status/show/<farmer_id>')
 def api_downstream_status_show(farmer_id):
-    try:
+    with HttpHandler() as handler:
         a = Token.query.filter(Token.farmer_id == farmer_id).first()
 
         if (a is None):
-            raise RuntimeError('Nonexistant farmer id.')
+            raise NotFoundError('Nonexistant farmer id.')
 
         return jsonify(id=a.farmer_id,
                        address=a.addr,
@@ -92,33 +89,27 @@ def api_downstream_status_show(farmer_id):
                        contracts=a.contract_count,
                        size=a.size,
                        online=a.online)
-    except Exception as ex:
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+    
+    return handler.response
 
 
 @app.route('/api/downstream/new/<sjcx_address>')
 def api_downstream_new_token(sjcx_address):
     # generate a new token
-    try:
+    with HttpHandler() as handler:
         db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,
                        type=type(beat).__name__,
                        heartbeat=pub_beat.todict())
-    except Exception as ex:
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+
+    return handler.response
 
 
 @app.route('/api/downstream/chunk/<token>')
 def api_downstream_chunk_contract(token):
-    try:
+    with HttpHandler() as handler:
         db_contract = get_chunk_contract(token)
 
         with open(db_contract.tag_path, 'rb') as f:
@@ -136,39 +127,32 @@ def api_downstream_chunk_contract(token):
                        tag=tag.todict(),
                        expiration=db_contract.expiration.isoformat())
 
-    except Exception as ex:
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+    return handler.response
 
 
 @app.route('/api/downstream/challenge/<token>/<file_hash>')
 def api_downstream_chunk_contract_status(token, file_hash):
     """For prototyping, this will generate a new challenge
     """
-    try:
+    with HttpHandler() as handler:
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
                        expiration=db_contract.expiration.isoformat())
 
-    except Exception as ex:
-        print(ex)
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+    
+    return handler.response
 
 
 @app.route('/api/downstream/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
-    try:
+    with HttpHandler() as handler:
         d = request.get_json(silent=True)
 
         if (dict is False or not isinstance(d, dict) or 'proof' not in d):
-            raise RuntimeError('Posted data must be an JSON encoded \
-proof object: {"proof":"...proof object..."}')
+            raise InvalidParameterError('Posted data must be an JSON encoded '
+                                        'proof object: '
+                                        '{"proof":"...proof object..."}')
 
         db_contract = lookup_contract(token, file_hash)
 
@@ -177,16 +161,11 @@ proof object: {"proof":"...proof object..."}')
         try:
             proof = beat.proof_type().fromdict(d['proof'])
         except:
-            raise RuntimeError('Proof corrupted.')
+            raise InvalidParameterError('Proof corrupted.')
 
         if (not verify_proof(token, file_hash, proof)):
-            raise RuntimeError('Invalid proof, or proof expired.')
+            raise InvalidParameterError('Invalid proof, or proof expired.')
 
         return jsonify(status='ok')
 
-    except Exception as ex:
-        print(ex)
-        resp = jsonify(status='error',
-                       message=str(ex))
-        resp.status_code = 500
-        return resp
+    return handler.response

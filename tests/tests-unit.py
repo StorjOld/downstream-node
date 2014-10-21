@@ -17,6 +17,7 @@ from downstream_node.startup import app, db
 from downstream_node import models
 from downstream_node.lib import node
 from downstream_node.config import config
+from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
 
 class TestDownstreamRoutes(unittest.TestCase):
@@ -89,7 +90,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
                 reader.get.return_value = dict()
                 r = self.app.get('/api/downstream/new/nonexistentaddress')
-        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
 
         r_json = json.loads(r.data.decode('utf-8'))
@@ -149,7 +150,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # and also check error code
         r = self.app.get('/api/downstream/chunk/invalidtoken')
-        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
 
         r_json = json.loads(r.data.decode('utf-8'))
@@ -185,7 +186,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # test invalid token or hash
         r = self.app.get('/api/downstream/challenge/invalid_token/invalid_hash')
-        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_answer(self):
@@ -235,7 +236,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
                           data=json.dumps({"proof":proof.todict()}),
                           content_type='application/json')
-        self.assertEqual(r.status_code,500)
+        self.assertEqual(r.status_code,400)
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -247,7 +248,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
                           data=json.dumps({"proof":"invalid proof object"}),
                           content_type='application/json')
-        self.assertEqual(r.status_code,500)
+        self.assertEqual(r.status_code,400)
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -259,7 +260,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
                           data=json.dumps("invalid proof object"),
                           content_type='application/json')
-        self.assertEqual(r.status_code,500)
+        self.assertEqual(r.status_code,400)
 
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -372,7 +373,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
     def test_api_status_list_invalid_sort(self):
         r = self.app.get('/api/downstream/status/list/by/invalid.sort')
         
-        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -459,7 +460,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
     def test_api_status_show_invalid_id(self):
         r = self.app.get('/api/downstream/status/show/invalidfarmer')
         
-        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.status_code, 404)
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -594,7 +595,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_create_token_bad_address(self):
         # test random address
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            with self.assertRaises(RuntimeError) as ex:
+            with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token('randomaddress','test.ip.address')
         
         self.assertEqual(str(ex.exception),'Invalid address given.')
@@ -635,7 +636,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             reader.return_value = Mock()
             reader.return_value.get.return_value = dict()
             db_token = node.create_token(self.test_address,'duplicate')
-            with self.assertRaises(RuntimeError) as ex:
+            with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token(self.test_address,'duplicate')
             self.assertEqual(str(ex.exception),'Cannot request more than one token per IP address. Sorry.')
 
@@ -664,7 +665,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         self.assertIsNone(db_token)
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.delete_token('nonexistent token')
             
         self.assertEqual(str(ex.exception),'Invalid token given. Token does not exist.')
@@ -728,7 +729,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(len(db_contracts),0)
     
     def test_remove_file_nonexistant(self):
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.remove_file('nonexsistant hash')
             
         self.assertEqual(str(ex.exception),'File does not exist.  Cannot remove non existant file')
@@ -756,7 +757,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # remove tag
         os.remove(db_contract.tag_path)
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.get_chunk_contract('nonexistent token')
         
         self.assertEqual(str(ex.exception),'Invalid token given.')
@@ -778,7 +779,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db.session.add(contract)
         db.session.commit()
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.update_contract(db_token.token, db_file.hash)
             
         self.assertEqual(str(ex.exception),'Contract has expired.')
@@ -807,7 +808,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
         # check nonexistent token
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof('invalid token',db_contract.file.hash,proof)
             
         self.assertEqual(str(ex.exception),'Invalid token')
@@ -817,7 +818,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # check nonexistent file
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof(db_token.token,'invalid file hash',proof)
             
         self.assertEqual(str(ex.exception),'Invalid file hash')
@@ -830,7 +831,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         db_file = node.add_file(self.testfile)
         
-        with self.assertRaises(RuntimeError) as ex:
+        with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof(db_token.token,db_file.hash,proof)
             
         self.assertEqual(str(ex.exception),'Contract does not exist.')
@@ -881,6 +882,14 @@ class TestDownstreamUtils(unittest.TestCase):
         os.remove(self.testfile)
         del self.app
 
+class TestDownstreamException(unittest.TestCase):
+    def test_general_exception(self):
+        with patch('downstream_node.exc.jsonify') as mock:
+            with HttpHandler() as handler:
+                raise Exception('test exception')
+        mock.assert_called_with(status='error',
+                                message='Internal Server Error')
+        self.assertEqual(handler.response.status_code,500)
 
 if __name__ == '__main__':
     unittest.main()
