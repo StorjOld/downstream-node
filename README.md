@@ -8,7 +8,7 @@ Currently running on [http://verify.driveshare.org](http://driveshare.org). You 
 
 ## What is this I don't even?
 
-`downstream-node` is the server to [downstream-farmer](https://github.com/Storj/downstream-farmer).  Yep, it a client/server relationship. `downstream-node` requires MySQL and a working config.
+`downstream-node` is the server to [downstream-farmer](https://github.com/Storj/downstream-farmer).  Yep, it's a client/server relationship. `downstream-node` requires MySQL and a working config.
 
 *The implied first step is to download and install MySQL server.*  For example, on Ubuntu:
 
