@@ -638,7 +638,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             db_token = node.create_token(self.test_address,'duplicate')
             with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token(self.test_address,'duplicate')
-            self.assertEqual(str(ex.exception),'Cannot request more than one token per IP address. Sorry.')
+            self.assertEqual(str(ex.exception),'Cannot request more than one token per IP address. Waahh wahhh.')
 
     def test_address_resolve(self):
         db_token = node.create_token(self.test_address,'17.0.0.1')
