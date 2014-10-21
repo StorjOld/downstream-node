@@ -1,16 +1,19 @@
 from flask import jsonify
 
+
 class NotFoundError(Exception):
     pass
-    
+
+
 class InvalidParameterError(Exception):
     pass
+
 
 class HttpHandler(object):
     def __enter__(self):
         self.response = None
         return self
-    
+
     def __exit__(self, type, value, traceback):
         if (type is NotFoundError):
             self.response = jsonify(status='error',

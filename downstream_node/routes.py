@@ -14,6 +14,7 @@ from .models import Token
 from sqlalchemy import desc
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 
+
 @app.route('/')
 def api_index():
     return jsonify(msg='ok')
@@ -89,7 +90,7 @@ def api_downstream_status_show(farmer_id):
                        contracts=a.contract_count,
                        size=a.size,
                        online=a.online)
-    
+
     return handler.response
 
 
@@ -140,7 +141,6 @@ def api_downstream_chunk_contract_status(token, file_hash):
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
                        expiration=db_contract.expiration.isoformat())
 
-    
     return handler.response
 
 

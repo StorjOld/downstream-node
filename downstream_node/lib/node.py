@@ -14,7 +14,7 @@ from ..models import Address, Token, File, Contract
 
 from RandomIO import RandomIO
 from ..startup import db, app
-from ..exc import NotFoundError, InvalidParameterError
+from ..exc import InvalidParameterError
 
 __all__ = ['create_token',
            'delete_token',
@@ -53,8 +53,8 @@ def create_token(sjcx_address, remote_addr):
     db_token = Token.query.filter(Token.ip_address == remote_addr).all()
 
     if (len(db_token) > 0):
-        raise InvalidParameterError('Cannot request more than one token per IP address.'
-                                    ' Sorry.')
+        raise InvalidParameterError('Cannot request more than one token '
+                                    'per IP address. Waahh wahhh.')
 
     # this code may need to be rethought for scalability, but for now,
     # we're going with just opening a reader each time we get a location
@@ -110,7 +110,8 @@ def delete_token(token):
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise InvalidParameterError('Invalid token given. Token does not exist.')
+        raise InvalidParameterError('Invalid token given. '
+                                    'Token does not exist.')
 
     db.session.delete(db_token)
     db.session.commit()
