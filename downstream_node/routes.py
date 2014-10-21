@@ -84,7 +84,7 @@ def api_downstream_status_show(farmer_id):
             raise RuntimeError('Nonexistant farmer id.')
 
         return jsonify(id=a.farmer_id,
-                       address=a.address.address,
+                       address=a.addr,
                        location=pickle.loads(a.location),
                        uptime=round(a.uptime*100, 2),
                        heartbeats=a.hbcount,
@@ -99,14 +99,11 @@ def api_downstream_status_show(farmer_id):
         return resp
 
 
-@app.route('/api/downstream/new/<sjcx_address>', defaults={'test_ip': None})
-@app.route('/api/downstream/new/<sjcx_address>/<test_ip>')
-def api_downstream_new_token(sjcx_address, test_ip):
+@app.route('/api/downstream/new/<sjcx_address>')
+def api_downstream_new_token(sjcx_address):
     # generate a new token
     try:
-        if (test_ip is None):
-            test_ip = request.remote_addr
-        db_token = create_token(sjcx_address, test_ip)
+        db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,

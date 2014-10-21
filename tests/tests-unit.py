@@ -335,7 +335,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag1',
                              start=datetime.utcnow()-timedelta(seconds=60),
-                             expiration=datetime.utcnow()+timedelta(seconds=60),
+                             expiration=datetime.utcnow()-timedelta(seconds=1),
                              answered=False,
                              seed='0',
                              size=100)
@@ -467,14 +467,14 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['message'],'Nonexistant farmer id.')
         
     def test_api_status_show(self):
-        r = self.app.get('/api/downstream/status/show/0')
+        r = self.app.get('/api/downstream/status/show/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['id'],'0')
+        self.assertEqual(r_json['id'],'1')
         
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
