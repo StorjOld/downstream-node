@@ -47,12 +47,6 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
         
         self.assertEqual(r_json['msg'],'ok')
-        
-    def test_api_status(self):
-        r = self.app.get('/api/downstream/status/list/')
-        
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.content_type, 'application/json')
 
     def test_api_downstream_new(self):
         
@@ -273,6 +267,216 @@ class TestDownstreamRoutes(unittest.TestCase):
 proof object: {"proof":"...proof object..."}')
 
 
+class TestDownstreamNodeStatus(unittest.TestCase):
+    def setUp(self):
+        self.app = app.test_client()
+        app.config['TESTING'] = True
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
+        db.create_all()
+        
+        a0 = models.Address(address='0')
+        a1 = models.Address(address='1')
+        db.session.add(a0)
+        db.session.add(a1)
+        db.session.commit()
+        
+        t0 = models.Token(token='0',
+                          address_id=a0.id,
+                          heartbeat=b'',
+                          ip_address='0',
+                          farmer_id='0',
+                          iphash='0',
+                          hbcount=0,
+                          location=pickle.dumps(None))
+        t1 = models.Token(token='1',
+                          address_id=a1.id,
+                          heartbeat=b'',
+                          ip_address='1',
+                          farmer_id='1',
+                          iphash='1',
+                          hbcount=1,
+                          location=pickle.dumps(None))
+        db.session.add(t0)
+        db.session.add(t1)
+        db.session.commit()
+        
+        f0 = models.File(hash='0',
+                         path='file0',
+                         redundancy=1,
+                         interval=60,
+                         added=datetime.utcnow())
+        f1 = models.File(hash='1',
+                         path='file1',
+                         redundancy=1,
+                         interval=60,
+                         added=datetime.utcnow())
+        f2 = models.File(hash='2',
+                         path='file2',
+                         redundancy=1,
+                         interval=60,
+                         added=datetime.utcnow())
+        db.session.add(f0)
+        db.session.add(f1)
+        db.session.commit()
+        
+        c0 = models.Contract(token_id=t0.id,
+                             file_id=f0.id,
+                             state=b'',
+                             challenge=b'',
+                             tag_path='tag0',
+                             start=datetime.utcnow()-timedelta(minutes=20,seconds=60),
+                             expiration=datetime.utcnow()-timedelta(minutes=20),
+                             answered=False,
+                             seed='0',
+                             size=50)
+        c1 = models.Contract(token_id=t1.id,
+                             file_id=f1.id,
+                             state=b'',
+                             challenge=b'',
+                             tag_path='tag1',
+                             start=datetime.utcnow()-timedelta(seconds=60),
+                             expiration=datetime.utcnow()+timedelta(seconds=60),
+                             answered=False,
+                             seed='0',
+                             size=100)
+        c2 = models.Contract(token_id=t1.id,
+                             file_id=f2.id,
+                             state=b'',
+                             challenge=b'',
+                             tag_path='tag2',
+                             start=datetime.utcnow()-timedelta(seconds=60),
+                             expiration=datetime.utcnow()+timedelta(seconds=60),
+                             answered=False,
+                             seed='0',
+                             size=150)
+        db.session.add(c0)
+        db.session.add(c1)
+        db.session.add(c2)
+        db.session.commit()
+        
+    def tearDown(self):
+        db.session.close()
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
+       
+    def test_api_status_list(self):
+        r = self.app.get('/api/downstream/status/list/')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['farmers'][0],'0')
+        self.assertEqual(r_json['farmers'][1],'1')
+
+    def test_api_status_list_invalid_sort(self):
+        r = self.app.get('/api/downstream/status/list/by/invalid.sort')
+        
+        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.content_type,'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+
+        self.assertEqual(r_json['message'],'Invalid sort')
+
+    def test_api_status_list_limit(self):
+        r = self.app.get('/api/downstream/status/list/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0],'0')
+        
+    def test_api_status_list_limit_page(self):
+        r = self.app.get('/api/downstream/status/list/1/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0],'1')
+        
+    
+        
+    def test_api_status_list_by_farmer_id(self):
+        r = self.app.get('/api/downstream/status/list/by/d/id')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['farmers'][0],'1')
+        self.assertEqual(r_json['farmers'][1],'0')
+
+    def generic_list_by(self, string):
+        r = self.app.get('/api/downstream/status/list/by/{0}'.format(string))
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['farmers'][0],'0')
+        self.assertEqual(r_json['farmers'][1],'1')
+        
+        r = self.app.get('/api/downstream/status/list/by/d/{0}'.format(string))
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['farmers'][0],'1')
+        self.assertEqual(r_json['farmers'][1],'0')
+        
+    def test_api_status_list_by_address(self):
+        self.generic_list_by('address')
+        
+    def test_api_status_list_by_uptime(self):
+        self.generic_list_by('uptime')
+        
+    def test_api_status_list_by_heartbeats(self):
+        self.generic_list_by('heartbeats')
+    
+    def test_api_status_list_by_iphash(self):
+        pass
+    
+    def test_api_status_list_by_contracts(self):
+        self.generic_list_by('contracts')
+        
+    def test_api_status_list_by_size(self):
+        self.generic_list_by('size')
+        
+    def test_api_status_list_by_online(self):
+        self.generic_list_by('online')
+
+    def test_api_status_show_invalid_id(self):
+        r = self.app.get('/api/downstream/status/show/invalidfarmer')
+        
+        self.assertEqual(r.status_code, 500)
+        self.assertEqual(r.content_type,'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+
+        self.assertEqual(r_json['message'],'Nonexistant farmer id.')
+        
+    def test_api_status_show(self):
+        r = self.app.get('/api/downstream/status/show/0')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['id'],'0')
+        
+
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
         db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
@@ -378,7 +582,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
     def test_create_token(self):
         with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value = dict()
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address0')
         
         # verify that the info is in the database
@@ -424,6 +629,15 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                 else:
                     self.assertIsNone(location['zip'])
                 node.delete_token(db_token.token)
+
+    def test_create_token_duplicate_id(self):
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+            reader.return_value = Mock()
+            reader.return_value.get.return_value = dict()
+            db_token = node.create_token(self.test_address,'duplicate')
+            with self.assertRaises(RuntimeError) as ex:
+                db_token = node.create_token(self.test_address,'duplicate')
+            self.assertEqual(str(ex.exception),'Cannot request more than one token per IP address. Sorry.')
 
     def test_address_resolve(self):
         db_token = node.create_token(self.test_address,'17.0.0.1')
