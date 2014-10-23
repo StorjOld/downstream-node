@@ -135,7 +135,7 @@ def api_downstream_chunk_contract(token):
                        file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
-                       expiration=db_contract.expiration.isoformat())
+                       due=db_contract.due.isoformat())
 
     return handler.response
 
@@ -148,7 +148,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
-                       expiration=db_contract.expiration.isoformat())
+                       due=db_contract.due.isoformat())
 
     return handler.response
 

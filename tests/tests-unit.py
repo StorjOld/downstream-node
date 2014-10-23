@@ -180,7 +180,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         db_contract = node.lookup_contract(token, hash)
         
         self.assertEqual(challenge,pickle.loads(db_contract.challenge))
-        self.assertEqual(datetime.strptime(r_json['expiration'],'%Y-%m-%dT%H:%M:%S'),db_contract.expiration)
+        self.assertEqual(datetime.strptime(r_json['due'],'%Y-%m-%dT%H:%M:%S'),db_contract.due)
         
         os.remove(db_contract.file.path)
         
@@ -318,6 +318,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                          added=datetime.utcnow())
         db.session.add(f0)
         db.session.add(f1)
+        db.session.add(f2)
         db.session.commit()
         
         c0 = models.Contract(token_id=t0.id,
@@ -326,7 +327,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag0',
                              start=datetime.utcnow()-timedelta(minutes=20,seconds=60),
-                             expiration=datetime.utcnow()-timedelta(minutes=20),
+                             due=datetime.utcnow()-timedelta(minutes=20),
                              answered=False,
                              seed='0',
                              size=50)
@@ -336,7 +337,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag1',
                              start=datetime.utcnow()-timedelta(seconds=60),
-                             expiration=datetime.utcnow()-timedelta(seconds=1),
+                             due=datetime.utcnow()-timedelta(seconds=1),
                              answered=False,
                              seed='0',
                              size=100)
@@ -346,14 +347,14 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag2',
                              start=datetime.utcnow()-timedelta(seconds=60),
-                             expiration=datetime.utcnow()+timedelta(seconds=60),
+                             due=datetime.utcnow()+timedelta(seconds=60),
                              answered=False,
                              seed='0',
                              size=150)
         db.session.add(c0)
         db.session.add(c1)
-        db.session.add(c2)
-        db.session.commit()
+        db.session.add(c2)        
+        db.session.commit()     
         
     def tearDown(self):
         db.session.close()
@@ -401,8 +402,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         self.assertEqual(len(r_json['farmers']),1)
         self.assertEqual(r_json['farmers'][0]['id'],'1')
-        
-    
+
         
     def test_api_status_list_by_farmer_id(self):
         r = self.app.get('/api/downstream/status/list/by/d/id')
@@ -707,7 +707,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                                        file_id = db_file.id,
                                        state = pickle.dumps(state),
                                        challenge = pickle.dumps(chal),
-                                       expiration = datetime.utcnow() + timedelta(seconds = db_file.interval))
+                                       due = datetime.utcnow() + timedelta(seconds = db_file.interval))
                                  
             db.session.add(contract)
             db.session.commit()
@@ -774,7 +774,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                                    file_id = db_file.id,
                                    state = pickle.dumps('test state'),
                                    challenge = pickle.dumps('test challenge'),
-                                   expiration = datetime.utcnow() - timedelta(seconds = db_file.interval))
+                                   due = datetime.utcnow() - timedelta(seconds = db_file.interval))
                                        
         db.session.add(contract)
         db.session.commit()
@@ -852,7 +852,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                                       file_id = db_file.id,
                                       state = pickle.dumps(state),
                                       challenge = pickle.dumps(chal),
-                                      expiration = datetime.utcnow()-timedelta(seconds=1))
+                                      due = datetime.utcnow()-timedelta(seconds=1))
                              
         db.session.add(db_contract)
         db.session.commit()

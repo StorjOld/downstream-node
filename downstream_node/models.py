@@ -5,7 +5,7 @@ from sqlalchemy import select, func, and_, Float, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import cast
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class File(db.Model):
@@ -51,7 +51,8 @@ class Token(db.Model):
     @online.expression
     def online(self):
         return exists().where(and_(Contract.expiration > datetime.utcnow(),
-                                   Contract.token_id == self.id))
+                                   Contract.token_id == self.id)).\
+            label('online')
 
     @hybrid_property
     def uptime(self):
@@ -63,9 +64,11 @@ class Token(db.Model):
 
     @uptime.expression
     def uptime(self):
-        return select([cast(func.sum(Contract.uptime), Float) /
-                       cast(func.sum(Contract.totaltime), Float)]).\
-            where(Contract.token_id == self.id)
+        return select([func.IF(Contract.totaltime > 0,
+                               cast(func.sum(Contract.uptime), Float) /
+                               cast(func.sum(Contract.totaltime), Float),
+                               0)]).\
+            where(Contract.token_id == self.id).label('uptime')
 
     @hybrid_property
     def contract_count(self):
@@ -73,7 +76,8 @@ class Token(db.Model):
 
     @contract_count.expression
     def contract_count(self):
-        return select([func.count()]).where(Contract.token_id == self.id)
+        return select([func.count()]).where(Contract.token_id == self.id).\
+            label('contract_count')
 
     @hybrid_property
     def size(self):
@@ -82,7 +86,7 @@ class Token(db.Model):
     @size.expression
     def size(self):
         return select([func.sum(Contract.size)]).\
-            where(Contract.token_id == self.id)
+            where(Contract.token_id == self.id).label('size')
 
     @hybrid_property
     def addr(self):
@@ -90,7 +94,8 @@ class Token(db.Model):
 
     @addr.expression
     def addr(self):
-        return select([Address.address]).where(Address.id == self.address_id)
+        return select([Address.address]).where(Address.id == self.address_id).\
+            label('addr')
 
 
 class Contract(db.Model):
@@ -103,7 +108,7 @@ class Contract(db.Model):
     challenge = db.Column(db.LargeBinary())
     tag_path = db.Column(db.String(128), unique=True)
     start = db.Column(db.DateTime())
-    expiration = db.Column(db.DateTime())
+    due = db.Column(db.DateTime())
     answered = db.Column(db.Boolean(), default=False)
     # for prototyping, include file seed for regeneration, and file size
     seed = db.Column(db.String(128))
@@ -118,6 +123,24 @@ class Contract(db.Model):
                            backref=db.backref('contracts',
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
+
+    @hybrid_property
+    def expiration(self):
+        if (self.answered):
+            return self.due + timedelta(seconds=self.file.interval)
+        else:
+            return self.due
+
+    @expiration.expression
+    def expiration(self):
+        # MySQL specific code.  will need to check compatibility on
+        # moving to different db
+        return select([func.IF(self.answered,
+                               func.TIMESTAMPADD(text('SECOND'),
+                                                 File.interval,
+                                                 self.due),
+                               self.due)]).\
+            where(File.id == self.file_id).label('expiration')
 
     @hybrid_property
     def uptime(self):
@@ -137,11 +160,12 @@ class Contract(db.Model):
         now = datetime.utcnow()
         return func.IF(self.expiration > now,
                        func.TIMESTAMPDIFF(text('SECOND'),
-                                          now,
-                                          self.start),
+                                          self.start,
+                                          now),
                        func.TIMESTAMPDIFF(text('SECOND'),
-                                          self.expiration,
-                                          self.start))
+                                          self.start,
+                                          self.expiration)).\
+            label('uptime')
 
     @hybrid_property
     def totaltime(self):
@@ -150,5 +174,5 @@ class Contract(db.Model):
     @totaltime.expression
     def totaltime(self):
         return func.TIMESTAMPDIFF(text('SECOND'),
-                                  datetime.utcnow(),
-                                  self.start)
+                                  self.start,
+                                  datetime.utcnow()).label('totaltime')
