@@ -367,8 +367,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['farmers'][0],'0')
-        self.assertEqual(r_json['farmers'][1],'1')
+        self.assertEqual(r_json['farmers'][0]['id'],'0')
+        self.assertEqual(r_json['farmers'][1]['id'],'1')
 
     def test_api_status_list_invalid_sort(self):
         r = self.app.get('/api/downstream/status/list/by/invalid.sort')
@@ -389,7 +389,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
         
         self.assertEqual(len(r_json['farmers']),1)
-        self.assertEqual(r_json['farmers'][0],'0')
+        self.assertEqual(r_json['farmers'][0]['id'],'0')
         
     def test_api_status_list_limit_page(self):
         r = self.app.get('/api/downstream/status/list/1/1')
@@ -400,7 +400,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
         
         self.assertEqual(len(r_json['farmers']),1)
-        self.assertEqual(r_json['farmers'][0],'1')
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
         
     
         
@@ -412,8 +412,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['farmers'][0],'1')
-        self.assertEqual(r_json['farmers'][1],'0')
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
+        self.assertEqual(r_json['farmers'][1]['id'],'0')
 
     def generic_list_by(self, string):
         r = self.app.get('/api/downstream/status/list/by/{0}'.format(string))
@@ -423,8 +423,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['farmers'][0],'0')
-        self.assertEqual(r_json['farmers'][1],'1')
+        self.assertEqual(r_json['farmers'][0]['id'],'0')
+        self.assertEqual(r_json['farmers'][1]['id'],'1')
         
         r = self.app.get('/api/downstream/status/list/by/d/{0}'.format(string))
         
@@ -433,8 +433,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['farmers'][0],'1')
-        self.assertEqual(r_json['farmers'][1],'0')
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
+        self.assertEqual(r_json['farmers'][1]['id'],'0')
         
     def test_api_status_list_by_address(self):
         self.generic_list_by('address')

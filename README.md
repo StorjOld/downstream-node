@@ -149,6 +149,8 @@ Response:
 }
 ```
 
+In the future the new chunk contract route will have a parameter for desired size.  Then this function will return an (possibly empty) array of chunk contracts with total size not exceeding the size requested.
+
 Gets the currently due challenge for this token and file hash.
 
     GET /api/downstream/challenge/<token>/<file_hash>

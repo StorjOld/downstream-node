@@ -66,7 +66,16 @@ def api_downstream_status_list(d, sortby, limit, page):
 
         farmer_list = farmer_list_query.all()
 
-        farmers = list(map(lambda a: a.farmer_id, farmer_list))
+        farmers = list(map(lambda a: 
+                           dict(id=a.farmer_id,
+                                address=a.addr,
+                                location=pickle.loads(a.location),
+                                uptime=round(a.uptime*100, 2),
+                                heartbeats=a.hbcount,
+                                iphash=a.iphash,
+                                contracts=a.contract_count,
+                                size=a.size,
+                                online=a.online), farmer_list))
 
         return jsonify(farmers=farmers)
 
