@@ -66,7 +66,7 @@ def api_downstream_status_list(d, sortby, limit, page):
 
         farmer_list = farmer_list_query.all()
 
-        farmers = list(map(lambda a: 
+        farmers = list(map(lambda a:
                            dict(id=a.farmer_id,
                                 address=a.addr,
                                 location=pickle.loads(a.location),
