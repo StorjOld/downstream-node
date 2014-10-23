@@ -148,7 +148,8 @@ def api_downstream_chunk_contract_status(token, file_hash):
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
-                       due=db_contract.due.isoformat())
+                       due=db_contract.due.isoformat(),
+                       answered=db_contract.answered)
 
     return handler.response
 
