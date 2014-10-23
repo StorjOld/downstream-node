@@ -33,9 +33,8 @@ class Token(db.Model):
     token = db.Column(db.String(32), nullable=False, unique=True)
     address_id = db.Column(db.ForeignKey('addresses.id'))
     heartbeat = db.Column(db.LargeBinary(), nullable=False)
-    ip_address = db.Column(db.String(32), nullable=False, unique=False)
+    ip_address = db.Column(db.String(32), nullable=False, unique=True)
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
-    iphash = db.Column(db.String(32), nullable=False, unique=False)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
     location = db.Column(db.LargeBinary())
 
