@@ -119,7 +119,7 @@ def api_downstream_heartbeat(token):
     """This route gets the heartbeat for a token.
     Provided for nodes that need to recover their heartbeat.
     The heartbeat does not contain any private information,
-    so having someone else's heartbeat does not help you.    
+    so having someone else's heartbeat does not help you.
     """
     with HttpHandler() as handler:
         db_token = Token.query.filter(Token.token == token).first()
