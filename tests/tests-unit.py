@@ -50,7 +50,6 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['msg'],'ok')
 
     def test_api_downstream_new(self):
-        
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
@@ -96,6 +95,38 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
         
         self.assertEqual(r_json['message'],'Invalid address given.')
+        
+    def test_api_downstream_heartbeat(self):
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+                reader.return_value = Mock()
+                reader.return_value.get.return_value = dict()
+                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+                
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        r_beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
+        
+        r_token = r_json['token']
+        
+        r = self.app.get('/api/downstream/heartbeat/{0}'.format(r_token))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        r_beat2 = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
+        
+        self.assertEqual(r_beat2, r_beat)
+        
+        # test nonexistant token
+        r = self.app.get('/api/downstream/heartbeat/nonexistenttoken')
+        self.assertEqual(r.status_code, 404)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        self.assertEqual(r_json['message'], 'Nonexistent token')
         
     def test_api_downstream_chunk(self):
         with patch('downstream_node.routes.request') as request:
@@ -180,7 +211,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         db_contract = node.lookup_contract(token, hash)
         
         self.assertEqual(challenge,pickle.loads(db_contract.challenge))
-        self.assertEqual(datetime.strptime(r_json['expiration'],'%Y-%m-%dT%H:%M:%S'),db_contract.expiration)
+        self.assertEqual(datetime.strptime(r_json['due'],'%Y-%m-%dT%H:%M:%S'),db_contract.due)
         
         os.remove(db_contract.file.path)
         
@@ -219,9 +250,15 @@ class TestDownstreamRoutes(unittest.TestCase):
         f = io.BytesIO(contents)
         proof = beat.prove(f,chal,tag)
         
-        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
-                          data=json.dumps({"proof":proof.todict()}),
-                          content_type='application/json')
+        with patch('downstream_node.lib.node.get_ip_location') as p,\
+                patch('downstream_node.routes.request') as r:
+            r.remote_addr = 'test.ip.address'
+            data = {"proof":proof.todict()}
+            r.get_json.return_value = data
+            p.return_value = dict()
+            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                              data=json.dumps(data),
+                              content_type='application/json')
         self.assertEqual(r.status_code,200)
         self.assertEqual(r.content_type,'application/json')
         
@@ -233,21 +270,33 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         proof = app.config['HEARTBEAT'].proof_type()()
         
-        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
-                          data=json.dumps({"proof":proof.todict()}),
-                          content_type='application/json')
+        with patch('downstream_node.lib.node.get_ip_location') as p,\
+                patch('downstream_node.routes.request') as r:
+            r.remote_addr = 'test.ip.address'
+            data = {"proof":proof.todict()}
+            r.get_json.return_value = data
+            p.return_value = dict()
+            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                              data=json.dumps(data),
+                              content_type='application/json')
         self.assertEqual(r.status_code,400)
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['message'],'Invalid proof, or proof expired.')
+        self.assertEqual(r_json['message'],'Invalid proof, proof expired, or ip disallowed')
         
         # test corrupt proof
         
-        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
-                          data=json.dumps({"proof":"invalid proof object"}),
-                          content_type='application/json')
+        with patch('downstream_node.lib.node.get_ip_location') as p,\
+                patch('downstream_node.routes.request') as r:
+            r.remote_addr = 'test.ip.address'
+            data = {"proof":"invalid proof object"}
+            r.get_json.return_value = data
+            p.return_value = dict()
+            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                              data=json.dumps(data),
+                              content_type='application/json')
         self.assertEqual(r.status_code,400)
         self.assertEqual(r.content_type,'application/json')
         
@@ -257,9 +306,15 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # test invalid json
         
-        r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
-                          data=json.dumps("invalid proof object"),
-                          content_type='application/json')
+        with patch('downstream_node.lib.node.get_ip_location') as p,\
+                patch('downstream_node.routes.request') as r:
+            r.remote_addr = 'test.ip.address'
+            data = "invalid proof object"
+            r.get_json.return_value = data
+            p.return_value = dict()
+            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+                              data=json.dumps(data),
+                              content_type='application/json')
         self.assertEqual(r.status_code,400)
 
         r_json = json.loads(r.data.decode('utf-8'))
@@ -286,7 +341,6 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                           heartbeat=b'',
                           ip_address='0',
                           farmer_id='0',
-                          iphash='0',
                           hbcount=0,
                           location=pickle.dumps(None))
         t1 = models.Token(token='1',
@@ -294,7 +348,6 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                           heartbeat=b'',
                           ip_address='1',
                           farmer_id='1',
-                          iphash='1',
                           hbcount=1,
                           location=pickle.dumps(None))
         db.session.add(t0)
@@ -318,6 +371,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                          added=datetime.utcnow())
         db.session.add(f0)
         db.session.add(f1)
+        db.session.add(f2)
         db.session.commit()
         
         c0 = models.Contract(token_id=t0.id,
@@ -326,7 +380,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag0',
                              start=datetime.utcnow()-timedelta(minutes=20,seconds=60),
-                             expiration=datetime.utcnow()-timedelta(minutes=20),
+                             due=datetime.utcnow()-timedelta(minutes=20),
                              answered=False,
                              seed='0',
                              size=50)
@@ -336,7 +390,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag1',
                              start=datetime.utcnow()-timedelta(seconds=60),
-                             expiration=datetime.utcnow()-timedelta(seconds=1),
+                             due=datetime.utcnow()-timedelta(seconds=1),
                              answered=False,
                              seed='0',
                              size=100)
@@ -346,14 +400,14 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                              challenge=b'',
                              tag_path='tag2',
                              start=datetime.utcnow()-timedelta(seconds=60),
-                             expiration=datetime.utcnow()+timedelta(seconds=60),
+                             due=datetime.utcnow()+timedelta(seconds=60),
                              answered=False,
                              seed='0',
                              size=150)
         db.session.add(c0)
         db.session.add(c1)
-        db.session.add(c2)
-        db.session.commit()
+        db.session.add(c2)        
+        db.session.commit()     
         
     def tearDown(self):
         db.session.close()
@@ -401,8 +455,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         self.assertEqual(len(r_json['farmers']),1)
         self.assertEqual(r_json['farmers'][0]['id'],'1')
-        
-    
+
         
     def test_api_status_list_by_farmer_id(self):
         r = self.app.get('/api/downstream/status/list/by/d/id')
@@ -582,10 +635,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         pass
 
     def test_create_token(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.return_value = Mock()
-            reader.return_value.get.return_value = dict()
-            db_token = node.create_token(self.test_address,'test.ip.address0')
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
+            db_token = node.create_token(self.test_address, 'address')
         
         # verify that the info is in the database
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
@@ -594,19 +646,20 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
     def test_create_token_bad_address(self):
         # test random address
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
             with self.assertRaises(InvalidParameterError) as ex:
-                db_token = node.create_token('randomaddress','test.ip.address')
+                db_token = node.create_token('randomaddress','ipaddress')
         
         self.assertEqual(str(ex.exception),'Invalid address given.')
         
-    def test_create_token_location(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
+    def test_get_ip_location(self):
+        with patch('downstream_node.lib.node.maxminddb.Reader') as reader,\
+                patch('downstream_node.routes.request') as p:
             for l in [self.full_location, self.partial_location, self.no_location]:
                 reader.return_value = Mock()
                 reader.return_value.get.return_value = l
-                db_token = node.create_token(self.test_address,'test.ip.address1')
-                location = pickle.loads(db_token.location)
+                location = node.get_ip_location('testaddress')
                 if ('country' in l):
                     self.assertEqual(location['country'],l['country']['names']['en'])
                 else:
@@ -629,19 +682,18 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                     self.assertEqual(location['zip'],l['postal']['code'])
                 else:
                     self.assertIsNone(location['zip'])
-                node.delete_token(db_token.token)
 
     def test_create_token_duplicate_id(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.return_value = Mock()
-            reader.return_value.get.return_value = dict()
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
             db_token = node.create_token(self.test_address,'duplicate')
             with self.assertRaises(InvalidParameterError) as ex:
-                db_token = node.create_token(self.test_address,'duplicate')
-            self.assertEqual(str(ex.exception),'Cannot request more than one token per IP address. Waahh wahhh.')
+                db_token = node.create_token(self.test_address, 'duplicate')
+            self.assertEqual(str(ex.exception),'Cannot request more than one token '
+                                    'per IP address right now.')
 
     def test_address_resolve(self):
-        db_token = node.create_token(self.test_address,'17.0.0.1')
+        db_token = node.create_token(self.test_address, '17.0.0.1')
         
         location = pickle.loads(db_token.location)
         
@@ -653,8 +705,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(location['lat'],self.full_location['location']['latitude'])
                     
     def test_delete_token(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader: 
-            reader.get.return_value = self.full_location
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = self.full_location
             db_token = node.create_token(self.test_address,'test.ip.address2')
         
         t = db_token.token
@@ -691,10 +743,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # add some contracts for this file
         for j in range(0,3):
-            with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-                reader.return_value = Mock()
-                reader.return_value.get.return_value = dict()
-                db_token = node.create_token(self.test_address,'test.ip.address3.{0}'.format(j))
+            with patch('downstream_node.lib.node.get_ip_location') as p:
+                p.return_value = dict()
+                db_token = node.create_token(self.test_address,'testaddress{0}'.format(j))
             
             beat = pickle.loads(db_token.heartbeat)
             
@@ -707,7 +758,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                                        file_id = db_file.id,
                                        state = pickle.dumps(state),
                                        challenge = pickle.dumps(chal),
-                                       expiration = datetime.utcnow() + timedelta(seconds = db_file.interval))
+                                       due = datetime.utcnow() + timedelta(seconds = db_file.interval))
                                  
             db.session.add(contract)
             db.session.commit()
@@ -735,9 +786,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'File does not exist.  Cannot remove non existant file')
         
     def test_get_chunk_contract(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.return_value = Mock()
-            reader.return_value.get.return_value = dict()
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address4')
         
         db_contract = node.get_chunk_contract(db_token.token)
@@ -765,16 +815,15 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_update_contract_expired(self):
         db_file = node.add_file(self.testfile)
         
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.return_value = Mock()
-            reader.return_value.get.return_value = dict()
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address5')
 
         contract = models.Contract(token_id = db_token.id,
                                    file_id = db_file.id,
                                    state = pickle.dumps('test state'),
                                    challenge = pickle.dumps('test challenge'),
-                                   expiration = datetime.utcnow() - timedelta(seconds = db_file.interval))
+                                   due = datetime.utcnow() - timedelta(seconds = db_file.interval))
                                        
         db.session.add(contract)
         db.session.commit()
@@ -785,9 +834,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'Contract has expired.')
         
     def test_verify_proof(self):
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.return_value = Mock()
-            reader.return_value.get.return_value = dict()
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address6')
         
         db_contract = node.get_chunk_contract(db_token.token)
@@ -804,12 +852,13 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with open(db_contract.file.path,'rb') as f:
             proof = beat.prove(f,chal,tag)
             
-        self.assertTrue(node.verify_proof(db_token.token,db_contract.file.hash,proof))
+        self.assertTrue(node.verify_proof(db_token.token,db_contract.file.hash,proof,'test.ip.address6'))
+        self.assertEqual(db_token.ip_address, 'test.ip.address6')
 
         # check nonexistent token
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof('invalid token',db_contract.file.hash,proof)
+            node.verify_proof('invalid token',db_contract.file.hash,proof,'test.ip.address6')
             
         self.assertEqual(str(ex.exception),'Invalid token')
         
@@ -819,12 +868,12 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # check nonexistent file
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,'invalid file hash',proof)
+            node.verify_proof(db_token.token,'invalid file hash',proof,'test.ip.address6')
             
         self.assertEqual(str(ex.exception),'Invalid file hash')
         
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value=self.full_location
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = self.full_location
             db_token = node.create_token(self.test_address,'test.ip.address7')
         
         # check nonexistent contract
@@ -832,13 +881,13 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db_file = node.add_file(self.testfile)
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,db_file.hash,proof)
+            node.verify_proof(db_token.token,db_file.hash,proof,'test.ip.address7')
             
         self.assertEqual(str(ex.exception),'Contract does not exist.')
         
         # check expiration
-        with patch('downstream_node.lib.node.maxminddb.Reader') as reader:
-            reader.get.return_value=self.full_location
+        with patch('downstream_node.lib.node.get_ip_location') as p:
+            p.return_value = self.full_location
             db_token = node.create_token(self.test_address,'test.ip.address8')
             
         beat = pickle.loads(db_token.heartbeat)
@@ -852,7 +901,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                                       file_id = db_file.id,
                                       state = pickle.dumps(state),
                                       challenge = pickle.dumps(chal),
-                                      expiration = datetime.utcnow()-timedelta(seconds=1))
+                                      due = datetime.utcnow()-timedelta(seconds=1))
                              
         db.session.add(db_contract)
         db.session.commit()
@@ -860,7 +909,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with open(db_contract.file.path,'rb') as f:
             proof = beat.prove(f,chal,tag)
         
-        self.assertFalse(node.verify_proof(db_token.token,db_contract.file.hash,proof))
+        self.assertFalse(node.verify_proof(db_token.token,db_contract.file.hash,proof,'test.ip.address8'))
         
         node.remove_file(db_file.hash)
 

@@ -44,7 +44,6 @@ def api_downstream_status_list(d, sortby, limit, page):
                     'address': Token.addr,
                     'uptime': Token.uptime,
                     'heartbeats': Token.hbcount,
-                    'iphash': Token.iphash,
                     'contracts': Token.contract_count,
                     'size': Token.size,
                     'online': Token.online}
@@ -72,7 +71,6 @@ def api_downstream_status_list(d, sortby, limit, page):
                                 location=pickle.loads(a.location),
                                 uptime=round(a.uptime*100, 2),
                                 heartbeats=a.hbcount,
-                                iphash=a.iphash,
                                 contracts=a.contract_count,
                                 size=a.size,
                                 online=a.online), farmer_list))
@@ -95,7 +93,6 @@ def api_downstream_status_show(farmer_id):
                        location=pickle.loads(a.location),
                        uptime=round(a.uptime*100, 2),
                        heartbeats=a.hbcount,
-                       iphash=a.iphash,
                        contracts=a.contract_count,
                        size=a.size,
                        online=a.online)
@@ -108,6 +105,28 @@ def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler() as handler:
         db_token = create_token(sjcx_address, request.remote_addr)
+        beat = pickle.loads(db_token.heartbeat)
+        pub_beat = beat.get_public()
+        return jsonify(token=db_token.token,
+                       type=type(beat).__name__,
+                       heartbeat=pub_beat.todict())
+
+    return handler.response
+
+
+@app.route('/api/downstream/heartbeat/<token>')
+def api_downstream_heartbeat(token):
+    """This route gets the heartbeat for a token.
+    Provided for nodes that need to recover their heartbeat.
+    The heartbeat does not contain any private information,
+    so having someone else's heartbeat does not help you.
+    """
+    with HttpHandler() as handler:
+        db_token = Token.query.filter(Token.token == token).first()
+
+        if (db_token is None):
+            raise NotFoundError('Nonexistent token')
+
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,
@@ -135,7 +154,7 @@ def api_downstream_chunk_contract(token):
                        file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
-                       expiration=db_contract.expiration.isoformat())
+                       due=db_contract.due.isoformat())
 
     return handler.response
 
@@ -148,7 +167,8 @@ def api_downstream_chunk_contract_status(token, file_hash):
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
-                       expiration=db_contract.expiration.isoformat())
+                       due=db_contract.due.isoformat(),
+                       answered=db_contract.answered)
 
     return handler.response
 
@@ -172,8 +192,9 @@ def api_downstream_challenge_answer(token, file_hash):
         except:
             raise InvalidParameterError('Proof corrupted.')
 
-        if (not verify_proof(token, file_hash, proof)):
-            raise InvalidParameterError('Invalid proof, or proof expired.')
+        if (not verify_proof(token, file_hash, proof, request.remote_addr)):
+            raise InvalidParameterError(
+                'Invalid proof, proof expired, or ip disallowed')
 
         return jsonify(status='ok')
 

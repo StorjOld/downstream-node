@@ -6,13 +6,12 @@ import binascii
 import base58
 import maxminddb
 
-from datetime import datetime, timedelta
-
+from datetime import datetime
 from Crypto.Hash import SHA256
+from RandomIO import RandomIO
 
 from ..models import Address, Token, File, Contract
 
-from RandomIO import RandomIO
 from ..startup import db, app
 from ..exc import InvalidParameterError
 
@@ -24,6 +23,40 @@ __all__ = ['create_token',
            'remove_file',
            'verify_proof',
            'update_contract']
+
+
+def get_ip_location(remote_addr):
+    """Gets the location of the request.remote_addr
+
+    :returns: the location
+    """
+    # this code may need to be rethought for scalability, but for now,
+    # we're going with just opening a reader each time we get a location
+
+    location = {'country': None,
+                'state': None,
+                'city': None,
+                'zip': None,
+                'lat': None,
+                'lon': None}
+
+    reader = maxminddb.Reader(app.config['MMDB_PATH'])
+    mmloc = reader.get(remote_addr)
+    if (mmloc is not None):
+        if ('country' in mmloc):
+            location['country'] = mmloc['country']['names']['en']
+        if ('subdivisions' in mmloc):
+            location['state'] = mmloc['subdivisions'][0]['names']['en']
+        if ('city' in mmloc):
+            location['city'] = mmloc['city']['names']['en']
+        if ('postal' in mmloc):
+            location['zip'] = mmloc['postal']['code']
+        if ('location' in mmloc):
+            location['lat'] = mmloc['location']['latitude']
+            location['lon'] = mmloc['location']['longitude']
+    reader.close()
+
+    return location
 
 
 def create_token(sjcx_address, remote_addr):
@@ -54,33 +87,10 @@ def create_token(sjcx_address, remote_addr):
 
     if (len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
-                                    'per IP address. Waahh wahhh.')
+                                    'per IP address right now.')
 
-    # this code may need to be rethought for scalability, but for now,
-    # we're going with just opening a reader each time we get a location
+    location = get_ip_location(remote_addr)
 
-    location = {'country': None,
-                'state': None,
-                'city': None,
-                'zip': None,
-                'lat': None,
-                'lon': None}
-
-    reader = maxminddb.Reader(app.config['MMDB_PATH'])
-    mmloc = reader.get(remote_addr)
-    if (mmloc is not None):
-        if ('country' in mmloc):
-            location['country'] = mmloc['country']['names']['en']
-        if ('subdivisions' in mmloc):
-            location['state'] = mmloc['subdivisions'][0]['names']['en']
-        if ('city' in mmloc):
-            location['city'] = mmloc['city']['names']['en']
-        if ('postal' in mmloc):
-            location['zip'] = mmloc['postal']['code']
-        if ('location' in mmloc):
-            location['lat'] = mmloc['location']['latitude']
-            location['lon'] = mmloc['location']['longitude']
-    reader.close()
     beat = app.config['HEARTBEAT']()
 
     token = os.urandom(16)
@@ -92,7 +102,6 @@ def create_token(sjcx_address, remote_addr):
                      heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
                      ip_address=remote_addr,
                      farmer_id=token_hash,
-                     iphash=SHA256.new(remote_addr.encode()).hexdigest()[:32],
                      location=pickle.dumps(location))
 
     db.session.add(db_token)
@@ -169,11 +178,10 @@ def get_chunk_contract(token):
     db_contract = Contract(token_id=db_token.id,
                            file_id=db_file.id,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
-                           # expiration and answered will be updated and
-                           # challenge will be inserted when we call
-                           # update_contract() below
+                           # due time and answered and challenge will be
+                           # inserted when we call update_contract() below
                            start=datetime.utcnow(),
-                           expiration=datetime.utcnow(),
+                           due=datetime.utcnow(),
                            answered=True,
                            # for prototyping, include seed
                            seed=seed,
@@ -275,27 +283,6 @@ def lookup_contract(token, file_hash):
     return db_contract
 
 
-def contract_valid(contract):
-    """This function checks whether a contract is still valid
-
-    A contract is valid if:
-        1) the current time is less than the expiration time OR
-        2) the challenge has been answered and the current time
-           is less than the expiration time plus the file interval
-    """
-
-    if (datetime.utcnow() < contract.expiration):
-        return True
-
-    final_expiration = contract.expiration \
-        + timedelta(seconds=contract.file.interval)
-
-    if (contract.answered and datetime.utcnow() < final_expiration):
-        return True
-
-    return False
-
-
 def update_contract(token, file_hash):
     """This function updates the contract associated with the token
     and file_hash.
@@ -306,13 +293,13 @@ def update_contract(token, file_hash):
     """
     db_contract = lookup_contract(token, file_hash)
 
-    if (not contract_valid(db_contract)):
+    if (datetime.utcnow() >= db_contract.expiration):
         raise InvalidParameterError('Contract has expired.')
 
     # if the current challenge is good,
     # and has a valid challenge, use it
-    if (datetime.utcnow() < db_contract.expiration
-            and db_contract.challenge is not None):
+    if (db_contract.challenge is not None
+            and datetime.utcnow() < db_contract.due):
         return db_contract
 
     beat = pickle.loads(db_contract.token.heartbeat)
@@ -321,11 +308,8 @@ def update_contract(token, file_hash):
 
     chal = beat.gen_challenge(state)
 
-    new_expiration = db_contract.expiration \
-        + timedelta(seconds=db_contract.file.interval)
-
     db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
-    db_contract.expiration = new_expiration
+    db_contract.due = db_contract.expiration
     db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
     db_contract.answered = False
 
@@ -335,20 +319,35 @@ def update_contract(token, file_hash):
     return db_contract
 
 
-def verify_proof(token, file_hash, proof):
+def verify_proof(token, file_hash, proof, remote_addr):
     """This queries the DB to retrieve the heartbeat, state and challenge for
     the contract id, and then checks the given proof.  Returns true if the
-    proof is valid.
+    proof is valid.  Can also return false if the contract is expired or if
+    an ip address change has been rejected
 
     :param token: the token for the farmer that this proof corresponds to
     :param file_hash: the file hash for this proof
     :param proof: a heartbeat proof object that has been returned by the farmer
+    :param remote_addr: the remote address that is verifying this proof
     :returns: boolean true if the proof is valid, false otherwise
     """
     db_contract = lookup_contract(token, file_hash)
 
-    if (not contract_valid(db_contract)):
+    if (datetime.utcnow() >= db_contract.expiration):
         return False
+
+    if (db_contract.token.ip_address != remote_addr):
+        # possible ip address change.  check it is unique
+        db_token = Token.query.filter(Token.ip_address == remote_addr).all()
+        for t in db_token:
+            if (t.id != db_contract.token.id):
+                # an existing contract that is not this contract has this ip
+                # address already.  we will disallow it.
+                return False
+        # we should be good to go with the new ip
+        location = get_ip_location(remote_addr)
+        db_contract.token.location = pickle.dumps(location)
+        db_contract.token.ip_address = remote_addr
 
     beat = pickle.loads(db_contract.token.heartbeat)
     state = pickle.loads(db_contract.state)
