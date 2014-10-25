@@ -3,7 +3,6 @@
 import os
 import pickle
 import binascii
-import base58
 import maxminddb
 
 from datetime import datetime
@@ -58,9 +57,10 @@ def get_ip_location(remote_addr):
 
     return location
 
+
 def process_token_ip_address(db_token, remote_addr, change=False):
     """This function enforces the one token per IP address rule.
-    
+
     Checks if the given token is running with remote_addr.  If it isn't
     checks that there are no other tokens running with that address,
     and then if change==True, switches token over to remote_addr.
@@ -71,11 +71,13 @@ def process_token_ip_address(db_token, remote_addr, change=False):
     """
     if (db_token.ip_address != remote_addr):
         # possible ip address change.  check it is unique
-        conflicting_token = Token.query.filter(Token.ip_address == remote_addr).first()
+        conflicting_token = Token.query.filter(
+            Token.ip_address == remote_addr).first()
         if (conflicting_token is not None):
             # another token has this ip address already
             # address already.  we will disallow it.
-            raise InvalidParameterError('IP Disallowed, another farmer is using this IP address')
+            raise InvalidParameterError(
+                'IP Disallowed, another farmer is using this IP address')
 
         # we should be good to go with the new ip
         if (change):
@@ -97,14 +99,14 @@ def create_token(sjcx_address, remote_addr):
     if (len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
                                     'per IP address right now.')
-    
+
     # confirm that sjcx_address is in the list of addresses
     # for now we have a white list
     db_address = Address.query.filter(Address.address == sjcx_address).first()
 
     if (db_address is None):
         raise InvalidParameterError(
-           'Invalid address given: address must be in whitelist.')
+            'Invalid address given: address must be in whitelist.')
 
     location = get_ip_location(remote_addr)
 
@@ -166,20 +168,20 @@ def get_chunk_contract(token, remote_addr):
         raise InvalidParameterError('Nonexistent token.')
 
     process_token_ip_address(db_token, remote_addr, True)
-        
+
     # these are the files we are tracking with their current redundancy counts
     # for now comment this since we're just generating a file for each contract
     # candidates = db.session.query(File,func.count(Contracts.file_hash)).\
-        # outerjoin(Contracts).group_by(File.hash).all()
+    # outerjoin(Contracts).group_by(File.hash).all()
 
     # if (len(candidates) == 0):
-        # return None
+    # return None
 
-    # # sort by add date and current redundancy
+    # sort by add date and current redundancy
     # candidates.sort(key = lambda x: x[0].added)
     # candidates.sort(key = lambda x: x[1])
 
-    # # pick the best candidate
+    # pick the best candidate
     # file = candidates[0]
 
     # for prototyping, we generate a file for each contract.

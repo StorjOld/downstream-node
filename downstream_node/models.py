@@ -149,9 +149,9 @@ class Contract(db.Model):
         # otherwise it is (expiration-start)
         now = datetime.utcnow()
         if self.expiration > now:
-            return now-self.start
+            return now - self.start
         else:
-            return self.expiration-self.start
+            return self.expiration - self.start
 
     @uptime.expression
     def uptime(self):

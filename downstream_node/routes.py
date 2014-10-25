@@ -61,7 +61,7 @@ def api_downstream_status_list(d, sortby, limit, page):
             farmer_list_query = farmer_list_query.limit(limit)
 
         if (page is not None):
-            farmer_list_query = farmer_list_query.offset(limit*page)
+            farmer_list_query = farmer_list_query.offset(limit * page)
 
         farmer_list = farmer_list_query.all()
 
@@ -69,7 +69,7 @@ def api_downstream_status_list(d, sortby, limit, page):
                            dict(id=a.farmer_id,
                                 address=a.addr,
                                 location=pickle.loads(a.location),
-                                uptime=round(a.uptime*100, 2),
+                                uptime=round(a.uptime * 100, 2),
                                 heartbeats=a.hbcount,
                                 contracts=a.contract_count,
                                 size=a.size,
@@ -91,7 +91,7 @@ def api_downstream_status_show(farmer_id):
         return jsonify(id=a.farmer_id,
                        address=a.addr,
                        location=pickle.loads(a.location),
-                       uptime=round(a.uptime*100, 2),
+                       uptime=round(a.uptime * 100, 2),
                        heartbeats=a.hbcount,
                        contracts=a.contract_count,
                        size=a.size,

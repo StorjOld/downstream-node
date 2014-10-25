@@ -10,6 +10,7 @@ class InvalidParameterError(Exception):
 
 
 class HttpHandler(object):
+
     def __enter__(self):
         self.response = None
         return self
