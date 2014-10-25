@@ -24,6 +24,7 @@ class Address(db.Model):
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     address = db.Column(db.String(128), nullable=False, unique=True)
+    crowdsale_balance = db.Column(db.BigInteger(), nullable=True)
 
 
 class Token(db.Model):

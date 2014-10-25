@@ -139,7 +139,7 @@ def api_downstream_heartbeat(token):
 @app.route('/api/downstream/chunk/<token>')
 def api_downstream_chunk_contract(token):
     with HttpHandler() as handler:
-        db_contract = get_chunk_contract(token)
+        db_contract = get_chunk_contract(token, request.remote_addr)
 
         with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.loads(f.read())
@@ -194,7 +194,7 @@ def api_downstream_challenge_answer(token, file_hash):
 
         if (not verify_proof(token, file_hash, proof, request.remote_addr)):
             raise InvalidParameterError(
-                'Invalid proof, proof expired, or ip disallowed')
+                'Invalid proof.')
 
         return jsonify(status='ok')
 
