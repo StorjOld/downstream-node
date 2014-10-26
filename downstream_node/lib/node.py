@@ -3,7 +3,6 @@
 import os
 import pickle
 import binascii
-import base58
 import maxminddb
 
 from datetime import datetime
@@ -59,6 +58,34 @@ def get_ip_location(remote_addr):
     return location
 
 
+def process_token_ip_address(db_token, remote_addr, change=False):
+    """This function enforces the one token per IP address rule.
+
+    Checks if the given token is running with remote_addr.  If it isn't
+    checks that there are no other tokens running with that address,
+    and then if change==True, switches token over to remote_addr.
+    :param db_token: the database token object
+    :param remote_addr: the ip address
+    :param change: whether to change the token's ip address in the event
+        that it is valid
+    """
+    if (db_token.ip_address != remote_addr):
+        # possible ip address change.  check it is unique
+        conflicting_token = Token.query.filter(
+            Token.ip_address == remote_addr).first()
+        if (conflicting_token is not None):
+            # another token has this ip address already
+            # address already.  we will disallow it.
+            raise InvalidParameterError(
+                'IP Disallowed, another farmer is using this IP address')
+
+        # we should be good to go with the new ip
+        if (change):
+            location = get_ip_location(remote_addr)
+            db_token.location = pickle.dumps(location)
+            db_token.ip_address = remote_addr
+
+
 def create_token(sjcx_address, remote_addr):
     """Creates a token for the given address. For now, addresses will not be
     enforced, and anyone can acquire a token.
@@ -67,27 +94,19 @@ def create_token(sjcx_address, remote_addr):
     allow any address.
     :returns: the token database object
     """
-    # confirm that sjcx_address is in the list of addresses
-    # for now we have a white list
-    db_address = Address.query.filter(Address.address == sjcx_address).first()
-
-    if (db_address is None):
-        try:
-            base58.b58decode_check(sjcx_address)
-        except:
-            raise InvalidParameterError('Invalid address given.')
-        # just put it in the db for testing
-        db_address = Address(address=sjcx_address)
-        db.session.add(db_address)
-        db.session.commit()
-        # raise RuntimeError(
-        #    'Invalid address given: address must be in whitelist.')
-
     db_token = Token.query.filter(Token.ip_address == remote_addr).all()
 
     if (len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
                                     'per IP address right now.')
+
+    # confirm that sjcx_address is in the list of addresses
+    # for now we have a white list
+    db_address = Address.query.filter(Address.address == sjcx_address).first()
+
+    if (db_address is None):
+        raise InvalidParameterError(
+            'Invalid address given: address must be in whitelist.')
 
     location = get_ip_location(remote_addr)
 
@@ -119,14 +138,13 @@ def delete_token(token):
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise InvalidParameterError('Invalid token given. '
-                                    'Token does not exist.')
+        raise InvalidParameterError('Nonexistent token.')
 
     db.session.delete(db_token)
     db.session.commit()
 
 
-def get_chunk_contract(token):
+def get_chunk_contract(token, remote_addr):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -147,21 +165,23 @@ def get_chunk_contract(token):
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise InvalidParameterError('Invalid token given.')
+        raise InvalidParameterError('Nonexistent token.')
+
+    process_token_ip_address(db_token, remote_addr, True)
 
     # these are the files we are tracking with their current redundancy counts
     # for now comment this since we're just generating a file for each contract
     # candidates = db.session.query(File,func.count(Contracts.file_hash)).\
-        # outerjoin(Contracts).group_by(File.hash).all()
+    # outerjoin(Contracts).group_by(File.hash).all()
 
     # if (len(candidates) == 0):
-        # return None
+    # return None
 
-    # # sort by add date and current redundancy
+    # sort by add date and current redundancy
     # candidates.sort(key = lambda x: x[0].added)
     # candidates.sort(key = lambda x: x[1])
 
-    # # pick the best candidate
+    # pick the best candidate
     # file = candidates[0]
 
     # for prototyping, we generate a file for each contract.
@@ -260,14 +280,14 @@ def lookup_contract(token, file_hash):
     """This function looks up a contract by token and file hash and returns
     the database object of that contract.
 
-    :param token: the token associated with this contract
+    :param token: the token string associated with this contract
     :param file_hash: the file hash associated with this contract
     :returns: the contract database object
     """
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise InvalidParameterError('Invalid token')
+        raise InvalidParameterError('Nonexistent token.')
 
     db_file = File.query.filter(File.hash == file_hash).first()
 
@@ -334,20 +354,9 @@ def verify_proof(token, file_hash, proof, remote_addr):
     db_contract = lookup_contract(token, file_hash)
 
     if (datetime.utcnow() >= db_contract.expiration):
-        return False
+        raise InvalidParameterError('Answer failed: contract expired.')
 
-    if (db_contract.token.ip_address != remote_addr):
-        # possible ip address change.  check it is unique
-        db_token = Token.query.filter(Token.ip_address == remote_addr).all()
-        for t in db_token:
-            if (t.id != db_contract.token.id):
-                # an existing contract that is not this contract has this ip
-                # address already.  we will disallow it.
-                return False
-        # we should be good to go with the new ip
-        location = get_ip_location(remote_addr)
-        db_contract.token.location = pickle.dumps(location)
-        db_contract.token.ip_address = remote_addr
+    process_token_ip_address(db_contract.token, remote_addr)
 
     beat = pickle.loads(db_contract.token.heartbeat)
     state = pickle.loads(db_contract.state)
