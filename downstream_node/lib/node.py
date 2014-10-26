@@ -86,6 +86,23 @@ def process_token_ip_address(db_token, remote_addr, change=False):
             db_token.ip_address = remote_addr
 
 
+def contract_insert_next_challenge(db_contract):
+    """This inserts the next challenge for the contract into the contract.
+
+    :param db_contract: database contract object
+    """
+    beat = pickle.loads(db_contract.token.heartbeat)
+
+    state = pickle.loads(db_contract.state)
+
+    chal = beat.gen_challenge(state)
+
+    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.due = db_contract.expiration
+    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
+    db_contract.answered = False
+
+
 def create_token(sjcx_address, remote_addr):
     """Creates a token for the given address. For now, addresses will not be
     enforced, and anyone can acquire a token.
@@ -117,7 +134,7 @@ def create_token(sjcx_address, remote_addr):
     token_hash = SHA256.new(token).hexdigest()[:20]
 
     db_token = Token(token=token_string,
-                     address_id=db_address.id,
+                     address=db_address,
                      heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
                      ip_address=remote_addr,
                      farmer_id=token_hash,
@@ -195,8 +212,8 @@ def get_chunk_contract(token, remote_addr):
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
-    db_contract = Contract(token_id=db_token.id,
-                           file_id=db_file.id,
+    db_contract = Contract(token=db_token,
+                           file=db_file,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
                            # due time and answered and challenge will be
                            # inserted when we call update_contract() below
@@ -208,9 +225,8 @@ def get_chunk_contract(token, remote_addr):
                            size=app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
-    db.session.commit()
 
-    db_contract = update_contract(db_token.token, db_file.hash)
+    contract_insert_next_challenge(db_contract)
 
     # the tag path is tied to the contract id.  in the final application
     # there will be some management for the tags since once they have been
@@ -322,18 +338,8 @@ def update_contract(token, file_hash):
             and datetime.utcnow() < db_contract.due):
         return db_contract
 
-    beat = pickle.loads(db_contract.token.heartbeat)
+    contract_insert_next_challenge(db_contract)
 
-    state = pickle.loads(db_contract.state)
-
-    chal = beat.gen_challenge(state)
-
-    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
-    db_contract.due = db_contract.expiration
-    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
-    db_contract.answered = False
-
-    db.session.add(db_contract)
     db.session.commit()
 
     return db_contract
