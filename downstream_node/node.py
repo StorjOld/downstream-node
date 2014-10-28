@@ -4,6 +4,7 @@ import os
 import pickle
 import binascii
 import maxminddb
+import base58
 
 from datetime import datetime
 from Crypto.Hash import SHA256
@@ -116,6 +117,13 @@ def create_token(sjcx_address, remote_addr):
     if (app.config['ONE_TOKEN_PER_IP'] and len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
                                     'per IP address right now.')
+
+    # make sure the address is valid
+    try:
+        base58.b58decode_check(sjcx_address)
+    except:
+        raise InvalidParameterError(
+            'Invalid address given: address is not a valid SJCX address.')
 
     # confirm that sjcx_address is in the list of addresses
     # and meets balance requirements

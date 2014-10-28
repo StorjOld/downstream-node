@@ -7,6 +7,7 @@
 import argparse
 import csv
 from datetime import datetime, timedelta
+from sqlalchemy import select, engine, update, insert
 
 from downstream_node.startup import app, db
 from downstream_node.models import Contract, Address
@@ -17,22 +18,31 @@ def initdb():
 
 def cleandb():
     # delete old contracts
-    Contract.query.filter(Contract.due < datetime.utcnow()-timedelta(seconds=60)).delete()
+    Contract.query.filter(Contract.due < datetime.utcnow()
+                          -timedelta(seconds=60)).delete()
     db.session.commit()
 
-
+def addwhitelist(path):
+    with open(path,'r') as f:
+            r = csv.reader(f)
+            next(r)
+            for l in r:
+                s = Address.__table__.select().where(Address.address == l[0])
+                result = db.engine.execute(s).first()
+                if (result is not None):
+                    db.engine.execute(Address.__table__.update().\
+                        where(Address.id == result.id).\
+                        values(crowdsale_balance=int(l[1])))
+                else:
+                    db.engine.execute(Address.__table__.insert().\
+                        values(address=l[0], crowdsale_balane=l[1]))
 def eval_args(args):
     if args.initdb:
         initdb()
     elif args.cleandb:
         cleandb()
     elif (args.whitelist is not None):
-        with open(args.whitelist,'r') as f:
-            r = csv.reader(f)
-            next(r)
-            for l in r:
-                db.session.add(Address(address=l[0],crowdsale_balance=int(l[1])))
-        db.session.commit()
+        addwhitelist(args.whitelist)
     else:
         app.run(debug=True)
 

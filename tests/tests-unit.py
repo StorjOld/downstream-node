@@ -635,6 +635,15 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token('randomaddress','ipaddress')
         
+        self.assertEqual(str(ex.exception),'Invalid address given: address is not a valid SJCX address.')
+        
+    def test_create_token_bad_address(self):
+        # test random address
+        with patch('downstream_node.node.get_ip_location') as p:
+            p.return_value = dict()
+            with self.assertRaises(InvalidParameterError) as ex:
+                db_token = node.create_token(base58.b58encode_check(b'\x00'+os.urandom(20)),'ipaddress')
+        
         self.assertEqual(str(ex.exception),'Invalid address given: address must be in whitelist.')
         
     def test_get_ip_location(self):
