@@ -8,11 +8,11 @@ import maxminddb
 from datetime import datetime
 from Crypto.Hash import SHA256
 from RandomIO import RandomIO
+from sqlalchemy import and_
 
-from ..models import Address, Token, File, Contract
-
-from ..startup import db, app
-from ..exc import InvalidParameterError
+from .startup import db, app
+from .models import Address, Token, File, Contract
+from .exc import InvalidParameterError
 
 __all__ = ['create_token',
            'delete_token',
@@ -73,7 +73,7 @@ def process_token_ip_address(db_token, remote_addr, change=False):
         # possible ip address change.  check it is unique
         conflicting_token = Token.query.filter(
             Token.ip_address == remote_addr).first()
-        if (conflicting_token is not None):
+        if (app.config['ONE_TOKEN_PER_IP'] and conflicting_token is not None):
             # another token has this ip address already
             # address already.  we will disallow it.
             raise InvalidParameterError(
@@ -104,22 +104,26 @@ def contract_insert_next_challenge(db_contract):
 
 
 def create_token(sjcx_address, remote_addr):
-    """Creates a token for the given address. For now, addresses will not be
-    enforced, and anyone can acquire a token.
+    """Creates a token for the given address. Address must be in the white
+    list of addresses.
 
-    :param sjcx_address: address to use for token creation.  for now, just
-    allow any address.
+    :param sjcx_address: address to use for token creation.
+    :param remote_addr: ip address of the farmer requesting a token
     :returns: the token database object
     """
     db_token = Token.query.filter(Token.ip_address == remote_addr).all()
 
-    if (len(db_token) > 0):
+    if (app.config['ONE_TOKEN_PER_IP'] and len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
                                     'per IP address right now.')
 
     # confirm that sjcx_address is in the list of addresses
+    # and meets balance requirements
     # for now we have a white list
-    db_address = Address.query.filter(Address.address == sjcx_address).first()
+    db_address = Address.query.filter(
+        and_(Address.address == sjcx_address,
+             Address.crowdsale_balance > app.config['MIN_SJCX_BALANCE'])).\
+        first()
 
     if (db_address is None):
         raise InvalidParameterError(
@@ -171,6 +175,7 @@ def get_chunk_contract(token, remote_addr):
     and the current heartbeat state for the encoded file.
 
     :param token: the token to associate this contract with
+    :param remote_addr: the ip address of the farmer requesting a chunk
     :returns: the chunk database object
     """
     # first, we need to find all the files that are not meeting their

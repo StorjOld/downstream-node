@@ -5,13 +5,14 @@ import os
 import pickle
 
 from flask import jsonify, request
+from sqlalchemy import desc
+from datetime import datetime
 
 from .startup import app
-from .lib import (create_token, get_chunk_contract,
-                  verify_proof,  update_contract,
-                  lookup_contract)
+from .node import (create_token, get_chunk_contract,
+                   verify_proof,  update_contract,
+                   lookup_contract)
 from .models import Token
-from sqlalchemy import desc
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 
 
@@ -154,7 +155,7 @@ def api_downstream_chunk_contract(token):
                        file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
-                       due=db_contract.due.isoformat())
+                       due=(db_contract.due-datetime.utcnow()).total_seconds())
 
     return handler.response
 
@@ -167,7 +168,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
-                       due=db_contract.due.isoformat(),
+                       due=(db_contract.due-datetime.utcnow()).total_seconds(),
                        answered=db_contract.answered)
 
     return handler.response

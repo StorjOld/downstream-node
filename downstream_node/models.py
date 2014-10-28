@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from .startup import db
 from sqlalchemy import select, func, and_, Float, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import cast
 from datetime import datetime, timedelta
+
+from .startup import db
 
 
 class File(db.Model):
@@ -34,7 +35,7 @@ class Token(db.Model):
     token = db.Column(db.String(32), nullable=False, unique=True)
     address_id = db.Column(db.ForeignKey('addresses.id'))
     heartbeat = db.Column(db.LargeBinary(), nullable=False)
-    ip_address = db.Column(db.String(32), nullable=False, unique=True)
+    ip_address = db.Column(db.String(32), nullable=False)
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
     location = db.Column(db.LargeBinary())

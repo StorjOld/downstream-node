@@ -4,7 +4,7 @@
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 
-from .config import config
+from . import config
 
 app = Flask(__name__)
 app.config.from_object(config)
