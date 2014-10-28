@@ -22,27 +22,38 @@ def cleandb():
                           -timedelta(seconds=60)).delete()
     db.session.commit()
 
-def addwhitelist(path):
+def updatewhitelist(path):
     with open(path,'r') as f:
             r = csv.reader(f)
             next(r)
+            updated = list()
             for l in r:
                 s = Address.__table__.select().where(Address.address == l[0])
-                result = db.engine.execute(s).first()
+                result = db.engine.execute(s).first()                
                 if (result is not None):
                     db.engine.execute(Address.__table__.update().\
                         where(Address.id == result.id).\
                         values(crowdsale_balance=int(l[1])))
                 else:
                     db.engine.execute(Address.__table__.insert().\
-                        values(address=l[0], crowdsale_balane=l[1]))
+                        values(address=l[0], crowdsale_balance=l[1]))
+                    result = db.engine.execute(Address.__table__.select().\
+                        where(Address.address == l[0])).first()
+                updated.append(result.id)
+            all = db.engine.execute(Address.__table__.select()).fetchall()
+            for row in all:
+                if (row.id not in updated):
+                    db.engine.execute(Address.__table__.delete().\
+                        where(Address.id == row.id))
+
+
 def eval_args(args):
     if args.initdb:
         initdb()
     elif args.cleandb:
         cleandb()
     elif (args.whitelist is not None):
-        addwhitelist(args.whitelist)
+        updatewhitelist(args.whitelist)
     else:
         app.run(debug=True)
 
@@ -51,8 +62,8 @@ def parse_args():
     parser = argparse.ArgumentParser('downstream')
     parser.add_argument('--initdb', action='store_true')
     parser.add_argument('--cleandb', action='store_true')
-    parser.add_argument('--whitelist', help='loads white list specified '
-                                            'into db and exits')
+    parser.add_argument('--whitelist', help='updates the white list '
+                                            'in the db and exits')
     return parser.parse_args()
 
 
