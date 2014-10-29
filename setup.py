@@ -24,7 +24,7 @@ if sys.version_info < (3,):
 setup(
     name='downstream-node',
     version=__version__,
-    packages=['downstream_node','downstream_node.config','downstream_node.lib'],
+    packages=['downstream_node'],
     url='https://github.com/Storj/downstream-node',
     license='MIT',
     author='Storj Labs',
