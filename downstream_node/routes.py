@@ -6,13 +6,13 @@ import pickle
 
 from flask import jsonify, request
 from sqlalchemy import desc
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .startup import app
 from .node import (create_token, get_chunk_contract,
                    verify_proof,  update_contract,
                    lookup_contract)
-from .models import Token
+from .models import Token, Contract
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 
 
@@ -43,7 +43,7 @@ def api_downstream_status_list(d, sortby, limit, page):
     with HttpHandler() as handler:
         sort_map = {'id': Token.farmer_id,
                     'address': Token.addr,
-                    'uptime': Token.uptime,
+                    'uptime': None,
                     'heartbeats': Token.hbcount,
                     'contracts': Token.contract_count,
                     'size': Token.size,
@@ -52,25 +52,59 @@ def api_downstream_status_list(d, sortby, limit, page):
         if (sortby not in sort_map):
             raise InvalidParameterError('Invalid sort')
 
-        sort_stmt = sort_map[sortby]
-        if (d):
-            sort_stmt = desc(sort_stmt)
+        # we need to calculate uptime manually
+        all_tokens = Token.query.all()
+        uptimes = dict()
+        for t in all_tokens:
+            times = dict()
+            count = 0
+            tsum = 0
+            for c in Contract.query.filter(Contract.token_id == t.id).all():
+                times[(c.start - datetime.utcnow()).total_seconds()] = 1
+                times[(c.due - datetime.utcnow() if c.due <
+                       datetime.utcnow() else
+                       timedelta()).total_seconds()] = -1
+            for time in sorted(times):
+                if (count == 0 and times[time] == 1):
+                    tsum += time
+                elif (count == 1 and times[time] == -1):
+                    tsum -= time
+                count += times[time]
+            try:
+                uptimes[t.id] = tsum / sorted(times)[0]
+            except:
+                uptimes[t.id] = 0
+        print(uptimes)
+        if (sortby == 'uptime'):
+            key = lambda x: uptimes[x.id]
+            if (d):
+                key = lambda x: -uptimes[x.id]
+            farmer_list = sorted(all_tokens, key=key)
+            if (page is not None):
+                farmer_list = farmer_list[limit * page:limit * page + limit]
 
-        farmer_list_query = Token.query.order_by(sort_stmt)
+            if (limit is not None):
+                farmer_list = farmer_list[:limit]
+        else:
+            sort_stmt = sort_map[sortby]
+            if (d):
+                sort_stmt = desc(sort_stmt)
 
-        if (limit is not None):
-            farmer_list_query = farmer_list_query.limit(limit)
+            farmer_list_query = Token.query.order_by(sort_stmt)
 
-        if (page is not None):
-            farmer_list_query = farmer_list_query.offset(limit * page)
+            if (limit is not None):
+                farmer_list_query = farmer_list_query.limit(limit)
 
-        farmer_list = farmer_list_query.all()
+            if (page is not None):
+                farmer_list_query = farmer_list_query.offset(limit * page)
+
+            farmer_list = farmer_list_query.all()
 
         farmers = list(map(lambda a:
                            dict(id=a.farmer_id,
                                 address=a.addr,
                                 location=pickle.loads(a.location),
-                                uptime=round(a.uptime * 100, 2),
+                                uptime=round(uptimes[a.id] * 100, 2),
                                 heartbeats=a.hbcount,
                                 contracts=a.contract_count,
                                 size=a.size,
@@ -155,7 +189,8 @@ def api_downstream_chunk_contract(token):
                        file_hash=db_contract.file.hash,
                        challenge=chal.todict(),
                        tag=tag.todict(),
-                       due=(db_contract.due-datetime.utcnow()).total_seconds())
+                       due=(db_contract.due - datetime.utcnow()).
+                       total_seconds())
 
     return handler.response
 
@@ -168,7 +203,8 @@ def api_downstream_chunk_contract_status(token, file_hash):
         db_contract = update_contract(token, file_hash)
 
         return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
-                       due=(db_contract.due-datetime.utcnow()).total_seconds(),
+                       due=(db_contract.due - datetime.utcnow()).
+                       total_seconds(),
                        answered=db_contract.answered)
 
     return handler.response
