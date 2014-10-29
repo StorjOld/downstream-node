@@ -245,7 +245,7 @@ def get_chunk_contract(token, remote_addr):
     # there will be some management for the tags since once they have been
     # downloaded by the farmer, they should be deleted.  might require a
     # tags database table.
-    tag_path = os.path.join(app.config['TAGS_PATH'], str(db_contract.id))
+    tag_path = os.path.join(app.config['TAGS_PATH'], token + db_file.hash)
 
     db_contract.tag_path = tag_path
     db.session.commit()
