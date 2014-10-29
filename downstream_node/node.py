@@ -4,15 +4,16 @@ import os
 import pickle
 import binascii
 import maxminddb
+import base58
 
 from datetime import datetime
 from Crypto.Hash import SHA256
 from RandomIO import RandomIO
+from sqlalchemy import and_
 
-from ..models import Address, Token, File, Contract
-
-from ..startup import db, app
-from ..exc import InvalidParameterError
+from .startup import db, app
+from .models import Address, Token, File, Contract
+from .exc import InvalidParameterError
 
 __all__ = ['create_token',
            'delete_token',
@@ -73,7 +74,7 @@ def process_token_ip_address(db_token, remote_addr, change=False):
         # possible ip address change.  check it is unique
         conflicting_token = Token.query.filter(
             Token.ip_address == remote_addr).first()
-        if (conflicting_token is not None):
+        if (app.config['ONE_TOKEN_PER_IP'] and conflicting_token is not None):
             # another token has this ip address already
             # address already.  we will disallow it.
             raise InvalidParameterError(
@@ -86,23 +87,51 @@ def process_token_ip_address(db_token, remote_addr, change=False):
             db_token.ip_address = remote_addr
 
 
-def create_token(sjcx_address, remote_addr):
-    """Creates a token for the given address. For now, addresses will not be
-    enforced, and anyone can acquire a token.
+def contract_insert_next_challenge(db_contract):
+    """This inserts the next challenge for the contract into the contract.
 
-    :param sjcx_address: address to use for token creation.  for now, just
-    allow any address.
+    :param db_contract: database contract object
+    """
+    beat = pickle.loads(db_contract.token.heartbeat)
+
+    state = pickle.loads(db_contract.state)
+
+    chal = beat.gen_challenge(state)
+
+    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.due = db_contract.expiration
+    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
+    db_contract.answered = False
+
+
+def create_token(sjcx_address, remote_addr):
+    """Creates a token for the given address. Address must be in the white
+    list of addresses.
+
+    :param sjcx_address: address to use for token creation.
+    :param remote_addr: ip address of the farmer requesting a token
     :returns: the token database object
     """
     db_token = Token.query.filter(Token.ip_address == remote_addr).all()
 
-    if (len(db_token) > 0):
+    if (app.config['ONE_TOKEN_PER_IP'] and len(db_token) > 0):
         raise InvalidParameterError('Cannot request more than one token '
                                     'per IP address right now.')
 
+    # make sure the address is valid
+    try:
+        base58.b58decode_check(sjcx_address)
+    except:
+        raise InvalidParameterError(
+            'Invalid address given: address is not a valid SJCX address.')
+
     # confirm that sjcx_address is in the list of addresses
+    # and meets balance requirements
     # for now we have a white list
-    db_address = Address.query.filter(Address.address == sjcx_address).first()
+    db_address = Address.query.filter(
+        and_(Address.address == sjcx_address,
+             Address.crowdsale_balance > app.config['MIN_SJCX_BALANCE'])).\
+        first()
 
     if (db_address is None):
         raise InvalidParameterError(
@@ -117,7 +146,7 @@ def create_token(sjcx_address, remote_addr):
     token_hash = SHA256.new(token).hexdigest()[:20]
 
     db_token = Token(token=token_string,
-                     address_id=db_address.id,
+                     address=db_address,
                      heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
                      ip_address=remote_addr,
                      farmer_id=token_hash,
@@ -154,6 +183,7 @@ def get_chunk_contract(token, remote_addr):
     and the current heartbeat state for the encoded file.
 
     :param token: the token to associate this contract with
+    :param remote_addr: the ip address of the farmer requesting a chunk
     :returns: the chunk database object
     """
     # first, we need to find all the files that are not meeting their
@@ -195,8 +225,8 @@ def get_chunk_contract(token, remote_addr):
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
-    db_contract = Contract(token_id=db_token.id,
-                           file_id=db_file.id,
+    db_contract = Contract(token=db_token,
+                           file=db_file,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
                            # due time and answered and challenge will be
                            # inserted when we call update_contract() below
@@ -208,15 +238,14 @@ def get_chunk_contract(token, remote_addr):
                            size=app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
-    db.session.commit()
 
-    db_contract = update_contract(db_token.token, db_file.hash)
+    contract_insert_next_challenge(db_contract)
 
     # the tag path is tied to the contract id.  in the final application
     # there will be some management for the tags since once they have been
     # downloaded by the farmer, they should be deleted.  might require a
     # tags database table.
-    tag_path = os.path.join(app.config['TAGS_PATH'], str(db_contract.id))
+    tag_path = os.path.join(app.config['TAGS_PATH'], token + db_file.hash)
 
     db_contract.tag_path = tag_path
     db.session.commit()
@@ -322,18 +351,8 @@ def update_contract(token, file_hash):
             and datetime.utcnow() < db_contract.due):
         return db_contract
 
-    beat = pickle.loads(db_contract.token.heartbeat)
+    contract_insert_next_challenge(db_contract)
 
-    state = pickle.loads(db_contract.state)
-
-    chal = beat.gen_challenge(state)
-
-    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
-    db_contract.due = db_contract.expiration
-    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
-    db_contract.answered = False
-
-    db.session.add(db_contract)
     db.session.commit()
 
     return db_contract
