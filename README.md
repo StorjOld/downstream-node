@@ -51,7 +51,7 @@ cd ..
 Edit the config with the appropriate details:
 
 ```
-$ vim downstream_node/config/config.py
+$ nano downstream_node/config.py
 ```
 
 Modify the database line for the user configuration we just created in MySQL:
@@ -60,11 +60,19 @@ Modify the database line for the user configuration we just created in MySQL:
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream'
 ```
 
+And any file paths you would like to change (like where files and tags are stored) and any configuration options
+
 Create the DB schema, and start the server in development mode (bound to localhost:5000):
 
 ```
 $ python runapp.py --initdb
 $ python runapp.py
+```
+
+Finally, if you are using a whitelist, you must pull that into the database:
+
+```
+$ python runapp.py --whitelist WHITELIST_FILE
 ```
 
 **If this is at all confusing, we're doing it as a functional test in the travis.yml file, so watch it in action on Travis-CI.**

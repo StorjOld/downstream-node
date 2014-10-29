@@ -19,5 +19,5 @@ TEST_FILE_SIZE = 100
 HEARTBEAT = heartbeat.Swizzle.Swizzle
 
 ONE_TOKEN_PER_IP = True
-REQUIRE_SIGNATURE = True
 MIN_SJCX_BALANCE = 10000
+REQUIRE_SIGNATURE = True  # not used yet
