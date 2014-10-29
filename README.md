@@ -134,14 +134,14 @@ Response:
 }
 ```
 
-Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration, the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
+Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>
 Response:
 ```
 {
     "challenge": "...challenge object string representation...",
-    "expiration": "2014-10-03 17:29:01",
+    "expiration": 59,
     "file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
     "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
 	"size": 1000,
@@ -158,7 +158,7 @@ Response:
 ```
 {
    "challenge": "...challenge object string representation...",
-   "expiration": "2014-10-03 17:29:01",
+   "expiration": 32,
 }
 ```
 
@@ -262,7 +262,6 @@ And then the individual farmer information can be retrieved with:
       "location": {"city": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zip": "", "state": "Jerusalem District", "lat": 31.78199},
       "uptime": 96.015,
       "heartbeats": 241,
-      "iphash": "d55529c83953e218cc58",
       "contracts": 2,
       "size": 200,
       "online": true

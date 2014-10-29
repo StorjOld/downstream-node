@@ -53,6 +53,9 @@ def api_downstream_status_list(d, sortby, limit, page):
             raise InvalidParameterError('Invalid sort')
 
         # we need to calculate uptime manually
+        # what we're doing here is going through each farmer's contracts. it
+        # sums up the time that the farmer has been online, and then divides
+        # by the total time the farmer has had any contracts.
         all_tokens = Token.query.all()
         uptimes = dict()
         for t in all_tokens:
