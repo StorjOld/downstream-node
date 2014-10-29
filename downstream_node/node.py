@@ -130,7 +130,7 @@ def create_token(sjcx_address, remote_addr):
     # for now we have a white list
     db_address = Address.query.filter(
         and_(Address.address == sjcx_address,
-             Address.crowdsale_balance > app.config['MIN_SJCX_BALANCE'])).\
+             Address.crowdsale_balance >= app.config['MIN_SJCX_BALANCE'])).\
         first()
 
     if (db_address is None):
