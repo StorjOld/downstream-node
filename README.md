@@ -39,11 +39,19 @@ mysql> grant all on downstream.* to 'downstream'@'localhost';
 mysql> flush privileges;
 ```
 
+It is necessary to pull in the IP lookup database from maxmind:
+
+```
+mkdir data && cd data
+curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
+gunzip GeoLite2-City.mmdb.gz
+cd ..
+```
 
 Edit the config with the appropriate details:
 
 ```
-$ vim downstream_node/config/config.py
+$ nano downstream_node/config.py
 ```
 
 Modify the database line for the user configuration we just created in MySQL:
@@ -52,11 +60,19 @@ Modify the database line for the user configuration we just created in MySQL:
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://downstream:password@localhost/downstream'
 ```
 
+And any file paths you would like to change (like where files and tags are stored) and any configuration options
+
 Create the DB schema, and start the server in development mode (bound to localhost:5000):
 
 ```
 $ python runapp.py --initdb
 $ python runapp.py
+```
+
+Finally, if you are using a whitelist, you must pull that into the database:
+
+```
+$ python runapp.py --whitelist WHITELIST_FILE
 ```
 
 **If this is at all confusing, we're doing it as a functional test in the travis.yml file, so watch it in action on Travis-CI.**
@@ -126,20 +142,22 @@ Response:
 }
 ```
 
-Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration, the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
+Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>
 Response:
 ```
 {
     "challenge": "...challenge object string representation...",
-    "expiration": "2014-10-03 17:29:01",
+    "expiration": 59,
     "file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
     "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
 	"size": 1000,
     "tag": "...tag object string representation..."
 }
 ```
+
+In the future the new chunk contract route will have a parameter for desired size.  Then this function will return an (possibly empty) array of chunk contracts with total size not exceeding the size requested.
 
 Gets the currently due challenge for this token and file hash.
 
@@ -148,7 +166,7 @@ Response:
 ```
 {
    "challenge": "...challenge object string representation...",
-   "expiration": "2014-10-03 17:29:01",
+   "expiration": 32,
 }
 ```
 
@@ -167,3 +185,99 @@ Response:
     "status": "ok"
 }
 ```
+
+Finally, some statistics about the node can be retrieved through a status API as follows.
+
+The status API is required to produce the following information for each farmer:
+
+1. Farmer ID (token hash)
+2. SJCX address
+3. Geographic Location
+4. Percentage uptime since creation
+5. Number of heartbeats completed
+6. Whether the farmer is currently online
+7. A hash of the IP address of the farmer
+8. Total data size hosted by the farmer in bytes
+
+The list of all farmer ids can be retrieved with
+
+     GET /api/downstream/status/list
+
+which returns all the farmers ids
+
+```json
+{
+   "farmers":
+   [
+      "fa1e4944e48ed7bd3739",
+      "997e717ba92078118cce",
+      "0f297828e2a687943fc4",
+      "81b6a0d841a3184028e6",
+      "49eb47ea315d53399f69",
+      "b2ca01ff2113559b231d",
+      "68ff46d440255ac29a3c",
+      "479935fca9ce02f62788",
+      "33d63de99f0aad6279ba",
+      "8088d59b6adf8faf9974",
+      "ddbeb08b93b1d06e9939",
+      "e7a5558e62d315a54058",
+      "1de67bc29901db705ea1",
+      "e94902cda505de115027",
+      "c9c1f91a6362af0babad",
+      "e87f8117d0d10a8d6479",
+      "5f652023fb6b8034fb5c",
+      "b05bd26f9f28035a3006",
+      "e78d8f0edd1a50bce83b",
+      "dc4ce32c7c8a7d0a3cb9"
+   ]
+}
+```
+
+Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `iphash`, `contracts`, `size`, or `online` by using
+
+    GET /api/downstream/status/list/by/<sortby>
+
+or in descending order
+
+    GET /api/downstream/status/list/by/d/<sortby>
+
+It is also possible to limit the number of responses
+
+    GET /api/downstream/status/list/by/<sortby>/<limit>
+
+and specify a page number
+
+    GET /api/downstream/status/list/by/<sortby>/<limit>/<page>
+
+So some examples
+
+    GET /api/downstream/status/list/by/d/uptime/25
+
+will return the 25 farmers with the highest uptime percentage
+
+    GET /api/downstream/status/list/by/d/contracts/15/2
+
+will return the third page (rows 30-44) of the farmers with the most contracts.
+
+And then the individual farmer information can be retrieved with:
+
+    GET /api/downstream/status/show/<id>
+
+```json
+{
+      "id": "45bd945fa10e3f059834",
+      "address": "18d6KhnTg9dM9jtb1MWXdbibu3Pwt1QHQt",
+      "location": {"city": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zip": "", "state": "Jerusalem District", "lat": 31.78199},
+      "uptime": 96.015,
+      "heartbeats": 241,
+      "contracts": 2,
+      "size": 200,
+      "online": true
+}
+```
+
+Planning on making the id the first 20 characters of the hex representation of the token hash.
+
+Will probably cache the farmer list on the server side to improve performance.
+
+This product includes GeoLite2 data created by MaxMind, available from [http://www.maxmind.com](http://www.maxmind.com).

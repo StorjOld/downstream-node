@@ -12,7 +12,12 @@ SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
 
 FILES_PATH = 'tmp/'
 TAGS_PATH = 'tags/'
+MMDB_PATH = 'data/GeoLite2-City.mmdb'
 
 TEST_FILE_SIZE = 100
 
-HEARTBEAT = heartbeat.SwPriv.SwPriv
+HEARTBEAT = heartbeat.Swizzle.Swizzle
+
+ONE_TOKEN_PER_IP = True
+MIN_SJCX_BALANCE = 10000
+REQUIRE_SIGNATURE = True  # not used yet

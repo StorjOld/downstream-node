@@ -10,6 +10,10 @@
   before_install:
     - 'mysql -e "create database if not exists downstream;" -u root'
     - sudo apt-get install libcrypto++-dev
+    - mkdir data && cd data
+    - curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
+    - gunzip GeoLite2-City.mmdb.gz
+    - cd ..
   install:
     - "pip install coverage flake8 coveralls"
     - "pip install -r requirements.txt ."
@@ -21,5 +25,5 @@
     - flake8 downstream_node/
     - nosetests -v --with-coverage --cover-package=downstream_node tests/
 
-  notifications:
-    slack: storj:IwoHonDxA5lauvwcKZRMkfps
+#  notifications:
+#    slack: storj:IwoHonDxA5lauvwcKZRMkfps

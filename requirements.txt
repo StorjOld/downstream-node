@@ -2,6 +2,7 @@ flask
 pymysql
 flask-sqlalchemy
 base58
+maxminddb
 
 git+https://github.com/Storj/heartbeat.git#egg=storj-heartbeat
 git+https://github.com/Storj/RandomIO.git#egg=RandomIO

@@ -3,15 +3,17 @@
 import os
 import pickle
 import binascii
+import maxminddb
 import base58
-from datetime import datetime, timedelta
 
+from datetime import datetime
 from Crypto.Hash import SHA256
-
-from ..models import Address, Token, File, Contract
-
 from RandomIO import RandomIO
-from ..startup import db, app
+from sqlalchemy import and_
+
+from .startup import db, app
+from .models import Address, Token, File, Contract
+from .exc import InvalidParameterError
 
 __all__ = ['create_token',
            'delete_token',
@@ -23,35 +25,132 @@ __all__ = ['create_token',
            'update_contract']
 
 
-def create_token(sjcx_address):
-    """Creates a token for the given address. For now, addresses will not be
-    enforced, and anyone can acquire a token.
+def get_ip_location(remote_addr):
+    """Gets the location of the request.remote_addr
 
-    :param sjcx_address: address to use for token creation.  for now, just
-    allow any address.
+    :returns: the location
+    """
+    # this code may need to be rethought for scalability, but for now,
+    # we're going with just opening a reader each time we get a location
+
+    location = {'country': None,
+                'state': None,
+                'city': None,
+                'zip': None,
+                'lat': None,
+                'lon': None}
+
+    reader = maxminddb.Reader(app.config['MMDB_PATH'])
+    mmloc = reader.get(remote_addr)
+    if (mmloc is not None):
+        if ('country' in mmloc):
+            location['country'] = mmloc['country']['names']['en']
+        if ('subdivisions' in mmloc):
+            location['state'] = mmloc['subdivisions'][0]['names']['en']
+        if ('city' in mmloc):
+            location['city'] = mmloc['city']['names']['en']
+        if ('postal' in mmloc):
+            location['zip'] = mmloc['postal']['code']
+        if ('location' in mmloc):
+            location['lat'] = mmloc['location']['latitude']
+            location['lon'] = mmloc['location']['longitude']
+    reader.close()
+
+    return location
+
+
+def process_token_ip_address(db_token, remote_addr, change=False):
+    """This function enforces the one token per IP address rule.
+
+    Checks if the given token is running with remote_addr.  If it isn't
+    checks that there are no other tokens running with that address,
+    and then if change==True, switches token over to remote_addr.
+    :param db_token: the database token object
+    :param remote_addr: the ip address
+    :param change: whether to change the token's ip address in the event
+        that it is valid
+    """
+    if (db_token.ip_address != remote_addr):
+        # possible ip address change.  check it is unique
+        conflicting_token = Token.query.filter(
+            Token.ip_address == remote_addr).first()
+        if (app.config['ONE_TOKEN_PER_IP'] and conflicting_token is not None):
+            # another token has this ip address already
+            # address already.  we will disallow it.
+            raise InvalidParameterError(
+                'IP Disallowed, another farmer is using this IP address')
+
+        # we should be good to go with the new ip
+        if (change):
+            location = get_ip_location(remote_addr)
+            db_token.location = pickle.dumps(location)
+            db_token.ip_address = remote_addr
+
+
+def contract_insert_next_challenge(db_contract):
+    """This inserts the next challenge for the contract into the contract.
+
+    :param db_contract: database contract object
+    """
+    beat = pickle.loads(db_contract.token.heartbeat)
+
+    state = pickle.loads(db_contract.state)
+
+    chal = beat.gen_challenge(state)
+
+    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.due = db_contract.expiration
+    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
+    db_contract.answered = False
+
+
+def create_token(sjcx_address, remote_addr):
+    """Creates a token for the given address. Address must be in the white
+    list of addresses.
+
+    :param sjcx_address: address to use for token creation.
+    :param remote_addr: ip address of the farmer requesting a token
     :returns: the token database object
     """
+    db_token = Token.query.filter(Token.ip_address == remote_addr).all()
+
+    if (app.config['ONE_TOKEN_PER_IP'] and len(db_token) > 0):
+        raise InvalidParameterError('Cannot request more than one token '
+                                    'per IP address right now.')
+
+    # make sure the address is valid
+    try:
+        base58.b58decode_check(sjcx_address)
+    except:
+        raise InvalidParameterError(
+            'Invalid address given: address is not a valid SJCX address.')
+
     # confirm that sjcx_address is in the list of addresses
+    # and meets balance requirements
     # for now we have a white list
-    db_address = Address.query.filter(Address.address == sjcx_address).first()
+    db_address = Address.query.filter(
+        and_(Address.address == sjcx_address,
+             Address.crowdsale_balance >= app.config['MIN_SJCX_BALANCE'])).\
+        first()
 
     if (db_address is None):
-        try:
-            base58.b58decode_check(sjcx_address)
-        except:
-            raise RuntimeError('Invalid address given.')
-        # just put it in the db for testing
-        db_address = Address(address=sjcx_address)
-        db.session.add(db_address)
-        db.session.commit()
-        # raise RuntimeError(
-        #    'Invalid address given: address must be in whitelist.')
+        raise InvalidParameterError(
+            'Invalid address given: address must be in whitelist.')
+
+    location = get_ip_location(remote_addr)
 
     beat = app.config['HEARTBEAT']()
 
-    db_token = Token(token=binascii.hexlify(os.urandom(16)).decode('ascii'),
-                     address_id=db_address.id,
-                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL))
+    token = os.urandom(16)
+    token_string = binascii.hexlify(token).decode('ascii')
+    token_hash = SHA256.new(token).hexdigest()[:20]
+
+    db_token = Token(token=token_string,
+                     address=db_address,
+                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
+                     ip_address=remote_addr,
+                     farmer_id=token_hash,
+                     location=pickle.dumps(location))
 
     db.session.add(db_token)
     db.session.commit()
@@ -68,13 +167,13 @@ def delete_token(token):
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise RuntimeError('Invalid token given. Token does not exist.')
+        raise InvalidParameterError('Nonexistent token.')
 
     db.session.delete(db_token)
     db.session.commit()
 
 
-def get_chunk_contract(token):
+def get_chunk_contract(token, remote_addr):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -84,6 +183,7 @@ def get_chunk_contract(token):
     and the current heartbeat state for the encoded file.
 
     :param token: the token to associate this contract with
+    :param remote_addr: the ip address of the farmer requesting a chunk
     :returns: the chunk database object
     """
     # first, we need to find all the files that are not meeting their
@@ -95,21 +195,23 @@ def get_chunk_contract(token):
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise RuntimeError('Invalid token given.')
+        raise InvalidParameterError('Nonexistent token.')
+
+    process_token_ip_address(db_token, remote_addr, True)
 
     # these are the files we are tracking with their current redundancy counts
     # for now comment this since we're just generating a file for each contract
     # candidates = db.session.query(File,func.count(Contracts.file_hash)).\
-        # outerjoin(Contracts).group_by(File.hash).all()
+    # outerjoin(Contracts).group_by(File.hash).all()
 
     # if (len(candidates) == 0):
-        # return None
+    # return None
 
-    # # sort by add date and current redundancy
+    # sort by add date and current redundancy
     # candidates.sort(key = lambda x: x[0].added)
     # candidates.sort(key = lambda x: x[1])
 
-    # # pick the best candidate
+    # pick the best candidate
     # file = candidates[0]
 
     # for prototyping, we generate a file for each contract.
@@ -123,29 +225,27 @@ def get_chunk_contract(token):
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
-    db_contract = Contract(token_id=db_token.id,
-                           file_id=db_file.id,
+    db_contract = Contract(token=db_token,
+                           file=db_file,
                            state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
-                           # expiration and answered will be updated and
-                           # challenge will be inserted when we call
-                           # update_contract() below
+                           # due time and answered and challenge will be
+                           # inserted when we call update_contract() below
                            start=datetime.utcnow(),
-                           expiration=datetime.utcnow(),
+                           due=datetime.utcnow(),
                            answered=True,
                            # for prototyping, include seed
                            seed=seed,
                            size=app.config['TEST_FILE_SIZE'])
 
     db.session.add(db_contract)
-    db.session.commit()
 
-    db_contract = update_contract(db_token.token, db_file.hash)
+    contract_insert_next_challenge(db_contract)
 
     # the tag path is tied to the contract id.  in the final application
     # there will be some management for the tags since once they have been
     # downloaded by the farmer, they should be deleted.  might require a
     # tags database table.
-    tag_path = os.path.join(app.config['TAGS_PATH'], str(db_contract.id))
+    tag_path = os.path.join(app.config['TAGS_PATH'], token + db_file.hash)
 
     db_contract.tag_path = tag_path
     db.session.commit()
@@ -198,7 +298,7 @@ def remove_file(hash):
     db_file = File.query.filter(File.hash == hash).first()
 
     if (db_file is None):
-        raise RuntimeError(
+        raise InvalidParameterError(
             'File does not exist.  Cannot remove non existant file')
 
     db.session.delete(db_file)
@@ -209,48 +309,27 @@ def lookup_contract(token, file_hash):
     """This function looks up a contract by token and file hash and returns
     the database object of that contract.
 
-    :param token: the token associated with this contract
+    :param token: the token string associated with this contract
     :param file_hash: the file hash associated with this contract
     :returns: the contract database object
     """
     db_token = Token.query.filter(Token.token == token).first()
 
     if (db_token is None):
-        raise RuntimeError('Invalid token')
+        raise InvalidParameterError('Nonexistent token.')
 
     db_file = File.query.filter(File.hash == file_hash).first()
 
     if (db_file is None):
-        raise RuntimeError('Invalid file hash')
+        raise InvalidParameterError('Invalid file hash')
 
     db_contract = Contract.query.filter(Contract.token_id == db_token.id,
                                         Contract.file_id == db_file.id).first()
 
     if (db_contract is None):
-        raise RuntimeError('Contract does not exist.')
+        raise InvalidParameterError('Contract does not exist.')
 
     return db_contract
-
-
-def contract_valid(contract):
-    """This function checks whether a contract is still valid
-
-    A contract is valid if:
-        1) the current time is less than the expiration time OR
-        2) the challenge has been answered and the current time
-           is less than the expiration time plus the file interval
-    """
-
-    if (datetime.utcnow() < contract.expiration):
-        return True
-
-    final_expiration = contract.expiration \
-        + timedelta(seconds=contract.file.interval)
-
-    if (contract.answered and datetime.utcnow() < final_expiration):
-        return True
-
-    return False
 
 
 def update_contract(token, file_hash):
@@ -263,49 +342,40 @@ def update_contract(token, file_hash):
     """
     db_contract = lookup_contract(token, file_hash)
 
-    if (not contract_valid(db_contract)):
-        raise RuntimeError('Contract has expired.')
+    if (datetime.utcnow() >= db_contract.expiration):
+        raise InvalidParameterError('Contract has expired.')
 
     # if the current challenge is good,
     # and has a valid challenge, use it
-    if (datetime.utcnow() < db_contract.expiration
-            and db_contract.challenge is not None):
+    if (db_contract.challenge is not None
+            and datetime.utcnow() < db_contract.due):
         return db_contract
 
-    beat = pickle.loads(db_contract.token.heartbeat)
+    contract_insert_next_challenge(db_contract)
 
-    state = pickle.loads(db_contract.state)
-
-    chal = beat.gen_challenge(state)
-
-    new_expiration = db_contract.expiration \
-        + timedelta(seconds=db_contract.file.interval)
-
-    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
-    db_contract.expiration = new_expiration
-    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
-    db_contract.answered = False
-
-    db.session.add(db_contract)
     db.session.commit()
 
     return db_contract
 
 
-def verify_proof(token, file_hash, proof):
+def verify_proof(token, file_hash, proof, remote_addr):
     """This queries the DB to retrieve the heartbeat, state and challenge for
     the contract id, and then checks the given proof.  Returns true if the
-    proof is valid.
+    proof is valid.  Can also return false if the contract is expired or if
+    an ip address change has been rejected
 
     :param token: the token for the farmer that this proof corresponds to
     :param file_hash: the file hash for this proof
     :param proof: a heartbeat proof object that has been returned by the farmer
+    :param remote_addr: the remote address that is verifying this proof
     :returns: boolean true if the proof is valid, false otherwise
     """
     db_contract = lookup_contract(token, file_hash)
 
-    if (not contract_valid(db_contract)):
-        return False
+    if (datetime.utcnow() >= db_contract.expiration):
+        raise InvalidParameterError('Answer failed: contract expired.')
+
+    process_token_ip_address(db_contract.token, remote_addr)
 
     beat = pickle.loads(db_contract.token.heartbeat)
     state = pickle.loads(db_contract.state)
@@ -313,7 +383,8 @@ def verify_proof(token, file_hash, proof):
 
     valid = beat.verify(proof, chal, state)
 
-    if (valid):
+    if (valid and not db_contract.answered):
+        db_contract.token.hbcount += 1
         db_contract.answered = True
         db.session.commit()
 
