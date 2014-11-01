@@ -617,6 +617,19 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         pass
+        
+    def test_process_token_ip_address_change_ip(self):
+        with patch('downstream_node.node.assert_ip_allowed_one_more_token') as a,\
+                patch('downstream_node.node.get_ip_location') as b:
+            db_token = mock.MagicMock()
+            db_token.ip_address = 'old_ip_address'
+            new_ip = 'new_ip_address'
+            b.return_value = 'test location'
+            node.process_token_ip_address(db_token,new_ip,change=True)
+            a.assert_called_with(new_ip)
+            b.assert_called_with(new_ip)
+            self.assertEqual(db_token.location,pickle.dumps(b.return_value))
+            self.assertEqual(db_token.ip_address,new_ip)
 
     def test_create_token(self):
         with patch('downstream_node.node.get_ip_location') as p:
@@ -678,11 +691,12 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_create_token_duplicate_id(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            db_token = node.create_token(self.test_address,'duplicate')
+            for i in range(0,app.config['MAX_TOKENS_PER_IP']):
+                db_token = node.create_token(self.test_address,'duplicate')
             with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token(self.test_address, 'duplicate')
-            self.assertEqual(str(ex.exception),'Cannot request more than one token '
-                                    'per IP address right now.')
+            self.assertEqual(str(ex.exception),'IP Disallowed, only {0} tokens are permitted per IP address'.\
+                format(app.config['MAX_TOKENS_PER_IP']))
 
     def test_address_resolve(self):
         db_token = node.create_token(self.test_address, '17.0.0.1')
@@ -825,10 +839,23 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             
         self.assertEqual(str(ex.exception),'Contract has expired.')
         
+    def test_update_contract_new_challenge(self):
+        with patch('downstream_node.node.lookup_contract') as a,\
+                patch('downstream_node.node.contract_insert_next_challenge') as b,\
+                patch('downstream_node.startup.db.session.commit') as c:
+            a.return_value = mock.MagicMock()
+            a.return_value.expiration = datetime.utcnow() + timedelta(seconds=60)
+            a.return_value.challenge = None
+            self.assertEqual(node.update_contract('token','hash'),a.return_value)
+            b.assert_called_with(a.return_value)
+            self.assertTrue(c.called)
+            
+        
     def test_verify_proof(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            other_token = node.create_token(self.test_address,'existing_ip')
+            for i in range(0,app.config['MAX_TOKENS_PER_IP']):
+                other_token = node.create_token(self.test_address,'existing_ip')
             db_token = node.create_token(self.test_address,'test.ip.address6')
         
         db_contract = node.get_chunk_contract(db_token.token,'test.ip.address6')
@@ -851,7 +878,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # check ip address resolution failure
         with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof(db_token.token,db_contract.file.hash,proof,'existing_ip')
-        self.assertEqual(str(ex.exception), 'IP Disallowed, another farmer is using this IP address')
+        self.assertEqual(str(ex.exception), 'IP Disallowed, only {0} tokens are permitted per IP address'.\
+            format(app.config['MAX_TOKENS_PER_IP']))
 
         # check nonexistent token
         
