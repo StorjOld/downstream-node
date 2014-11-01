@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from sqlalchemy import select, func, and_, Float, text
+from sqlalchemy import select, func, and_, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
-from sqlalchemy.sql.expression import cast
 from datetime import datetime, timedelta
 
 from .startup import db
@@ -55,12 +54,12 @@ class Token(db.Model):
                                    Contract.token_id == self.id)).\
             label('online')
 
-    @property       
+    @property
     def uptime(self):
         times = dict()
         count = 0
         tsum = 0
-        for c in Contract.query.filter(and_(Contract.token_id == self.id)).all():
+        for c in Contract.query.filter(Contract.token_id == self.id).all():
             times[(c.start - datetime.utcnow()).total_seconds()] = 1
             times[(c.due - datetime.utcnow() if c.due <
                    datetime.utcnow() else

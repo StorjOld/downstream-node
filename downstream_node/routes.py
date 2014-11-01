@@ -5,23 +5,25 @@ import os
 import pickle
 
 from flask import jsonify, request
-from sqlalchemy import desc, and_
-from datetime import datetime, timedelta
+from sqlalchemy import desc
+from datetime import datetime
 
 from .startup import app
 from .node import (create_token, get_chunk_contract,
                    verify_proof,  update_contract,
                    lookup_contract)
-from .models import Token, Contract
+from .models import Token
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 
 
 @app.route('/')
 def api_index():
     return jsonify(msg='ok')
-    
+
+
 @app.route('/api/downstream/status/list/',
-           defaults={'o': False, 'd': False, 'sortby': 'id', 'limit': None, 'page': None})
+           defaults={'o': False, 'd': False, 'sortby': 'id',
+                     'limit': None, 'page': None})
 @app.route('/api/downstream/status/list/<int:limit>',
            defaults={'o': False, 'd': False, 'sortby': 'id', 'page': None})
 @app.route('/api/downstream/status/list/<int:limit>/<int:page>',
@@ -39,7 +41,8 @@ def api_index():
 @app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
            defaults={'o': False, 'd': True})
 @app.route('/api/downstream/status/list/online/',
-           defaults={'o': True, 'd': False, 'sortby': 'id', 'limit': None, 'page': None})
+           defaults={'o': True, 'd': False, 'sortby': 'id',
+                     'limit': None, 'page': None})
 @app.route('/api/downstream/status/list/online/<int:limit>',
            defaults={'o': True, 'd': False, 'sortby': 'id', 'page': None})
 @app.route('/api/downstream/status/list/online/<int:limit>/<int:page>',
@@ -52,9 +55,11 @@ def api_index():
            defaults={'o': True, 'd': False, 'page': 0})
 @app.route('/api/downstream/status/list/online/by/d/<sortby>/<int:limit>',
            defaults={'o': True, 'd': True, 'page': 0})
-@app.route('/api/downstream/status/list/online/by/<sortby>/<int:limit>/<int:page>',
+@app.route('/api/downstream/status/list/online/by/'
+           '<sortby>/<int:limit>/<int:page>',
            defaults={'o': True, 'd': False})
-@app.route('/api/downstream/status/list/online/by/d/<sortby>/<int:limit>/<int:page>',
+@app.route('/api/downstream/status/list/online/by/d/'
+           '<sortby>/<int:limit>/<int:page>',
            defaults={'o': True, 'd': True})
 def api_downstream_status_list(o, d, sortby, limit, page):
     with HttpHandler() as handler:
@@ -74,13 +79,13 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         # sums up the time that the farmer has been online, and then divides
         # by the total time the farmer has had any contracts.
         if o:
-            all_tokens = Token.query.filter(Token.online == True).all()
+            all_tokens = Token.query.filter(Token.online).all()
         else:
             all_tokens = Token.query.all()
         uptimes = dict()
         for t in all_tokens:
             uptimes[t.id] = t.uptime
-                
+
         if (sortby == 'uptime'):
             key = lambda x: uptimes[x.id]
             if (d):
@@ -97,10 +102,10 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 sort_stmt = desc(sort_stmt)
 
             farmer_list_query = Token.query
-            
+
             if (o):
                 farmer_list_query = farmer_list_query.filter(Token.online)
-            
+
             farmer_list_query = farmer_list_query.order_by(sort_stmt)
 
             if (limit is not None):
