@@ -146,13 +146,3 @@ class Contract(db.Model):
                                                  self.due),
                                self.due)]).\
             where(File.id == self.file_id).label('expiration')
-
-    @hybrid_property
-    def totaltime(self):
-        return datetime.utcnow() - self.start
-
-    @totaltime.expression
-    def totaltime(self):
-        return func.TIMESTAMPDIFF(text('SECOND'),
-                                  self.start,
-                                  datetime.utcnow()).label('totaltime')

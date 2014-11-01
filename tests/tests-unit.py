@@ -95,7 +95,16 @@ class TestDownstreamRoutes(unittest.TestCase):
         token = models.Token.query.filter(models.Token.token==r_token).first()
         
         self.assertEqual(token.token,r_token)
-        self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)               
+        self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
+    
+    def test_api_downstream_new_invalid_address(self):
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/api/downstream/new/invalidaddress')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_heartbeat(self):
         with patch('downstream_node.routes.request') as request:
@@ -440,6 +449,17 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
 
         self.assertEqual(r_json['message'],'Invalid sort')
+        
+    def test_api_status_list_online(self):
+        r = self.app.get('/api/downstream/status/list/online/')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_list_limit(self):
         r = self.app.get('/api/downstream/status/list/1')
@@ -499,14 +519,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
     def test_api_status_list_by_address(self):
         self.generic_list_by('address')
         
-    def test_api_status_list_by_uptime(self):
-        self.generic_list_by('uptime')
-        
     def test_api_status_list_by_heartbeats(self):
-        self.generic_list_by('heartbeats')
-    
-    def test_api_status_list_by_iphash(self):
-        pass
+        self.generic_list_by('heartbeats')    
     
     def test_api_status_list_by_contracts(self):
         self.generic_list_by('contracts')
@@ -516,6 +530,31 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
     def test_api_status_list_by_online(self):
         self.generic_list_by('online')
+
+    def test_api_status_list_by_uptime(self):
+        self.generic_list_by('uptime')
+    
+    def test_api_status_list_by_uptime_limit(self):
+        r = self.app.get('/api/downstream/status/list/by/uptime/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'0')
+        
+    def test_api_status_list_by_uptime_limit_page(self):
+        r = self.app.get('/api/downstream/status/list/by/uptime/1/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_show_invalid_id(self):
         r = self.app.get('/api/downstream/status/show/invalidfarmer')
