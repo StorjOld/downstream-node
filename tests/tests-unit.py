@@ -20,6 +20,29 @@ from downstream_node import node
 from downstream_node import config
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
+class TestDownstreamModels(unittest.TestCase):
+    def setUp(self):
+        self.app = app.test_client()
+        app.config['TESTING'] = True
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
+        db.create_all()
+        self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
+        address = models.Address(address=self.test_address,crowdsale_balance=20000)
+        db.session.add(address)
+        db.session.commit()
+        pass
+    
+    def tearDown(self):
+        db.session.close()
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
+        pass
+    
+    def test_uptime_zero(self):
+        with patch('downstream_node.node.get_ip_location') as p:
+            p.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address')
+            
+        self.assertEqual(db_token.uptime, 0)
 
 class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
@@ -650,7 +673,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         self.assertEqual(str(ex.exception),'Invalid address given: address is not a valid SJCX address.')
         
-    def test_create_token_bad_address(self):
+    def test_create_token_invalid_address(self):
         # test random address
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()

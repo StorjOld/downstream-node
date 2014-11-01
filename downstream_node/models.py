@@ -55,21 +55,26 @@ class Token(db.Model):
                                    Contract.token_id == self.id)).\
             label('online')
 
-    @hybrid_property
+    @property       
     def uptime(self):
-        # we want the sum of the uptimes of all the contracts divided
-        # by the sum of the total time of all the contracts
-        uptime = sum(c.uptime.total_seconds() for c in self.contracts)
-        total = sum(c.totaltime.total_seconds() for c in self.contracts)
-        return float(uptime) / float(total) if total > 0 else 0
-
-    @uptime.expression
-    def uptime(self):
-        return select([func.IF(Contract.totaltime > 0,
-                               cast(func.sum(Contract.uptime), Float) /
-                               cast(func.sum(Contract.totaltime), Float),
-                               0)]).\
-            where(Contract.token_id == self.id).label('uptime')
+        times = dict()
+        count = 0
+        tsum = 0
+        for c in Contract.query.filter(and_(Contract.token_id == self.id)).all():
+            times[(c.start - datetime.utcnow()).total_seconds()] = 1
+            times[(c.due - datetime.utcnow() if c.due <
+                   datetime.utcnow() else
+                   timedelta()).total_seconds()] = -1
+        for time in sorted(times):
+            if (count == 0 and times[time] == 1):
+                tsum += time
+            elif (count == 1 and times[time] == -1):
+                tsum -= time
+            count += times[time]
+        try:
+            return tsum / sorted(times)[0]
+        except:
+            return 0
 
     @hybrid_property
     def contract_count(self):
@@ -142,31 +147,6 @@ class Contract(db.Model):
                                                  self.due),
                                self.due)]).\
             where(File.id == self.file_id).label('expiration')
-
-    @hybrid_property
-    def uptime(self):
-        # returns uptime as a timedelta
-        # if expiration > now, then this is (now-start)
-        # otherwise it is (expiration-start)
-        now = datetime.utcnow()
-        if self.expiration > now:
-            return now - self.start
-        else:
-            return self.expiration - self.start
-
-    @uptime.expression
-    def uptime(self):
-        # this code is MySQL specific.  if we switch to another database
-        # we will need to port this to another language, possibly.
-        now = datetime.utcnow()
-        return func.IF(self.expiration > now,
-                       func.TIMESTAMPDIFF(text('SECOND'),
-                                          self.start,
-                                          now),
-                       func.TIMESTAMPDIFF(text('SECOND'),
-                                          self.start,
-                                          self.expiration)).\
-            label('uptime')
 
     @hybrid_property
     def totaltime(self):
