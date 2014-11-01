@@ -199,41 +199,111 @@ The status API is required to produce the following information for each farmer:
 7. A hash of the IP address of the farmer
 8. Total data size hosted by the farmer in bytes
 
-The list of all farmer ids can be retrieved with
+The list of all farmer stats can be retrieved with
 
-     GET /api/downstream/status/list
+    GET /api/downstream/status/list
 
-which returns all the farmers ids
+which returns all the farmers and their stats, for example:
 
 ```json
 {
-   "farmers":
-   [
-      "fa1e4944e48ed7bd3739",
-      "997e717ba92078118cce",
-      "0f297828e2a687943fc4",
-      "81b6a0d841a3184028e6",
-      "49eb47ea315d53399f69",
-      "b2ca01ff2113559b231d",
-      "68ff46d440255ac29a3c",
-      "479935fca9ce02f62788",
-      "33d63de99f0aad6279ba",
-      "8088d59b6adf8faf9974",
-      "ddbeb08b93b1d06e9939",
-      "e7a5558e62d315a54058",
-      "1de67bc29901db705ea1",
-      "e94902cda505de115027",
-      "c9c1f91a6362af0babad",
-      "e87f8117d0d10a8d6479",
-      "5f652023fb6b8034fb5c",
-      "b05bd26f9f28035a3006",
-      "e78d8f0edd1a50bce83b",
-      "dc4ce32c7c8a7d0a3cb9"
-   ]
+  "farmers": [
+    {
+      "address": "18ZCamw21V7RxavSnxR5PUXbueEUJaGJdG",
+      "contracts": 1,
+      "heartbeats": 2430,
+      "id": "3ee8687a1a5580b6b0c2",
+      "location": {
+        "city": "London",
+        "country": "United Kingdom",
+        "lat": 51.5508,
+        "lon": -0.0912,
+        "state": "England",
+        "zip": "N5"
+      },
+      "online": true,
+      "size": 100,
+      "uptime": 100.0
+    },
+    {
+      "address": "175rDTpkLLZJS5wXhSFTFY2XGdnqLst8Bo",
+      "contracts": 9,
+      "heartbeats": 549,
+      "id": "e33213c51c0d5e53a4f4",
+      "location": {
+        "city": "Lombard",
+        "country": "United States",
+        "lat": 41.878,
+        "lon": -88.0163,
+        "state": "Illinois",
+        "zip": "60148"
+      },
+      "online": true,
+      "size": 900,
+      "uptime": 88.33
+    },
+    {
+      "address": "1P1eHxxfhsLM3ufQXDuYZKGdM3oBM5jrLh",
+      "contracts": 1,
+      "heartbeats": 2696,
+      "id": "ec6040c0a5a6c324e603",
+      "location": {
+        "city": "New York",
+        "country": "United States",
+        "lat": 40.7267,
+        "lon": -73.9981,
+        "state": "New York",
+        "zip": "10012"
+      },
+      "online": true,
+      "size": 100,
+      "uptime": 100.0
+    },
+    {
+      "address": "1HSMekTxSDkwgNSnhDqNkd4RwCu4Gn69r9",
+      "contracts": 1,
+      "heartbeats": 1536,
+      "id": "f5faada95cc7f56a2239",
+      "location": {
+        "city": null,
+        "country": "United States",
+        "lat": 38.0,
+        "lon": -97.0,
+        "state": null,
+        "zip": null
+      },
+      "online": true,
+      "size": 100,
+      "uptime": 100.0
+    },
+    {
+      "address": "1KsTJtNzfYG68B6bpprvmXGgRuFG3h3NHR",
+      "contracts": 1,
+      "heartbeats": 3786,
+      "id": "fa3b14c38664670fd0b0",
+      "location": {
+        "city": "Boardman",
+        "country": "United States",
+        "lat": 45.7788,
+        "lon": -119.529,
+        "state": "Oregon",
+        "zip": "97818"
+      },
+      "online": true,
+      "size": 100,
+      "uptime": 100.0
+    }
+  ]
 }
 ```
 
-Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `iphash`, `contracts`, `size`, or `online` by using
+It is possible to retrieve only online farmers by specifying the online tag:
+
+    GET /api/downstream/status/list/online
+
+which will return only online farmer statistics.
+
+Optionally, one may sort in ascending order by `id`, `address`, `uptime`, `heartbeats`, `contracts`, `size`, or `online` by using
 
     GET /api/downstream/status/list/by/<sortby>
 
@@ -259,25 +329,23 @@ will return the 25 farmers with the highest uptime percentage
 
 will return the third page (rows 30-44) of the farmers with the most contracts.
 
-And then the individual farmer information can be retrieved with:
+Individual farmer information can be retrieved with:
 
     GET /api/downstream/status/show/<id>
 
 ```json
 {
-      "id": "45bd945fa10e3f059834",
       "address": "18d6KhnTg9dM9jtb1MWXdbibu3Pwt1QHQt",
-      "location": {"city": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zip": "", "state": "Jerusalem District", "lat": 31.78199},
-      "uptime": 96.015,
-      "heartbeats": 241,
       "contracts": 2,
+      "heartbeats": 241,
+      "id": "45bd945fa10e3f059834",
+      "location": {"city": "West Jerusalem", "country": "Israel", "lon": 35.21961, "zip": "", "state": "Jerusalem District", "lat": 31.78199},
+      "online": true,
       "size": 200,
-      "online": true
+      "uptime": 96.015
 }
 ```
 
-Planning on making the id the first 20 characters of the hex representation of the token hash.
-
-Will probably cache the farmer list on the server side to improve performance.
+The farmer id is the first 20 characters of the hex representation of the token sha-256 hash.
 
 This product includes GeoLite2 data created by MaxMind, available from [http://www.maxmind.com](http://www.maxmind.com).

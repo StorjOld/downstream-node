@@ -20,6 +20,29 @@ from downstream_node import node
 from downstream_node import config
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
+class TestDownstreamModels(unittest.TestCase):
+    def setUp(self):
+        self.app = app.test_client()
+        app.config['TESTING'] = True
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
+        db.create_all()
+        self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
+        address = models.Address(address=self.test_address,crowdsale_balance=20000)
+        db.session.add(address)
+        db.session.commit()
+        pass
+    
+    def tearDown(self):
+        db.session.close()
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
+        pass
+    
+    def test_uptime_zero(self):
+        with patch('downstream_node.node.get_ip_location') as p:
+            p.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address')
+            
+        self.assertEqual(db_token.uptime, 0)
 
 class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
@@ -72,7 +95,16 @@ class TestDownstreamRoutes(unittest.TestCase):
         token = models.Token.query.filter(models.Token.token==r_token).first()
         
         self.assertEqual(token.token,r_token)
-        self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)               
+        self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
+    
+    def test_api_downstream_new_invalid_address(self):
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/api/downstream/new/invalidaddress')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_heartbeat(self):
         with patch('downstream_node.routes.request') as request:
@@ -417,6 +449,17 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         r_json = json.loads(r.data.decode('utf-8'))
 
         self.assertEqual(r_json['message'],'Invalid sort')
+        
+    def test_api_status_list_online(self):
+        r = self.app.get('/api/downstream/status/list/online/')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_list_limit(self):
         r = self.app.get('/api/downstream/status/list/1')
@@ -476,14 +519,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
     def test_api_status_list_by_address(self):
         self.generic_list_by('address')
         
-    def test_api_status_list_by_uptime(self):
-        self.generic_list_by('uptime')
-        
     def test_api_status_list_by_heartbeats(self):
-        self.generic_list_by('heartbeats')
-    
-    def test_api_status_list_by_iphash(self):
-        pass
+        self.generic_list_by('heartbeats')    
     
     def test_api_status_list_by_contracts(self):
         self.generic_list_by('contracts')
@@ -493,6 +530,31 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
     def test_api_status_list_by_online(self):
         self.generic_list_by('online')
+
+    def test_api_status_list_by_uptime(self):
+        self.generic_list_by('uptime')
+    
+    def test_api_status_list_by_uptime_limit(self):
+        r = self.app.get('/api/downstream/status/list/by/uptime/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'0')
+        
+    def test_api_status_list_by_uptime_limit_page(self):
+        r = self.app.get('/api/downstream/status/list/by/uptime/1/1')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']),1)
+        self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_show_invalid_id(self):
         r = self.app.get('/api/downstream/status/show/invalidfarmer')
@@ -617,6 +679,19 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         pass
+        
+    def test_process_token_ip_address_change_ip(self):
+        with patch('downstream_node.node.assert_ip_allowed_one_more_token') as a,\
+                patch('downstream_node.node.get_ip_location') as b:
+            db_token = mock.MagicMock()
+            db_token.ip_address = 'old_ip_address'
+            new_ip = 'new_ip_address'
+            b.return_value = 'test location'
+            node.process_token_ip_address(db_token,new_ip,change=True)
+            a.assert_called_with(new_ip)
+            b.assert_called_with(new_ip)
+            self.assertEqual(db_token.location,pickle.dumps(b.return_value))
+            self.assertEqual(db_token.ip_address,new_ip)
 
     def test_create_token(self):
         with patch('downstream_node.node.get_ip_location') as p:
@@ -637,7 +712,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         self.assertEqual(str(ex.exception),'Invalid address given: address is not a valid SJCX address.')
         
-    def test_create_token_bad_address(self):
+    def test_create_token_invalid_address(self):
         # test random address
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
@@ -678,11 +753,12 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_create_token_duplicate_id(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            db_token = node.create_token(self.test_address,'duplicate')
+            for i in range(0,app.config['MAX_TOKENS_PER_IP']):
+                db_token = node.create_token(self.test_address,'duplicate')
             with self.assertRaises(InvalidParameterError) as ex:
                 db_token = node.create_token(self.test_address, 'duplicate')
-            self.assertEqual(str(ex.exception),'Cannot request more than one token '
-                                    'per IP address right now.')
+            self.assertEqual(str(ex.exception),'IP Disallowed, only {0} tokens are permitted per IP address'.\
+                format(app.config['MAX_TOKENS_PER_IP']))
 
     def test_address_resolve(self):
         db_token = node.create_token(self.test_address, '17.0.0.1')
@@ -825,10 +901,23 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             
         self.assertEqual(str(ex.exception),'Contract has expired.')
         
+    def test_update_contract_new_challenge(self):
+        with patch('downstream_node.node.lookup_contract') as a,\
+                patch('downstream_node.node.contract_insert_next_challenge') as b,\
+                patch('downstream_node.startup.db.session.commit') as c:
+            a.return_value = mock.MagicMock()
+            a.return_value.expiration = datetime.utcnow() + timedelta(seconds=60)
+            a.return_value.challenge = None
+            self.assertEqual(node.update_contract('token','hash'),a.return_value)
+            b.assert_called_with(a.return_value)
+            self.assertTrue(c.called)
+            
+        
     def test_verify_proof(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            other_token = node.create_token(self.test_address,'existing_ip')
+            for i in range(0,app.config['MAX_TOKENS_PER_IP']):
+                other_token = node.create_token(self.test_address,'existing_ip')
             db_token = node.create_token(self.test_address,'test.ip.address6')
         
         db_contract = node.get_chunk_contract(db_token.token,'test.ip.address6')
@@ -851,7 +940,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # check ip address resolution failure
         with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof(db_token.token,db_contract.file.hash,proof,'existing_ip')
-        self.assertEqual(str(ex.exception), 'IP Disallowed, another farmer is using this IP address')
+        self.assertEqual(str(ex.exception), 'IP Disallowed, only {0} tokens are permitted per IP address'.\
+            format(app.config['MAX_TOKENS_PER_IP']))
 
         # check nonexistent token
         

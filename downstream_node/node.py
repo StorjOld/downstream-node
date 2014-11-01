@@ -59,26 +59,39 @@ def get_ip_location(remote_addr):
     return location
 
 
-def process_token_ip_address(db_token, remote_addr, change=False):
-    """This function enforces the one token per IP address rule.
+def assert_ip_allowed_one_more_token(remote_addr):
+    """This function enforces the max token per IP count rule for
+    existing tokens.
+    """
+    conflicting_tokens = Token.query.filter(
+        Token.ip_address == remote_addr).all()
 
-    Checks if the given token is running with remote_addr.  If it isn't
-    checks that there are no other tokens running with that address,
-    and then if change==True, switches token over to remote_addr.
+    if (app.config['MAX_TOKENS_PER_IP'] is not None and
+            len(conflicting_tokens) >= app.config['MAX_TOKENS_PER_IP']):
+        # too many other tokens are using this ip address already
+        # we will disallow it.
+        raise InvalidParameterError(
+            'IP Disallowed, only {0} tokens are permitted per IP address'.
+            format(app.config['MAX_TOKENS_PER_IP']))
+
+
+def process_token_ip_address(db_token, remote_addr, change=False):
+    """This function enforces the max token per IP count rule for
+    existing tokens.
+
+    Checks if the given token is running with remote_addr, and if it
+    isn't, it checks to make sure that the ip address is allowed an
+    additional token.  if it is, then if change==True, switches token
+    over to remote_addr.
     :param db_token: the database token object
     :param remote_addr: the ip address
     :param change: whether to change the token's ip address in the event
         that it is valid
     """
     if (db_token.ip_address != remote_addr):
-        # possible ip address change.  check it is unique
-        conflicting_token = Token.query.filter(
-            Token.ip_address == remote_addr).first()
-        if (app.config['ONE_TOKEN_PER_IP'] and conflicting_token is not None):
-            # another token has this ip address already
-            # address already.  we will disallow it.
-            raise InvalidParameterError(
-                'IP Disallowed, another farmer is using this IP address')
+        # possible ip address change.  check the ip address is allowed
+        # to obtain another token
+        assert_ip_allowed_one_more_token(remote_addr)
 
         # we should be good to go with the new ip
         if (change):
@@ -112,11 +125,9 @@ def create_token(sjcx_address, remote_addr):
     :param remote_addr: ip address of the farmer requesting a token
     :returns: the token database object
     """
-    db_token = Token.query.filter(Token.ip_address == remote_addr).all()
 
-    if (app.config['ONE_TOKEN_PER_IP'] and len(db_token) > 0):
-        raise InvalidParameterError('Cannot request more than one token '
-                                    'per IP address right now.')
+    # make sure that the currnet ip has not excceeded it's token count
+    assert_ip_allowed_one_more_token(remote_addr)
 
     # make sure the address is valid
     try:
