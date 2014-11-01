@@ -58,6 +58,7 @@ def get_ip_location(remote_addr):
 
     return location
 
+
 def assert_ip_allowed_one_more_token(remote_addr):
     """This function enforces the max token per IP count rule for
     existing tokens.
@@ -65,12 +66,12 @@ def assert_ip_allowed_one_more_token(remote_addr):
     conflicting_tokens = Token.query.filter(
         Token.ip_address == remote_addr).all()
 
-    if (app.config['MAX_TOKENS_PER_IP'] is not None and 
-        len(conflicting_tokens) >= app.config['MAX_TOKENS_PER_IP']):
+    if (app.config['MAX_TOKENS_PER_IP'] is not None and
+            len(conflicting_tokens) >= app.config['MAX_TOKENS_PER_IP']):
         # too many other tokens are using this ip address already
         # we will disallow it.
         raise InvalidParameterError(
-            'IP Disallowed, only {0} tokens are permitted per IP address'.\
+            'IP Disallowed, only {0} tokens are permitted per IP address'.
             format(app.config['MAX_TOKENS_PER_IP']))
 
 
@@ -80,7 +81,7 @@ def process_token_ip_address(db_token, remote_addr, change=False):
 
     Checks if the given token is running with remote_addr, and if it
     isn't, it checks to make sure that the ip address is allowed an
-    additional token.  if it is, then if change==True, switches token 
+    additional token.  if it is, then if change==True, switches token
     over to remote_addr.
     :param db_token: the database token object
     :param remote_addr: the ip address
@@ -125,7 +126,7 @@ def create_token(sjcx_address, remote_addr):
     :returns: the token database object
     """
 
-    #make sure that the currnet ip has not excceeded it's token count
+    # make sure that the currnet ip has not excceeded it's token count
     assert_ip_allowed_one_more_token(remote_addr)
 
     # make sure the address is valid
