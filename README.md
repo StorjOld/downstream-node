@@ -4,7 +4,7 @@ downstream-node
 Master: [![Build Status](https://travis-ci.org/Storj/downstream-node.svg?branch=master)](https://travis-ci.org/Storj/downstream-node) [![Coverage Status](https://img.shields.io/coveralls/Storj/downstream-node.svg)](https://coveralls.io/r/Storj/downstream-node?branch=master)
 Devel: [![Build Status](https://travis-ci.org/Storj/downstream-node.svg?branch=devel)](https://travis-ci.org/Storj/downstream-node) [![Coverage Status](https://img.shields.io/coveralls/Storj/downstream-node.svg)](https://coveralls.io/r/Storj/downstream-node?branch=devel)
 
-Currently running on [http://verify.driveshare.org](http://driveshare.org). You can see the status of farmers there.
+Currently running on [https://live.driveshare.org](https://live.driveshare.org). You can see the status of farmers there.
 
 ## What is this I don't even?
 
