@@ -158,25 +158,27 @@ def api_downstream_status_show(farmer_id):
 def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler() as handler:
-        if (app.config['REQUIRE_SIGNATURE'] == True):
+        if (app.config['REQUIRE_SIGNATURE']):
             if (request.method == 'GET'):
-                raise InvalidParameterError('New token requests must include '
-                    'posted signature proving ownership of farming address')
+                raise InvalidParameterError(
+                    'New token requests must include posted signature proving '
+                    'ownership of farming address')
 
             if (request.method == 'POST'):
                 d = request.get_json(silent=True)
 
-                if (d is False or not isinstance(d, dict) 
-                    or 'signature' not in d or 'message' not in d):
-                    raise InvalidParameterError('Posted data must be JSON '
-                        'encoded object including "signature" and "message"')
+                if (d is False or not isinstance(d, dict)
+                        or 'signature' not in d or 'message' not in d):
+                    raise InvalidParameterError(
+                        'Posted data must be JSON encoded object including '
+                        '"signature" and "message"')
 
                 # parse the signature and message
                 if (not siggy.verify_signature(d['message'],
                                                d['signature'],
                                                sjcx_address)):
                     raise InvalidParameterError('Signature invalid.')
-    
+
         db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
