@@ -3,6 +3,7 @@
 
 import os
 import pickle
+import siggy
 
 from flask import jsonify, request
 from sqlalchemy import desc
@@ -151,10 +152,29 @@ def api_downstream_status_show(farmer_id):
     return handler.response
 
 
-@app.route('/api/downstream/new/<sjcx_address>')
+@app.route('/api/downstream/new/<sjcx_address>', methods=['GET', 'POST'])
 def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler() as handler:
+        if (app.config['REQUIRE_SIGNATURE'] == True):
+            if (request.method == 'GET'):
+                raise InvalidParameterError('New token requests must include '
+                    'posted signature proving ownership of farming address')
+
+            if (request.method == 'POST'):
+                d = request.get_json(silent=True)
+
+                if (d is False or not isinstance(d, dict) 
+                    or 'signature' not in d or 'message' not in d):
+                    raise InvalidParameterError('Posted data must be JSON '
+                        'encoded object including "signature" and "message"')
+
+                # parse the signature and message
+                if (not siggy.verify_signature(d['message'],
+                                               d['signature'],
+                                               sjcx_address)):
+                    raise InvalidParameterError('Signature invalid.')
+    
         db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
@@ -231,7 +251,7 @@ def api_downstream_challenge_answer(token, file_hash):
     with HttpHandler() as handler:
         d = request.get_json(silent=True)
 
-        if (dict is False or not isinstance(d, dict) or 'proof' not in d):
+        if (d is False or not isinstance(d, dict) or 'proof' not in d):
             raise InvalidParameterError('Posted data must be an JSON encoded '
                                         'proof object: '
                                         '{"proof":"...proof object..."}')
