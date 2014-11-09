@@ -73,7 +73,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                     'online': Token.online}
 
         if (sortby not in sort_map):
-            raise InvalidParameterError('Invalid sort')
+            raise InvalidParameterError('Invalid sort.')
 
         # we need to calculate uptime manually
         # what we're doing here is going through each farmer's contracts. it
@@ -200,7 +200,7 @@ def api_downstream_heartbeat(token):
         db_token = Token.query.filter(Token.token == token).first()
 
         if (db_token is None):
-            raise NotFoundError('Nonexistent token')
+            raise NotFoundError('Nonexistent token.')
 
         beat = pickle.loads(db_token.heartbeat)
         pub_beat = beat.get_public()
