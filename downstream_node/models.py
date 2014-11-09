@@ -80,7 +80,8 @@ class Token(db.Model):
     def last_due(self):
         contracts = Contract.query.filter(Contract.token_id == self.id).all()
         sorted_dates = sorted([c.due for c in contracts])
-        return sorted_dates.pop().isoformat() if len(sorted_dates) > 0 else None
+        num_dates = len(sorted_dates)
+        return sorted_dates.pop().isoformat() if num_dates > 0 else None
 
     @hybrid_property
     def contract_count(self):
