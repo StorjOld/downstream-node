@@ -124,6 +124,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                                 uptime=round(uptimes[a.id] * 100, 2),
                                 heartbeats=a.hbcount,
                                 contracts=a.contract_count,
+                                last_due=a.last_due,
                                 size=a.size,
                                 online=a.online), farmer_list))
 
@@ -146,6 +147,7 @@ def api_downstream_status_show(farmer_id):
                        uptime=round(a.uptime * 100, 2),
                        heartbeats=a.hbcount,
                        contracts=a.contract_count,
+                       last_due=a.last_due,
                        size=a.size,
                        online=a.online)
 

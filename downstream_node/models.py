@@ -75,6 +75,14 @@ class Token(db.Model):
         except:
             return 0
 
+    # Return the date of the contract with the latest due date.
+    @property
+    def last_due(self):
+        contracts = Contract.query.filter(Contract.token_id == self.id).all()
+        sorted_dates = sorted([c.due for c in contracts])
+        num_dates = len(sorted_dates)
+        return sorted_dates.pop().isoformat() if num_dates > 0 else None
+
     @hybrid_property
     def contract_count(self):
         return self.contracts.count()
