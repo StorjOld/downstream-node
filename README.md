@@ -142,6 +142,24 @@ Response:
 }
 ```
 
+For verified access, use the following:
+
+    POST /api/downstream/new/<sjcx_address>
+Parameters:
+```
+{
+	"message": "A Message Of Your Choice"
+	"signature": "Base64 signature of message"
+}
+```
+Response:
+```
+{
+    "token": "ceb722d954ef9d1af3eed2bbe0aeb954",
+    "heartbeat": "...heartbeat object string representation..."
+}
+```
+
 Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>

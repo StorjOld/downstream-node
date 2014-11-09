@@ -12,7 +12,8 @@ install_requires = [
     'RandomIO',
     'storj-heartbeat',
     'base58',
-    'maxminddb'
+    'maxminddb',
+    'siggy'
 ]
 
 if sys.version_info < (3,):

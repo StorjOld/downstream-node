@@ -135,7 +135,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
-        self.assertEqual(r_json['message'], 'Nonexistent token')
+        self.assertEqual(r_json['message'], 'Nonexistent token.')
         
     def test_api_downstream_chunk(self):
         with patch('downstream_node.routes.request') as request:
@@ -448,7 +448,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['message'],'Invalid sort')
+        self.assertEqual(r_json['message'],'Invalid sort.')
         
     def test_api_status_list_online(self):
         r = self.app.get('/api/downstream/status/list/online/')
