@@ -78,7 +78,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+                r = self.app.get('/new/{0}'.format(self.test_address))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -102,7 +102,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/new/invalidaddress')
+                r = self.app.get('/new/invalidaddress')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -111,7 +111,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+                r = self.app.get('/new/{0}'.format(self.test_address))
                 
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -119,7 +119,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_token = r_json['token']
         
-        r = self.app.get('/api/downstream/heartbeat/{0}'.format(r_token))
+        r = self.app.get('/heartbeat/{0}'.format(r_token))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -130,7 +130,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_beat2, r_beat)
         
         # test nonexistant token
-        r = self.app.get('/api/downstream/heartbeat/nonexistenttoken')
+        r = self.app.get('/heartbeat/nonexistenttoken')
         self.assertEqual(r.status_code, 404)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -142,7 +142,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+                r = self.app.get('/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -154,7 +154,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/chunk/{0}'.format(r_token))
+                r = self.app.get('/chunk/{0}'.format(r_token))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -192,7 +192,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertTrue(valid)
         
         # and also check error code
-        r = self.app.get('/api/downstream/chunk/invalidtoken')
+        r = self.app.get('/chunk/invalidtoken')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
 
@@ -212,7 +212,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         token = db_token.token
         hash = db_contract.file.hash
     
-        r = self.app.get('/api/downstream/challenge/{0}/{1}'.format(token,hash))
+        r = self.app.get('/challenge/{0}/{1}'.format(token,hash))
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -229,7 +229,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         os.remove(db_contract.file.path)
         
         # test invalid token or hash
-        r = self.app.get('/api/downstream/challenge/invalid_token/invalid_hash')
+        r = self.app.get('/challenge/invalid_token/invalid_hash')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
         
@@ -238,7 +238,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/new/{0}'.format(self.test_address))
+                r = self.app.get('/new/{0}'.format(self.test_address))
         
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -250,7 +250,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
-                r = self.app.get('/api/downstream/chunk/{0}'.format(r_token))
+                r = self.app.get('/chunk/{0}'.format(r_token))
         
         r_json = json.loads(r.data.decode('utf-8'))
         
@@ -272,7 +272,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = {"proof":proof.todict()}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,200)
@@ -292,7 +292,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = {"proof":proof.todict()}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,400)
@@ -310,7 +310,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = {"proof":"invalid proof object"}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,400)
@@ -328,7 +328,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = "invalid proof object"
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/api/downstream/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,400)
@@ -430,7 +430,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
        
     def test_api_status_list(self):
-        r = self.app.get('/api/downstream/status/list/')
+        r = self.app.get('/status/list/')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -441,7 +441,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][1]['id'],'1')
 
     def test_api_status_list_invalid_sort(self):
-        r = self.app.get('/api/downstream/status/list/by/invalid.sort')
+        r = self.app.get('/status/list/by/invalid.sort')
         
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type,'application/json')
@@ -451,7 +451,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['message'],'Invalid sort.')
         
     def test_api_status_list_online(self):
-        r = self.app.get('/api/downstream/status/list/online/')
+        r = self.app.get('/status/list/online/')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -462,7 +462,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_list_limit(self):
-        r = self.app.get('/api/downstream/status/list/1')
+        r = self.app.get('/status/list/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -473,7 +473,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][0]['id'],'0')
         
     def test_api_status_list_limit_page(self):
-        r = self.app.get('/api/downstream/status/list/1/1')
+        r = self.app.get('/status/list/1/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -485,7 +485,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         
     def test_api_status_list_by_farmer_id(self):
-        r = self.app.get('/api/downstream/status/list/by/d/id')
+        r = self.app.get('/status/list/by/d/id')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -496,7 +496,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][1]['id'],'0')
 
     def generic_list_by(self, string):
-        r = self.app.get('/api/downstream/status/list/by/{0}'.format(string))
+        r = self.app.get('/status/list/by/{0}'.format(string))
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -506,7 +506,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][0]['id'],'0')
         self.assertEqual(r_json['farmers'][1]['id'],'1')
         
-        r = self.app.get('/api/downstream/status/list/by/d/{0}'.format(string))
+        r = self.app.get('/status/list/by/d/{0}'.format(string))
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -535,7 +535,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.generic_list_by('uptime')
     
     def test_api_status_list_by_uptime_limit(self):
-        r = self.app.get('/api/downstream/status/list/by/uptime/1')
+        r = self.app.get('/status/list/by/uptime/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -546,7 +546,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][0]['id'],'0')
         
     def test_api_status_list_by_uptime_limit_page(self):
-        r = self.app.get('/api/downstream/status/list/by/uptime/1/1')
+        r = self.app.get('/status/list/by/uptime/1/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
@@ -557,7 +557,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['farmers'][0]['id'],'1')
 
     def test_api_status_show_invalid_id(self):
-        r = self.app.get('/api/downstream/status/show/invalidfarmer')
+        r = self.app.get('/status/show/invalidfarmer')
         
         self.assertEqual(r.status_code, 404)
         self.assertEqual(r.content_type,'application/json')
@@ -567,7 +567,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         self.assertEqual(r_json['message'],'Nonexistant farmer id.')
         
     def test_api_status_show(self):
-        r = self.app.get('/api/downstream/status/show/1')
+        r = self.app.get('/status/show/1')
         
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
