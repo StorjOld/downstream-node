@@ -25,7 +25,7 @@ $ apt-get install libcrypto++-dev
 Get `downstream-node`:
 
 ```
-$ git clone -b devel https://github.com/Storj/downstream-node.git
+$ git clone https://github.com/Storj/downstream-node.git
 $ cd downstream-node
 $ pip install -r requirements.txt .
 ```
