@@ -6,6 +6,7 @@ import heartbeat
 
 # Flask
 SECRET_KEY = os.urandom(32)
+APPLICATION_ROOT = '/api/downstream/v1'
 
 # SQLAlchemy (DB)
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA

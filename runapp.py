@@ -6,6 +6,9 @@
 
 import argparse
 import csv
+from flask import Flask, jsonify
+from werkzeug.serving import run_simple
+from werkzeug.wsgi import DispatcherMiddleware
 from datetime import datetime, timedelta
 from sqlalchemy import select, engine, update, insert
 
@@ -55,7 +58,11 @@ def eval_args(args):
     elif (args.whitelist is not None):
         updatewhitelist(args.whitelist)
     else:
-        app.run(debug=True)
+        debug_root = Flask(__name__)
+        debug_root.debug = True
+        debug_root.add_url_rule('/','index',lambda: jsonify(msg='debugging'))
+        prefixed_app = DispatcherMiddleware(debug_root, {app.config['APPLICATION_ROOT']:app})
+        run_simple('localhost', 5000, prefixed_app, use_reloader=True)
 
 
 def parse_args():

@@ -22,44 +22,44 @@ def api_index():
     return jsonify(msg='ok')
 
 
-@app.route('/api/downstream/status/list/',
+@app.route('/status/list/',
            defaults={'o': False, 'd': False, 'sortby': 'id',
                      'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/<int:limit>',
+@app.route('/status/list/<int:limit>',
            defaults={'o': False, 'd': False, 'sortby': 'id', 'page': None})
-@app.route('/api/downstream/status/list/<int:limit>/<int:page>',
+@app.route('/status/list/<int:limit>/<int:page>',
            defaults={'o': False, 'd': False, 'sortby': 'id'})
-@app.route('/api/downstream/status/list/by/<sortby>',
+@app.route('/status/list/by/<sortby>',
            defaults={'o': False, 'd': False, 'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/by/d/<sortby>',
+@app.route('/status/list/by/d/<sortby>',
            defaults={'o': False, 'd': True, 'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>',
+@app.route('/status/list/by/<sortby>/<int:limit>',
            defaults={'o': False, 'd': False, 'page': 0})
-@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>',
+@app.route('/status/list/by/d/<sortby>/<int:limit>',
            defaults={'o': False, 'd': True, 'page': 0})
-@app.route('/api/downstream/status/list/by/<sortby>/<int:limit>/<int:page>',
+@app.route('/status/list/by/<sortby>/<int:limit>/<int:page>',
            defaults={'o': False, 'd': False})
-@app.route('/api/downstream/status/list/by/d/<sortby>/<int:limit>/<int:page>',
+@app.route('/status/list/by/d/<sortby>/<int:limit>/<int:page>',
            defaults={'o': False, 'd': True})
-@app.route('/api/downstream/status/list/online/',
+@app.route('/status/list/online/',
            defaults={'o': True, 'd': False, 'sortby': 'id',
                      'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/online/<int:limit>',
+@app.route('/status/list/online/<int:limit>',
            defaults={'o': True, 'd': False, 'sortby': 'id', 'page': None})
-@app.route('/api/downstream/status/list/online/<int:limit>/<int:page>',
+@app.route('/status/list/online/<int:limit>/<int:page>',
            defaults={'o': True, 'd': False, 'sortby': 'id'})
-@app.route('/api/downstream/status/list/online/by/<sortby>',
+@app.route('/status/list/online/by/<sortby>',
            defaults={'o': True, 'd': False, 'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/online/by/d/<sortby>',
+@app.route('/status/list/online/by/d/<sortby>',
            defaults={'o': True, 'd': True, 'limit': None, 'page': None})
-@app.route('/api/downstream/status/list/online/by/<sortby>/<int:limit>',
+@app.route('/status/list/online/by/<sortby>/<int:limit>',
            defaults={'o': True, 'd': False, 'page': 0})
-@app.route('/api/downstream/status/list/online/by/d/<sortby>/<int:limit>',
+@app.route('/status/list/online/by/d/<sortby>/<int:limit>',
            defaults={'o': True, 'd': True, 'page': 0})
-@app.route('/api/downstream/status/list/online/by/'
+@app.route('/status/list/online/by/'
            '<sortby>/<int:limit>/<int:page>',
            defaults={'o': True, 'd': False})
-@app.route('/api/downstream/status/list/online/by/d/'
+@app.route('/status/list/online/by/d/'
            '<sortby>/<int:limit>/<int:page>',
            defaults={'o': True, 'd': True})
 def api_downstream_status_list(o, d, sortby, limit, page):
@@ -133,7 +133,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
     return handler.response
 
 
-@app.route('/api/downstream/status/show/<farmer_id>')
+@app.route('/status/show/<farmer_id>')
 def api_downstream_status_show(farmer_id):
     with HttpHandler() as handler:
         a = Token.query.filter(Token.farmer_id == farmer_id).first()
@@ -154,7 +154,7 @@ def api_downstream_status_show(farmer_id):
     return handler.response
 
 
-@app.route('/api/downstream/new/<sjcx_address>', methods=['GET', 'POST'])
+@app.route('/new/<sjcx_address>', methods=['GET', 'POST'])
 def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler() as handler:
@@ -189,7 +189,7 @@ def api_downstream_new_token(sjcx_address):
     return handler.response
 
 
-@app.route('/api/downstream/heartbeat/<token>')
+@app.route('/heartbeat/<token>')
 def api_downstream_heartbeat(token):
     """This route gets the heartbeat for a token.
     Provided for nodes that need to recover their heartbeat.
@@ -211,7 +211,7 @@ def api_downstream_heartbeat(token):
     return handler.response
 
 
-@app.route('/api/downstream/chunk/<token>')
+@app.route('/chunk/<token>')
 def api_downstream_chunk_contract(token):
     with HttpHandler() as handler:
         db_contract = get_chunk_contract(token, request.remote_addr)
@@ -235,7 +235,7 @@ def api_downstream_chunk_contract(token):
     return handler.response
 
 
-@app.route('/api/downstream/challenge/<token>/<file_hash>')
+@app.route('/challenge/<token>/<file_hash>')
 def api_downstream_chunk_contract_status(token, file_hash):
     """For prototyping, this will generate a new challenge
     """
@@ -250,7 +250,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
     return handler.response
 
 
-@app.route('/api/downstream/answer/<token>/<file_hash>', methods=['POST'])
+@app.route('/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
     with HttpHandler() as handler:
         d = request.get_json(silent=True)
