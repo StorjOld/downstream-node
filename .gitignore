@@ -42,6 +42,9 @@ coverage.xml
 # Data directory
 data/
 
+# Config file
+downstream_node/config.py
+
 # Translations
 *.mo
 *.pot
