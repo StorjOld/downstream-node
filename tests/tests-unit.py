@@ -48,12 +48,15 @@ class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
+        app.config['REQUIRE_SIGNATURE'] = False
         db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.testfile = RandomIO().genfile(1000)
         
-        self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
-        address = models.Address(address=self.test_address,crowdsale_balance=20000)
+        self.test_address = '19qVgG8C6eXwKMMyvVegsi3xCsKyk3Z3jV'
+        self.test_signature = 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I='
+        self.test_message = 'test message'
+        address = models.Address(address=self.test_address,crowdsale_balance=10000)
         db.session.add(address)
         db.session.commit()
 
@@ -96,6 +99,55 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         self.assertEqual(token.token,r_token)
         self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
+    
+    def test_api_downstream_new_signed(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'POST'
+            request.get_json.return_value = dict({'signature': self.test_signature,
+                                                  'message': self.test_message})
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.content_type, 'application/json')
+
+    def test_api_downstream_new_signed_invalid_object(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'POST'
+            request.get_json.return_value = dict({'invalid': 'dictionary'})
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 400)
+            self.assertEqual(r.content_type, 'application/json')
+    
+    def test_api_downstream_new_signed_invalid_signature(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'POST'
+            request.get_json.return_value = dict({'signature': 'invalidsignature',
+                                                  'message': self.test_message})
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 400)
+            self.assertEqual(r.content_type, 'application/json')
+            
+    def test_api_downstream_new_signed_no_sig(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'GET'
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 400)
+            self.assertEqual(r.content_type, 'application/json')
     
     def test_api_downstream_new_invalid_address(self):
         with patch('downstream_node.routes.request') as request:

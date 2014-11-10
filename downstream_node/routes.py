@@ -159,11 +159,6 @@ def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler() as handler:
         if (app.config['REQUIRE_SIGNATURE']):
-            if (request.method == 'GET'):
-                raise InvalidParameterError(
-                    'New token requests must include posted signature proving '
-                    'ownership of farming address')
-
             if (request.method == 'POST'):
                 d = request.get_json(silent=True)
 
@@ -178,6 +173,10 @@ def api_downstream_new_token(sjcx_address):
                                                d['signature'],
                                                sjcx_address)):
                     raise InvalidParameterError('Signature invalid.')
+            else:
+                raise InvalidParameterError(
+                    'New token requests must include posted signature proving '
+                    'ownership of farming address')
 
         db_token = create_token(sjcx_address, request.remote_addr)
         beat = pickle.loads(db_token.heartbeat)
