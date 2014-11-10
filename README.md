@@ -48,9 +48,10 @@ gunzip GeoLite2-City.mmdb.gz
 cd ..
 ```
 
-Edit the config with the appropriate details:
+Create and edit the config with the appropriate details:
 
 ```
+$ cp downstream_node/config.py.template downstream_node/config.py
 $ nano downstream_node/config.py
 ```
 
