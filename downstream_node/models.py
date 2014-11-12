@@ -38,6 +38,10 @@ class Token(db.Model):
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
     location = db.Column(db.PickleType())
+    # shouldn't need unicode, since it will have come over JSON which will have
+    # escaped any unicode characters.  need to test that behavior.
+    message = db.Column(db.Text())
+    signature = db.Column(db.Text())
 
     address = db.relationship('Address',
                               backref=db.backref('tokens',

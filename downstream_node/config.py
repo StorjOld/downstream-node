@@ -21,4 +21,5 @@ HEARTBEAT = heartbeat.Swizzle.Swizzle
 
 MAX_TOKENS_PER_IP = 5
 MIN_SJCX_BALANCE = 10000
+MAX_SIG_MESSAGE_SIZE = 1024
 REQUIRE_SIGNATURE = True  # not used yet

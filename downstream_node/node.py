@@ -117,7 +117,7 @@ def contract_insert_next_challenge(db_contract):
     db_contract.answered = False
 
 
-def create_token(sjcx_address, remote_addr):
+def create_token(sjcx_address, remote_addr, message=None, signature=None):
     """Creates a token for the given address. Address must be in the white
     list of addresses.
 
@@ -161,7 +161,9 @@ def create_token(sjcx_address, remote_addr):
                      heartbeat=beat,
                      ip_address=remote_addr,
                      farmer_id=token_hash,
-                     location=location)
+                     location=location,
+                     message=message,
+                     signature=signature)
 
     db.session.add(db_token)
     db.session.commit()
