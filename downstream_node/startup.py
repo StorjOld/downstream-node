@@ -9,5 +9,6 @@ from . import config
 app = Flask(__name__)
 app.config.from_object(config)
 db = SQLAlchemy(app)
+app.heartbeat = app.config['HEARTBEAT']()
 
 from . import routes  # NOQA

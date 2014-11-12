@@ -150,7 +150,7 @@ def create_token(sjcx_address, remote_addr, message=None, signature=None):
 
     location = get_ip_location(remote_addr)
 
-    beat = app.config['HEARTBEAT']()
+    beat = app.heartbeat
 
     token = os.urandom(16)
     token_string = binascii.hexlify(token).decode('ascii')
@@ -233,6 +233,7 @@ def get_chunk_contract(token, remote_addr):
     db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
                                               app.config['FILES_PATH']), 1)
 
+    # we will move to an app wide heartbeat for improved performance
     beat = db_token.heartbeat
 
     with open(db_file.path, 'rb') as f:
