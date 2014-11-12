@@ -120,7 +120,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         farmers = list(map(lambda a:
                            dict(id=a.farmer_id,
                                 address=a.addr,
-                                location=pickle.loads(a.location),
+                                location=a.location,
                                 uptime=round(uptimes[a.id] * 100, 2),
                                 heartbeats=a.hbcount,
                                 contracts=a.contract_count,
@@ -143,7 +143,7 @@ def api_downstream_status_show(farmer_id):
 
         return jsonify(id=a.farmer_id,
                        address=a.addr,
-                       location=pickle.loads(a.location),
+                       location=a.location,
                        uptime=round(a.uptime * 100, 2),
                        heartbeats=a.hbcount,
                        contracts=a.contract_count,
@@ -179,7 +179,7 @@ def api_downstream_new_token(sjcx_address):
                     'ownership of farming address')
 
         db_token = create_token(sjcx_address, request.remote_addr)
-        beat = pickle.loads(db_token.heartbeat)
+        beat = db_token.heartbeat
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,
                        type=type(beat).__name__,
@@ -201,7 +201,7 @@ def api_downstream_heartbeat(token):
         if (db_token is None):
             raise NotFoundError('Nonexistent token.')
 
-        beat = pickle.loads(db_token.heartbeat)
+        beat = db_token.heartbeat
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,
                        type=type(beat).__name__,
@@ -216,8 +216,8 @@ def api_downstream_chunk_contract(token):
         db_contract = get_chunk_contract(token, request.remote_addr)
 
         with open(db_contract.tag_path, 'rb') as f:
-            tag = pickle.loads(f.read())
-        chal = pickle.loads(db_contract.challenge)
+            tag = pickle.load(f)
+        chal = db_contract.challenge
 
         # now since we are prototyping, we can delete the tag and file
         os.remove(db_contract.file.path)
@@ -241,7 +241,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
     with HttpHandler() as handler:
         db_contract = update_contract(token, file_hash)
 
-        return jsonify(challenge=pickle.loads(db_contract.challenge).todict(),
+        return jsonify(challenge=db_contract.challenge.todict(),
                        due=(db_contract.due - datetime.utcnow()).
                        total_seconds(),
                        answered=db_contract.answered)
@@ -261,7 +261,7 @@ def api_downstream_challenge_answer(token, file_hash):
 
         db_contract = lookup_contract(token, file_hash)
 
-        beat = pickle.loads(db_contract.token.heartbeat)
+        beat = db_contract.token.heartbeat
 
         try:
             proof = beat.proof_type().fromdict(d['proof'])

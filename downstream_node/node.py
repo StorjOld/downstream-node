@@ -96,7 +96,7 @@ def process_token_ip_address(db_token, remote_addr, change=False):
         # we should be good to go with the new ip
         if (change):
             location = get_ip_location(remote_addr)
-            db_token.location = pickle.dumps(location)
+            db_token.location = location
             db_token.ip_address = remote_addr
 
 
@@ -105,15 +105,15 @@ def contract_insert_next_challenge(db_contract):
 
     :param db_contract: database contract object
     """
-    beat = pickle.loads(db_contract.token.heartbeat)
+    beat = db_contract.token.heartbeat
 
-    state = pickle.loads(db_contract.state)
+    state = db_contract.state
 
     chal = beat.gen_challenge(state)
 
-    db_contract.challenge = pickle.dumps(chal, pickle.HIGHEST_PROTOCOL)
+    db_contract.challenge = chal
     db_contract.due = db_contract.expiration
-    db_contract.state = pickle.dumps(state, pickle.HIGHEST_PROTOCOL)
+    db_contract.state = state
     db_contract.answered = False
 
 
@@ -158,10 +158,10 @@ def create_token(sjcx_address, remote_addr):
 
     db_token = Token(token=token_string,
                      address=db_address,
-                     heartbeat=pickle.dumps(beat, pickle.HIGHEST_PROTOCOL),
+                     heartbeat=beat,
                      ip_address=remote_addr,
                      farmer_id=token_hash,
-                     location=pickle.dumps(location))
+                     location=location)
 
     db.session.add(db_token)
     db.session.commit()
@@ -231,14 +231,14 @@ def get_chunk_contract(token, remote_addr):
     db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
                                               app.config['FILES_PATH']), 1)
 
-    beat = pickle.loads(db_token.heartbeat)
+    beat = db_token.heartbeat
 
     with open(db_file.path, 'rb') as f:
         (tag, state) = beat.encode(f)
 
     db_contract = Contract(token=db_token,
                            file=db_file,
-                           state=pickle.dumps(state, pickle.HIGHEST_PROTOCOL),
+                           state=state,
                            # due time and answered and challenge will be
                            # inserted when we call update_contract() below
                            start=datetime.utcnow(),
@@ -388,9 +388,9 @@ def verify_proof(token, file_hash, proof, remote_addr):
 
     process_token_ip_address(db_contract.token, remote_addr)
 
-    beat = pickle.loads(db_contract.token.heartbeat)
-    state = pickle.loads(db_contract.state)
-    chal = pickle.loads(db_contract.challenge)
+    beat = db_contract.token.heartbeat
+    state = db_contract.state
+    chal = db_contract.challenge
 
     valid = beat.verify(proof, chal, state)
 

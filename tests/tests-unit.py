@@ -98,7 +98,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         token = models.Token.query.filter(models.Token.token==r_token).first()
         
         self.assertEqual(token.token,r_token)
-        self.assertEqual(pickle.loads(token.heartbeat).get_public(),r_beat)
+        self.assertEqual(token.heartbeat.get_public(),r_beat)
     
     def test_api_downstream_new_signed(self):
         app.config['REQUIRE_SIGNATURE'] = True
@@ -230,13 +230,13 @@ class TestDownstreamRoutes(unittest.TestCase):
         proof = r_beat.prove(f,chal,tag)
         
         db_token = models.Token.query.filter(models.Token.token == r_token).first()
-        beat = pickle.loads(db_token.heartbeat)
+        beat = db_token.heartbeat
         
         db_file = models.File.query.filter(models.File.hash == r_hash).first()
         
         db_contract = models.Contract.query.filter(models.Contract.token_id == db_token.id,
                                                    models.Contract.file_id == db_file.id).first()
-        state = pickle.loads(db_contract.state)
+        state = db_contract.state
         
         # verify proof
         valid = beat.verify(proof,chal,state)
@@ -275,7 +275,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         db_contract = node.lookup_contract(token, hash)
         
-        self.assertEqual(challenge,pickle.loads(db_contract.challenge))
+        self.assertEqual(challenge,db_contract.challenge)
         self.assertAlmostEqual(r_json['due'],(db_contract.due-datetime.utcnow()).total_seconds(),delta=0.5)
         
         os.remove(db_contract.file.path)
@@ -410,14 +410,14 @@ class TestDownstreamNodeStatus(unittest.TestCase):
                           ip_address='0',
                           farmer_id='0',
                           hbcount=0,
-                          location=pickle.dumps(None))
+                          location=None)
         t1 = models.Token(token='1',
                           address_id=a1.id,
                           heartbeat=b'',
                           ip_address='1',
                           farmer_id='1',
                           hbcount=1,
-                          location=pickle.dumps(None))
+                          location=None)
         db.session.add(t0)
         db.session.add(t1)
         db.session.commit()
@@ -742,7 +742,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             node.process_token_ip_address(db_token,new_ip,change=True)
             a.assert_called_with(new_ip)
             b.assert_called_with(new_ip)
-            self.assertEqual(db_token.location,pickle.dumps(b.return_value))
+            self.assertEqual(db_token.location,b.return_value)
             self.assertEqual(db_token.ip_address,new_ip)
 
     def test_create_token(self):
@@ -753,7 +753,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # verify that the info is in the database
         db_token = models.Token.query.filter(models.Token.token==db_token.token).first()
         
-        self.assertIsInstance(pickle.loads(db_token.heartbeat),app.config['HEARTBEAT'])
+        self.assertIsInstance(db_token.heartbeat,app.config['HEARTBEAT'])
         
     def test_create_token_bad_address(self):
         # test random address
@@ -815,7 +815,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_address_resolve(self):
         db_token = node.create_token(self.test_address, '17.0.0.1')
         
-        location = pickle.loads(db_token.location)
+        location = db_token.location
         
         self.assertEqual(location['country'],self.full_location['country']['names']['en'])
         self.assertEqual(location['state'],self.full_location['subdivisions'][0]['names']['en'])
@@ -867,7 +867,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                 p.return_value = dict()
                 db_token = node.create_token(self.test_address,'testaddress{0}'.format(j))
             
-            beat = pickle.loads(db_token.heartbeat)
+            beat = db_token.heartbeat
             
             with open(db_file.path,'rb') as f:
                 (tag,state) = beat.encode(f)
@@ -876,8 +876,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             
             contract = models.Contract(token_id = db_token.id,
                                        file_id = db_file.id,
-                                       state = pickle.dumps(state),
-                                       challenge = pickle.dumps(chal),
+                                       state = state,
+                                       challenge = chal,
                                        due = datetime.utcnow() + timedelta(seconds = db_file.interval))
                                  
             db.session.add(contract)
@@ -941,8 +941,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
         contract = models.Contract(token_id = db_token.id,
                                    file_id = db_file.id,
-                                   state = pickle.dumps('test state'),
-                                   challenge = pickle.dumps('test challenge'),
+                                   state = 'test state',
+                                   challenge = 'test challenge',
                                    due = datetime.utcnow() - timedelta(seconds = db_file.interval))
                                        
         db.session.add(contract)
@@ -974,13 +974,13 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         db_contract = node.get_chunk_contract(db_token.token,'test.ip.address6')
         
-        beat = pickle.loads(db_token.heartbeat)
+        beat = db_token.heartbeat
         
         # get tags
         with open(db_contract.tag_path,'rb') as f:
             tag = pickle.load(f)
         
-        chal = pickle.loads(db_contract.challenge)
+        chal = db_contract.challenge
         
         # generate a proof
         with open(db_contract.file.path,'rb') as f:
@@ -1030,7 +1030,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             p.return_value = self.full_location
             db_token = node.create_token(self.test_address,'test.ip.address8')
             
-        beat = pickle.loads(db_token.heartbeat)
+        beat = db_token.heartbeat
         
         with open(db_file.path,'rb') as f:
             (tag,state) = beat.encode(f)
@@ -1039,8 +1039,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         db_contract = models.Contract(token_id = db_token.id,
                                       file_id = db_file.id,
-                                      state = pickle.dumps(state),
-                                      challenge = pickle.dumps(chal),
+                                      state = state,
+                                      challenge = chal,
                                       due = datetime.utcnow()-timedelta(seconds=1))
                              
         db.session.add(db_contract)

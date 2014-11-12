@@ -33,11 +33,11 @@ class Token(db.Model):
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     token = db.Column(db.String(32), nullable=False, unique=True)
     address_id = db.Column(db.ForeignKey('addresses.id'))
-    heartbeat = db.Column(db.LargeBinary(), nullable=False)
+    heartbeat = db.Column(db.PickleType(), nullable=False)
     ip_address = db.Column(db.String(32), nullable=False)
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
-    location = db.Column(db.LargeBinary())
+    location = db.Column(db.PickleType())
 
     address = db.relationship('Address',
                               backref=db.backref('tokens',
@@ -117,8 +117,8 @@ class Contract(db.Model):
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     token_id = db.Column(db.ForeignKey('tokens.id'))
     file_id = db.Column(db.ForeignKey('files.id'))
-    state = db.Column(db.LargeBinary(), nullable=False)
-    challenge = db.Column(db.LargeBinary())
+    state = db.Column(db.PickleType(), nullable=False)
+    challenge = db.Column(db.PickleType())
     tag_path = db.Column(db.String(128), unique=True)
     start = db.Column(db.DateTime())
     due = db.Column(db.DateTime())
