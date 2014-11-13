@@ -165,13 +165,13 @@ def api_downstream_new_token(sjcx_address):
                 # need to have a restriction on posted data size....
                 # for now, we'll restrict message length
                 d = request.get_json(silent=True)
-                
+
                 if (d is False or not isinstance(d, dict)
                         or 'signature' not in d or 'message' not in d):
                     raise InvalidParameterError(
                         'Posted data must be JSON encoded object including '
-                        '"signature" and "message"')                               
-                
+                        '"signature" and "message"')
+
                 if (len(d['message']) > app.config['MAX_SIG_MESSAGE_SIZE']):
                     raise InvalidParameterError(
                         'Please restrict your message to less than {0} bytes.'
@@ -181,7 +181,7 @@ def api_downstream_new_token(sjcx_address):
                     raise InvalidParameterError(
                         'Your signature is the wrong length.  It should be {0}'
                         'bytes.'.format(siggy.SIGNATURE_LENGTH))
-                
+
                 message = d['message']
                 signature = d['signature']
                 # parse the signature and message
@@ -194,7 +194,8 @@ def api_downstream_new_token(sjcx_address):
                     'New token requests must include posted signature proving '
                     'ownership of farming address')
 
-        db_token = create_token(sjcx_address, request.remote_addr, message, signature)
+        db_token = create_token(
+            sjcx_address, request.remote_addr, message, signature)
         beat = db_token.heartbeat
         pub_beat = beat.get_public()
         return jsonify(token=db_token.token,

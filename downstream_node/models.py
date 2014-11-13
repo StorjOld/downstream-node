@@ -23,10 +23,12 @@ class Address(db.Model):
     __tablename__ = 'addresses'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    address = db.Column(db.String(128), nullable=False, unique=True, index=True)
+    address = db.Column(
+        db.String(128), nullable=False, unique=True, index=True)
     crowdsale_balance = db.Column(db.BigInteger(), nullable=True)
-    
-    __table_args__ = (db.Index('address_balance_idx','address','crowdsale_balance'), )
+
+    __table_args__ = (
+        db.Index('address_balance_idx', 'address', 'crowdsale_balance'), )
 
 
 class Token(db.Model):
@@ -143,7 +145,7 @@ class Contract(db.Model):
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
 
-    __table_args__ = (db.Index('token_file_idx','token_id','file_id'), )
+    __table_args__ = (db.Index('token_file_idx', 'token_id', 'file_id'), )
 
     @hybrid_property
     def expiration(self):
