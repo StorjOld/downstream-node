@@ -4,6 +4,7 @@ import json
 import io
 import pickle
 import heartbeat
+import datetime
 from RandomIO import RandomIO
 
 from mock import patch
@@ -25,33 +26,40 @@ db.session.commit()
 
 pr = cProfile.Profile()
 
+
+
+with patch('downstream_node.routes.request') as request:
+    request.remote_addr = '17.0.0.1'
+    request.method = 'POST'
+    request.get_json.return_value = dict({'signature': 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I=',
+                                          'message': 'test message'})
+    r = application.get('/new/{0}'.format(test_address))
+
+r_json = json.loads(r.data.decode('utf-8'))
+
+
+beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
+
+r_token = r_json['token']
+
+with patch('downstream_node.routes.request') as request:
+    request.remote_addr = '17.0.0.1'
+    r = application.get('/chunk/{0}'.format(r_token))
+
+r_json = json.loads(r.data.decode('utf-8'))
+
+r_seed = r_json['seed']
+r_hash = r_json['file_hash']
+
+
+contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
+
 pr.enable()
 
 for i in range(0,10):
     with patch('downstream_node.routes.request') as request:
         request.remote_addr = '17.0.0.1'
-        request.method = 'POST'
-        request.get_json.return_value = dict({'signature': 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I=',
-                                              'message': 'test message'})
-        r = application.get('/new/{0}'.format(test_address))
-
-    r_json = json.loads(r.data.decode('utf-8'))
-
-
-    beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
-
-    r_token = r_json['token']
-
-    with patch('downstream_node.routes.request') as request:
-        request.remote_addr = '17.0.0.1'
-        r = application.get('/chunk/{0}'.format(r_token))
-
-    r_json = json.loads(r.data.decode('utf-8'))
-
-    r_seed = r_json['seed']
-    r_hash = r_json['file_hash']
-
-    contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
+        r = application.get('/challenge/{0}/{1}'.format(r_token,r_hash))
 
     chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
 
@@ -67,6 +75,12 @@ for i in range(0,10):
         r = application.post('/answer/{0}/{1}'.format(r_token,r_hash),
                              data=json.dumps(data),
                              content_type='application/json')
+
+    # force due date to have passed
+    db_contract = node.lookup_contract(r_token,r_hash)
+    db_contract.due = datetime.datetime.utcnow()
+    db.session.commit()
+    
 
 pr.disable()
 

@@ -12,7 +12,7 @@ class File(db.Model):
     __tablename__ = 'files'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    hash = db.Column(db.String(128), nullable=False, unique=True)
+    hash = db.Column(db.String(128), nullable=False, unique=True, index=True)
     path = db.Column(db.String(128), unique=True)
     redundancy = db.Column(db.Integer(), nullable=False)
     interval = db.Column(db.Integer(), nullable=False)
@@ -23,18 +23,20 @@ class Address(db.Model):
     __tablename__ = 'addresses'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    address = db.Column(db.String(128), nullable=False, unique=True)
+    address = db.Column(db.String(128), nullable=False, unique=True, index=True)
     crowdsale_balance = db.Column(db.BigInteger(), nullable=True)
+    
+    __table_args__ = (db.Index('address_balance_idx','address','crowdsale_balance'), )
 
 
 class Token(db.Model):
     __tablename__ = 'tokens'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    token = db.Column(db.String(32), nullable=False, unique=True)
+    token = db.Column(db.String(32), nullable=False, unique=True, index=True)
     address_id = db.Column(db.ForeignKey('addresses.id'))
     heartbeat = db.Column(db.PickleType(), nullable=False)
-    ip_address = db.Column(db.String(32), nullable=False)
+    ip_address = db.Column(db.String(32), nullable=False, index=True)
     farmer_id = db.Column(db.String(20), nullable=False, unique=True)
     hbcount = db.Column(db.Integer(), nullable=False, default=0)
     location = db.Column(db.PickleType())
@@ -140,6 +142,8 @@ class Contract(db.Model):
                            backref=db.backref('contracts',
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
+
+    __table_args__ = (db.Index('token_file_idx','token_id','file_id'), )
 
     @hybrid_property
     def expiration(self):
