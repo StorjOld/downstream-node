@@ -28,7 +28,9 @@ class Address(db.Model):
     crowdsale_balance = db.Column(db.BigInteger(), nullable=True)
 
     __table_args__ = (
-        db.Index('ix_addresses_address_crowdsale_balance', 'address', 'crowdsale_balance'), )
+        db.Index('ix_addresses_address_crowdsale_balance',
+                 'address',
+                 'crowdsale_balance'), )
 
 
 class Token(db.Model):
