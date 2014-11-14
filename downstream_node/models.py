@@ -28,7 +28,7 @@ class Address(db.Model):
     crowdsale_balance = db.Column(db.BigInteger(), nullable=True)
 
     __table_args__ = (
-        db.Index('address_balance_idx', 'address', 'crowdsale_balance'), )
+        db.Index('ix_addresses_address_crowdsale_balance', 'address', 'crowdsale_balance'), )
 
 
 class Token(db.Model):
@@ -145,7 +145,8 @@ class Contract(db.Model):
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
 
-    __table_args__ = (db.Index('token_file_idx', 'token_id', 'file_id'), )
+    __table_args__ = (
+        db.Index('ix_contracts_token_id_file_id', 'token_id', 'file_id'), )
 
     @hybrid_property
     def expiration(self):
