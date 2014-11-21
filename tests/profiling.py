@@ -17,6 +17,7 @@ test_address = '19qVgG8C6eXwKMMyvVegsi3xCsKyk3Z3jV'
 
 application = app.test_client()
 app.config['MAX_TOKENS_PER_IP'] = 10000
+app.config['TEST_FILE_SIZE'] = 100000
 
 db.create_all()
 if (models.Address.query.filter(models.Address.address == test_address).first() is None):
@@ -51,6 +52,7 @@ r_json = json.loads(r.data.decode('utf-8'))
 r_seed = r_json['seed']
 r_hash = r_json['file_hash']
 
+tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
 
 contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
 
@@ -60,10 +62,10 @@ for i in range(0,10):
     with patch('downstream_node.routes.request') as request:
         request.remote_addr = '17.0.0.1'
         r = application.get('/challenge/{0}/{1}'.format(r_token,r_hash))
+    assert(r.status_code==200)    
+    r_json = json.loads(r.data.decode('utf-8'))
 
     chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
-
-    tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
 
     f = io.BytesIO(contents)
     proof = beat.prove(f,chal,tag)
@@ -75,10 +77,13 @@ for i in range(0,10):
         r = application.post('/answer/{0}/{1}'.format(r_token,r_hash),
                              data=json.dumps(data),
                              content_type='application/json')
+        assert(r.status_code==200)
+        r_json = json.loads(r.data.decode('utf-8'))
+        assert(r_json['status']=='ok')
 
     # force due date to have passed
     db_contract = node.lookup_contract(r_token,r_hash)
-    db_contract.due = datetime.datetime.utcnow()
+    db_contract.due = datetime.datetime.utcnow()-datetime.timedelta(seconds=1)
     db.session.commit()
     
 

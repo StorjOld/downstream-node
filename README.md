@@ -16,10 +16,10 @@ Currently running on [https://live.driveshare.org](https://live.driveshare.org).
 $ apt-get -y install mysql-server
 ```
 
-Get libcrypto which is required for some dependencies of downstream-node.
+Get libcrypto and libgmp which is required for some dependencies of downstream-node.
 
 ```
-$ apt-get install libcrypto++-dev
+$ apt-get -y install libcrypto++-dev libgmp-dev
 ```
 
 Get `downstream-node`:

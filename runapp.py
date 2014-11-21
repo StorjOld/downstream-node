@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, engine, update, insert
 
 from downstream_node.startup import app, db
-from downstream_node.models import Contract, Address
+from downstream_node.models import Contract, Address, Token
 
 def initdb():   
     db.create_all()
@@ -46,6 +46,15 @@ def updatewhitelist(path):
             all = db.engine.execute(Address.__table__.select()).fetchall()
             for row in all:
                 if (row.id not in updated):
+                    # also recursively delete all tokens associated with that address
+                    tbd_tokens = db.engine.execute(Token.__table__.select().\
+                        where(Token.address_id == row.id)).fetchall()
+                    for t in tbd_tokens:
+                        # and all contracts associated with that address
+                        db.engine.execute(Contract.__table__.delete().\
+                            where(Contract.token_id == t.id))
+                        db.engine.execute(Token.__table__.delete().\
+                            where(Token.id == t.id))
                     db.engine.execute(Address.__table__.delete().\
                         where(Address.id == row.id))
 
@@ -70,7 +79,10 @@ def parse_args():
     parser.add_argument('--initdb', action='store_true')
     parser.add_argument('--cleandb', action='store_true')
     parser.add_argument('--whitelist', help='updates the white list '
-                                            'in the db and exits')
+        'in the db and exits from a whitelist csv file.  each row except'
+        'the first should be in the format\n'
+        '"address","crowdsale_balance",...\n'
+        'and the first row will be skipped.')
     return parser.parse_args()
 
 
