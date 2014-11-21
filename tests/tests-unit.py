@@ -6,6 +6,7 @@ import pickle
 import unittest
 import io
 import base58
+import maxminddb
 
 import mock
 from mock import Mock, patch
@@ -636,57 +637,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.testfile = RandomIO().genfile(1000)
             
         self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
-        
-        self.full_location = {'postal': {'code': '95014'}, 
-                              'location': {'longitude': -122.0946, 
-                                           'metro_code': 807, 
-                                           'latitude': 37.3042, 
-                                           'time_zone':'America/Los_Angeles'}, 
-                              'registered_country': {'iso_code': 'US', 
-                                                     'geoname_id': 6252001, 
-                                                     'names': {'fr': '\xc9tats-Unis', 
-                                                               'de': 'USA', 
-                                                               'en': 'United States', 
-                                                               'es': 'Estados Unidos', 
-                                                               'pt-BR': 'Estados Unidos', 
-                                                               'ru': '\u0421\u0448\u0430', 
-                                                               'ja': '\u30a2\u30e1\u30ea\u30ab\u5408\u8846\u56fd', 
-                                                               'zh-CN': '\u7f8e\u56fd'}}, 
-                              'city': {'geoname_id': 5341145, 
-                                       'names': {'en':'Cupertino', 
-                                                 'ja': '\u30af\u30d1\u30c1\u30fc\u30ce', 
-                                                 'ru': '\u041a\u0443\u043f\u0435\u0440\u0442\u0438\u043d\u043e', 
-                                                 'fr': 'Cupertino', 'de': 'Cupertino'}}, 
-                              'continent': {'geoname_id': 6255149, 
-                                            'code': 'NA', 
-                                            'names': {'fr': 'Am\xe9rique du Nord', 
-                                                      'de': 'Nordamerika', 
-                                                      'en': 'North America', 
-                                                      'es': 'Norteam\xe9rica', 
-                                                      'pt-BR': 'Am\xe9rica do Norte', 
-                                                      'ru': '\u0421\u0435\u0432\u0435\u0440\u043d\u0430\u044f \u0410\u043c\u0435\u0440\u0438\u043a\u0430', 
-                                                      'ja': '\u5317\u30a2\u30e1\u30ea\u30ab',
-                                                      'zh-CN': '\u5317\u7f8e\u6d32'}}, 
-                              'country': {'iso_code': 'US', 
-                                          'geoname_id': 6252001, 
-                                          'names': {'fr': '\xc9tats-Unis', 
-                                                    'de': 'USA', 
-                                                    'en': 'United States', 
-                                                    'es': 'Estados Unidos', 
-                                                    'pt-BR': 'Estados Unidos', 
-                                                    'ru': '\u0421\u0448\u0430', 
-                                                    'ja': '\u30a2\u30e1\u30ea\u30ab\u5408\u8846\u56fd', 
-                                                    'zh-CN': '\u7f8e\u56fd'}}, 
-                              'subdivisions': [{'iso_code': 'CA', 
-                                                'geoname_id':5332921, 
-                                                'names': {'fr': 'Californie', 
-                                                          'de': 'Kalifornien', 
-                                                          'en': 'California', 
-                                                          'es': 'California', 
-                                                          'pt-BR': 'Calif\xf3rnia', 
-                                                          'ru': '\u041a\u0430\u043b\u0438\u0444\u043e\u0440\u043d\u0438\u044f', 
-                                                          'ja': '\u30ab\u30ea\u30d5\u30a9\u30eb\u30cb\u30a2\u5dde', 
-                                                          'zh-CN': '\u52a0\u5229\u798f\u5c3c\u4e9a\u5dde'}}]}
+        reader = maxminddb.Reader(app.config['MMDB_PATH'])
+        self.full_location = reader.get('17.0.0.1')
         self.partial_location = {'continent': {'geoname_id': 6255151, 
                                                'code': 'OC', 
                                                'names': {'fr': 'Oc\xe9anie', 
