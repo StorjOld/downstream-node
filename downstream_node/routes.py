@@ -227,7 +227,8 @@ def api_downstream_heartbeat(token):
     return handler.response
 
 
-@app.route('/chunk/<token>', defaults={'size': app.config['DEFAULT_CHUNK_SIZE']})
+@app.route('/chunk/<token>',
+           defaults={'size': app.config['DEFAULT_CHUNK_SIZE']})
 @app.route('/chunk/<token>/<int:size>')
 def api_downstream_chunk_contract(token, size):
     with HttpHandler() as handler:
