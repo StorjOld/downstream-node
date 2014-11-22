@@ -227,10 +227,11 @@ def api_downstream_heartbeat(token):
     return handler.response
 
 
-@app.route('/chunk/<token>')
-def api_downstream_chunk_contract(token):
+@app.route('/chunk/<token>', defaults={'size': app.config['DEFAULT_CHUNK_SIZE']})
+@app.route('/chunk/<token>/<int:size>')
+def api_downstream_chunk_contract(token, size):
     with HttpHandler() as handler:
-        db_contract = get_chunk_contract(token, request.remote_addr)
+        db_contract = get_chunk_contract(token, size, request.remote_addr)
 
         with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.load(f)

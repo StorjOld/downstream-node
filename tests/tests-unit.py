@@ -57,6 +57,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.test_address = '19qVgG8C6eXwKMMyvVegsi3xCsKyk3Z3jV'
         self.test_signature = 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I='
         self.test_message = 'test message'
+        self.test_size = 100
         address = models.Address(address=self.test_address,crowdsale_balance=10000)
         db.session.add(address)
         db.session.commit()
@@ -216,7 +217,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_seed = r_json['seed']
         r_hash = r_json['file_hash']
         
-        contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
+        contents = RandomIO(r_seed).read(app.config['DEFAULT_CHUNK_SIZE'])
         
         chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
         
@@ -260,7 +261,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            db_contract = node.get_chunk_contract(db_token.token,'test.ip.address')
+            db_contract = node.get_chunk_contract(db_token.token,self.test_size,'test.ip.address')
         
         token = db_token.token
         hash = db_contract.file.hash
@@ -310,7 +311,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         r_seed = r_json['seed']
         r_hash = r_json['file_hash']
         
-        contents = RandomIO(r_seed).read(app.config['TEST_FILE_SIZE'])
+        contents = RandomIO(r_seed).read(app.config['DEFAULT_CHUNK_SIZE'])
         
         chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
         
@@ -634,6 +635,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
         db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
+        self.test_size = 1000
         self.testfile = RandomIO().genfile(1000)
             
         self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
@@ -862,7 +864,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address4')
         
-        db_contract = node.get_chunk_contract(db_token.token, 'test.ip.address4')
+        db_contract = node.get_chunk_contract(db_token.token, self.test_size, 'test.ip.address4')
         
         # prototyping: verify the file it created
         with open(db_contract.file.path,'rb') as f:
@@ -880,7 +882,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         os.remove(db_contract.tag_path)
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.get_chunk_contract('nonexistent token','test.ip.address4')
+            node.get_chunk_contract('nonexistent token',self.test_size,'test.ip.address4')
         
         self.assertEqual(str(ex.exception),'Nonexistent token.')
         
@@ -924,7 +926,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
                 other_token = node.create_token(self.test_address,'existing_ip')
             db_token = node.create_token(self.test_address,'test.ip.address6')
         
-        db_contract = node.get_chunk_contract(db_token.token,'test.ip.address6')
+        db_contract = node.get_chunk_contract(db_token.token,self.test_size,'test.ip.address6')
         
         beat = db_token.heartbeat
         

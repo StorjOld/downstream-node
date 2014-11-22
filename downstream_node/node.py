@@ -186,7 +186,7 @@ def delete_token(token):
     db.session.commit()
 
 
-def get_chunk_contract(token, remote_addr):
+def get_chunk_contract(token, size, remote_addr):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -196,6 +196,7 @@ def get_chunk_contract(token, remote_addr):
     and the current heartbeat state for the encoded file.
 
     :param token: the token to associate this contract with
+    :param size: the requested chunk size
     :param remote_addr: the ip address of the farmer requesting a chunk
     :returns: the chunk database object
     """
@@ -230,7 +231,10 @@ def get_chunk_contract(token, remote_addr):
     # for prototyping, we generate a file for each contract.
     seed = binascii.hexlify(os.urandom(16)).decode()
 
-    db_file = add_file(RandomIO(seed).genfile(app.config['TEST_FILE_SIZE'],
+    size = size if size < app.config[
+        'MAX_CHUNK_SIZE'] else app.config['MAX_CHUNK_SIZE']
+
+    db_file = add_file(RandomIO(seed).genfile(size,
                                               app.config['FILES_PATH']), 1)
 
     # we will move to an app wide heartbeat for improved performance
@@ -249,7 +253,7 @@ def get_chunk_contract(token, remote_addr):
                            answered=True,
                            # for prototyping, include seed
                            seed=seed,
-                           size=app.config['TEST_FILE_SIZE'])
+                           size=size)
 
     db.session.add(db_contract)
 
