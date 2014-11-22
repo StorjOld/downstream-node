@@ -6,7 +6,7 @@ class mongolog(object):
 
     def __init__(self, host='localhost', port=27017):
         self.client = pymongo.MongoClient(host, port)
-        self.db = client.log_database
+        self.db = self.client.log_database
         self.events = self.db.events
 
     def log_exception(self, ex):
