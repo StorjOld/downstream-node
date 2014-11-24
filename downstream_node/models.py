@@ -3,6 +3,7 @@
 from sqlalchemy import select, func, and_, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
+from sqlalchemy.sql.expression import false
 from datetime import datetime, timedelta
 
 from .startup import db
@@ -66,22 +67,103 @@ class Token(db.Model):
 
     @property
     def uptime(self):
-        times = dict()
+        #for c in Contract.query.filter(Contract.token_id == self.id).all():
+        #    times[(c.start - datetime.utcnow()).total_seconds()] = 1
+        #    times[(c.due - datetime.utcnow() if c.due <
+        #           datetime.utcnow() else
+        #           timedelta()).total_seconds()] = -1
+        #for time in sorted(times):
+        #    if (count == 0 and times[time] == 1):
+        #        tsum += time
+        #    elif (count == 1 and times[time] == -1):
+        #        tsum -= time
+        #    count += times[time]
+        #try:
+        #    return tsum / sorted(times)[0]
+        #except:
+        #    return 0
+        
+        # new version
+        
+        ref = datetime.utcfromtimestamp(0)
+        now = datetime.utcnow()
         count = 0
         tsum = 0
-        for c in Contract.query.filter(Contract.token_id == self.id).all():
-            times[(c.start - datetime.utcnow()).total_seconds()] = 1
-            times[(c.due - datetime.utcnow() if c.due <
-                   datetime.utcnow() else
-                   timedelta()).total_seconds()] = -1
-        for time in sorted(times):
+        times = dict()
+        need_to_commit = False
+        # calculate tsum for cache
+        cached = UptimeCache.query.filter(UptimeCache.token_id == self.id).order_by(UptimeCache.time_offset).all()
+        # we have them sorted... we want to keep them that way
+        for c in cached:
+            if (count == 0 and c.action == 'up'):
+                print('c online at {0}'.format(c.time_offset))
+                tsum -= c.time_offset
+                print('tsum = {0}'.format(tsum))
+            elif (count == 1 and c.action == 'down'):
+                print('c offline at {0}'.format(c.time_offset))
+                tsum += c.time_offset
+                print('tsum = {0}'.format(tsum))
+            count += (1 if c.action == 'up' else -1)
+        
+        if (count != 0):
+            raise RuntimeError('Inconsistent cache.')
+
+        uncached = Contract.query.filter(and_(Contract.token_id == self.id,
+                                              Contract.cached == false())).all()
+        
+        print('Got {0} uncached contracts.'.format(len(uncached)))
+        
+        for c in uncached:
+            if (c.expiration < datetime.utcnow()):
+                # we can cache this contract
+                need_to_commit = True
+                print('Contract is {0}'.format('cached' if c.cached else 'uncached'))
+                c.cached = True
+                up = UptimeCache(token_id = c.token_id,
+                                 contract_id = c.id,
+                                 time_offset = \
+                                     (c.start - ref).total_seconds(),
+                                 action = 'up')
+                down = UptimeCache(token_id = c.token_id,
+                                   contract_id = c.id,
+                                   time_offset = 
+                                       (c.expiration - ref).total_seconds(),
+                                   action = 'down')
+                db.session.add(up)
+                db.session.add(down)
+                times[up.time_offset] = 1
+                times[down.time_offset] = -1
+            else:
+                times[(c.start - ref).total_seconds()] = 1
+                times[(c.expiration - ref if c.expiration <
+                       now else
+                       now - ref).total_seconds()] = -1
+        
+        if (need_to_commit):
+            db.session.commit()
+
+        stimes = sorted(times)
+        for time in stimes:
             if (count == 0 and times[time] == 1):
-                tsum += time
-            elif (count == 1 and times[time] == -1):
+                print('u online at: {0}'.format(time))
                 tsum -= time
+                print('tsum = {0}'.format(tsum))
+            elif (count == 1 and times[time] == -1):
+                print('u offline at: {0}'.format(time))
+                tsum += time
+                print('tsum = {0}'.format(tsum))
             count += times[time]
+        
+        
         try:
-            return tsum / sorted(times)[0]
+            if (len(cached) > 0):
+                earliest = cached[0].time_offset
+            else:
+                earliest = stimes[0]
+            print('tsum = {0}'.format(tsum))
+            print('earliest = {0}'.format(earliest))
+            print('total time = {0}'.format(((now - ref).total_seconds() - earliest)))
+            return tsum / ((now - ref).total_seconds() - earliest)
         except:
             return 0
 
@@ -125,7 +207,7 @@ class Contract(db.Model):
     __tablename__ = 'contracts'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    token_id = db.Column(db.ForeignKey('tokens.id'))
+    token_id = db.Column(db.ForeignKey('tokens.id'), index=True)
     file_id = db.Column(db.ForeignKey('files.id'))
     state = db.Column(db.PickleType(), nullable=False)
     challenge = db.Column(db.PickleType())
@@ -136,6 +218,7 @@ class Contract(db.Model):
     # for prototyping, include file seed for regeneration, and file size
     seed = db.Column(db.String(128))
     size = db.Column(db.Integer())
+    cached = db.Column(db.Boolean(), default=False)
 
     token = db.relationship('Token',
                             backref=db.backref('contracts',
@@ -167,3 +250,12 @@ class Contract(db.Model):
                                                  self.due),
                                self.due)]).\
             where(File.id == self.file_id).label('expiration')
+
+class UptimeCache(db.Model):
+    __tablename__ = 'uptimecache'
+    
+    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
+    token_id = db.Column(db.ForeignKey('tokens.id'))
+    contract_id = db.Column(db.ForeignKey('contracts.id'))
+    time_offset = db.Column(db.Integer())
+    action = db.Column(db.Enum('up','down'))
