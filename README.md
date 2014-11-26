@@ -338,7 +338,7 @@ and specify a page number
 
     GET /api/downstream/status/list/by/<sortby>/<limit>/<page>
 
-So some examples
+So some examples:
 
     GET /api/downstream/status/list/by/d/uptime/25
 
