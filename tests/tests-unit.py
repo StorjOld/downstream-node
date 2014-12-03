@@ -25,7 +25,7 @@ class TestDownstreamModels(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
-        db.engine.execute('DROP TABLE IF EXISTS uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
         address = models.Address(address=self.test_address,crowdsale_balance=20000)
@@ -35,7 +35,7 @@ class TestDownstreamModels(unittest.TestCase):
     
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         pass
     
     def test_uptime_zero(self):
@@ -50,7 +50,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.app = app.test_client()
         app.config['TESTING'] = True
         app.config['REQUIRE_SIGNATURE'] = False
-        db.engine.execute('DROP TABLE IF EXISTS uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.testfile = RandomIO().genfile(1000)
         
@@ -64,7 +64,7 @@ class TestDownstreamRoutes(unittest.TestCase):
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         del self.app
     
@@ -397,7 +397,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         app.config['TESTING'] = True
-        db.engine.execute('DROP TABLE IF EXISTS uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         
         a0 = models.Address(address='0',crowdsale_balance=20000)
@@ -481,7 +481,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
        
     def test_api_status_list(self):
         r = self.app.get('/status/list/')
@@ -633,7 +633,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
 class TestDownstreamNodeFuncs(unittest.TestCase):
     def setUp(self):
-        db.engine.execute('DROP TABLE IF EXISTS uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
         self.test_size = 1000
         self.testfile = RandomIO().genfile(1000)
@@ -682,7 +682,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         pass
         
@@ -1018,12 +1018,12 @@ class TestDownstreamUtils(unittest.TestCase):
         self.testfile = os.path.abspath(os.path.join(config.FILES_PATH,'test.file'))
         with open(self.testfile,'wb+') as f:
             f.write(os.urandom(1000))
-        db.engine.execute('DROP TABLE IF EXISTS uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE IF EXISTS contracts,tokens,addresses,files')
         db.create_all()
 
     def tearDown(self):
         db.session.close()
-        db.engine.execute('DROP TABLE uptimecache,contracts,tokens,addresses,files')
+        db.engine.execute('DROP TABLE contracts,tokens,addresses,files')
         os.remove(self.testfile)
         del self.app
 

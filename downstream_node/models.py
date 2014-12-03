@@ -50,6 +50,11 @@ class Token(db.Model):
     message = db.Column(db.Text())
     signature = db.Column(db.Text())
 
+    # for uptime cache
+    start = db.Column(db.DateTime())
+    upsum = db.Column(
+        db.Interval(), nullable=False, default=timedelta(seconds=0))
+
     address = db.relationship('Address',
                               backref=db.backref('tokens',
                                                  lazy='dynamic',
@@ -67,103 +72,93 @@ class Token(db.Model):
 
     @property
     def uptime(self):
-        #for c in Contract.query.filter(Contract.token_id == self.id).all():
+        # for c in Contract.query.filter(Contract.token_id == self.id).all():
         #    times[(c.start - datetime.utcnow()).total_seconds()] = 1
         #    times[(c.due - datetime.utcnow() if c.due <
         #           datetime.utcnow() else
         #           timedelta()).total_seconds()] = -1
-        #for time in sorted(times):
+        # for time in sorted(times):
         #    if (count == 0 and times[time] == 1):
         #        tsum += time
         #    elif (count == 1 and times[time] == -1):
         #        tsum -= time
         #    count += times[time]
-        #try:
+        # try:
         #    return tsum / sorted(times)[0]
-        #except:
+        # except:
         #    return 0
-        
+
         # new version
-        
+
         ref = datetime.utcfromtimestamp(0)
         now = datetime.utcnow()
         count = 0
-        tsum = 0
         times = dict()
         need_to_commit = False
-        # calculate tsum for cache
-        cached = UptimeCache.query.filter(UptimeCache.token_id == self.id).order_by(UptimeCache.time_offset).all()
-        # we have them sorted... we want to keep them that way
-        for c in cached:
-            if (count == 0 and c.action == 'up'):
-                print('c online at {0}'.format(c.time_offset))
-                tsum -= c.time_offset
-                print('tsum = {0}'.format(tsum))
-            elif (count == 1 and c.action == 'down'):
-                print('c offline at {0}'.format(c.time_offset))
-                tsum += c.time_offset
-                print('tsum = {0}'.format(tsum))
-            count += (1 if c.action == 'up' else -1)
-        
-        if (count != 0):
-            raise RuntimeError('Inconsistent cache.')
+
+        # pull sum from cache
+        tsum = self.upsum
+        # and we'll calculate a new cached uptime if we have any new items to
+        # be cached
+        csum = self.upsum
 
         uncached = Contract.query.filter(and_(Contract.token_id == self.id,
-                                              Contract.cached == false())).all()
-        
+                                              Contract.cached == false())).\
+            all()
+
         print('Got {0} uncached contracts.'.format(len(uncached)))
-        
+
+        class UptimeCache(object):
+
+            def __init__(self, action, cache):
+                self.action = action
+                self.cache = cache
+
         for c in uncached:
             if (c.expiration < datetime.utcnow()):
                 # we can cache this contract
                 need_to_commit = True
-                print('Contract is {0}'.format('cached' if c.cached else 'uncached'))
+                print('Contract is {0}'.format(
+                    'cached' if c.cached else 'uncached'))
                 c.cached = True
-                up = UptimeCache(token_id = c.token_id,
-                                 contract_id = c.id,
-                                 time_offset = \
-                                     (c.start - ref).total_seconds(),
-                                 action = 'up')
-                down = UptimeCache(token_id = c.token_id,
-                                   contract_id = c.id,
-                                   time_offset = 
-                                       (c.expiration - ref).total_seconds(),
-                                   action = 'down')
-                db.session.add(up)
-                db.session.add(down)
-                times[up.time_offset] = 1
-                times[down.time_offset] = -1
+                times[(c.start - ref)] = UptimeCache(1, True)
+                times[(c.expiration - ref)] = UptimeCache(-1, True)
             else:
-                times[(c.start - ref).total_seconds()] = 1
+                times[(c.start - ref)] = UptimeCache(1, False)
                 times[(c.expiration - ref if c.expiration <
                        now else
-                       now - ref).total_seconds()] = -1
-        
-        if (need_to_commit):
-            db.session.commit()
+                       now - ref)] = UptimeCache(-1, False)
 
         stimes = sorted(times)
         for time in stimes:
-            if (count == 0 and times[time] == 1):
+            # set the start time to the earliest time
+            if (self.start is None):
+                self.start = ref + time
+            if (count == 0 and times[time].action == 1):
                 print('u online at: {0}'.format(time))
                 tsum -= time
+                if (times[time].cache):
+                    csum -= time
                 print('tsum = {0}'.format(tsum))
-            elif (count == 1 and times[time] == -1):
+            elif (count == 1 and times[time].action == -1):
                 print('u offline at: {0}'.format(time))
                 tsum += time
+                if (times[time].cache):
+                    csum += time
                 print('tsum = {0}'.format(tsum))
-            count += times[time]
-        
-        
+            count += times[time].action
+
+        if (need_to_commit):
+            self.upsum = csum
+            db.session.commit()
+
         try:
-            if (len(cached) > 0):
-                earliest = cached[0].time_offset
-            else:
-                earliest = stimes[0]
+            earliest = self.start
+            print('now = {0}'.format(now))
             print('tsum = {0}'.format(tsum))
             print('earliest = {0}'.format(earliest))
-            print('total time = {0}'.format(((now - ref).total_seconds() - earliest)))
-            return tsum / ((now - ref).total_seconds() - earliest)
+            print('total time = {0}'.format((now - earliest).total_seconds()))
+            return tsum.total_seconds() / ((now - earliest).total_seconds())
         except:
             return 0
 
@@ -250,12 +245,3 @@ class Contract(db.Model):
                                                  self.due),
                                self.due)]).\
             where(File.id == self.file_id).label('expiration')
-
-class UptimeCache(db.Model):
-    __tablename__ = 'uptimecache'
-    
-    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    token_id = db.Column(db.ForeignKey('tokens.id'))
-    contract_id = db.Column(db.ForeignKey('contracts.id'))
-    time_offset = db.Column(db.Integer())
-    action = db.Column(db.Enum('up','down'))
