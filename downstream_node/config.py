@@ -8,6 +8,7 @@ import heartbeat
 DEBUG = False
 SECRET_KEY = os.urandom(32)
 APPLICATION_ROOT = '/api/downstream/v1'
+SERVER_NAME = 'dsnode'
 
 # SQLAlchemy (DB)
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
@@ -18,6 +19,9 @@ MMDB_PATH = 'data/GeoLite2-City.mmdb'
 
 
 HEARTBEAT = heartbeat.Swizzle.Swizzle
+
+MONGO_LOGGING = False
+MONGO_URI = 'mongodb://localhost/downstream_log'
 
 MAX_CHUNK_SIZE = 32000000
 DEFAULT_CHUNK_SIZE = 100

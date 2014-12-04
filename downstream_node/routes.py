@@ -63,7 +63,7 @@ def api_index():
            '<sortby>/<int:limit>/<int:page>',
            defaults={'o': True, 'd': True})
 def api_downstream_status_list(o, d, sortby, limit, page):
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
         sort_map = {'id': Token.farmer_id,
                     'address': Token.addr,
                     'uptime': None,
@@ -135,21 +135,23 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
 @app.route('/status/show/<farmer_id>')
 def api_downstream_status_show(farmer_id):
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
         a = Token.query.filter(Token.farmer_id == farmer_id).first()
 
         if (a is None):
             raise NotFoundError('Nonexistant farmer id.')
 
-        return jsonify(id=a.farmer_id,
-                       address=a.addr,
-                       location=a.location,
-                       uptime=round(a.uptime * 100, 2),
-                       heartbeats=a.hbcount,
-                       contracts=a.contract_count,
-                       last_due=a.last_due,
-                       size=a.size,
-                       online=a.online)
+        response = dict(id=a.farmer_id,
+                        address=a.addr,
+                        location=a.location,
+                        uptime=round(a.uptime * 100, 2),
+                        heartbeats=a.hbcount,
+                        contracts=a.contract_count,
+                        last_due=a.last_due,
+                        size=a.size,
+                        online=a.online)
+
+        return jsonify(response)
 
     return handler.response
 
@@ -157,7 +159,11 @@ def api_downstream_status_show(farmer_id):
 @app.route('/new/<sjcx_address>', methods=['GET', 'POST'])
 def api_downstream_new_token(sjcx_address):
     # generate a new token
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['server'] = app.config['SERVER_NAME']
+        handler.context['sjcx_address'] = sjcx_address
+        handler.context['remote_addr'] = request.remote_addr
+
         message = None
         signature = None
         if (app.config['REQUIRE_SIGNATURE']):
@@ -165,6 +171,9 @@ def api_downstream_new_token(sjcx_address):
                 # need to have a restriction on posted data size....
                 # for now, we'll restrict message length
                 d = request.get_json(silent=True)
+
+                # put the posted data into the context for logging
+                handler.context['posted_data'] = d
 
                 if (d is False or not isinstance(d, dict)
                         or 'signature' not in d or 'message' not in d):
@@ -184,6 +193,7 @@ def api_downstream_new_token(sjcx_address):
 
                 message = d['message']
                 signature = d['signature']
+
                 # parse the signature and message
                 if (not siggy.verify_signature(message,
                                                signature,
@@ -198,9 +208,16 @@ def api_downstream_new_token(sjcx_address):
             sjcx_address, request.remote_addr, message, signature)
         beat = db_token.heartbeat
         pub_beat = beat.get_public()
-        return jsonify(token=db_token.token,
-                       type=type(beat).__name__,
-                       heartbeat=pub_beat.todict())
+
+        response = dict(token=db_token.token,
+                        type=type(beat).__name__,
+                        heartbeat=pub_beat.todict())
+
+        if (app.mongo_logger is not None):
+            app.mongo_logger.log_event('new', {'context': handler.context,
+                                               'response': response})
+
+        return jsonify(response)
 
     return handler.response
 
@@ -208,11 +225,16 @@ def api_downstream_new_token(sjcx_address):
 @app.route('/heartbeat/<token>')
 def api_downstream_heartbeat(token):
     """This route gets the heartbeat for a token.
+    The heartbeat is the object that contains data for proving
+    existence of a file (for example, Swizzle, Merkle objects)
     Provided for nodes that need to recover their heartbeat.
     The heartbeat does not contain any private information,
     so having someone else's heartbeat does not help you.
     """
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['server'] = app.config['SERVER_NAME']
+        handler.context['token'] = token
+        handler.context['remote_addr'] = request.remote_addr
         db_token = Token.query.filter(Token.token == token).first()
 
         if (db_token is None):
@@ -220,9 +242,16 @@ def api_downstream_heartbeat(token):
 
         beat = db_token.heartbeat
         pub_beat = beat.get_public()
-        return jsonify(token=db_token.token,
-                       type=type(beat).__name__,
-                       heartbeat=pub_beat.todict())
+        response = dict(token=db_token.token,
+                        type=type(beat).__name__,
+                        heartbeat=pub_beat.todict())
+
+        if (app.mongo_logger is not None):
+            app.mongo_logger.log_event('heartbeat',
+                                       {'context': handler.context,
+                                        'response': response})
+
+        return jsonify(response)
 
     return handler.response
 
@@ -231,7 +260,12 @@ def api_downstream_heartbeat(token):
            defaults={'size': app.config['DEFAULT_CHUNK_SIZE']})
 @app.route('/chunk/<token>/<int:size>')
 def api_downstream_chunk_contract(token, size):
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['server'] = app.config['SERVER_NAME']
+        handler.context['token'] = token
+        handler.context['size'] = size
+        handler.context['remote_addr'] = request.remote_addr
+
         db_contract = get_chunk_contract(token, size, request.remote_addr)
 
         with open(db_contract.tag_path, 'rb') as f:
@@ -242,13 +276,20 @@ def api_downstream_chunk_contract(token, size):
         os.remove(db_contract.file.path)
         os.remove(db_contract.tag_path)
 
-        return jsonify(seed=db_contract.seed,
-                       size=db_contract.size,
-                       file_hash=db_contract.file.hash,
-                       challenge=chal.todict(),
-                       tag=tag.todict(),
-                       due=(db_contract.due - datetime.utcnow()).
-                       total_seconds())
+        response = dict(seed=db_contract.seed,
+                        size=db_contract.size,
+                        file_hash=db_contract.file.hash,
+                        challenge=chal.todict(),
+                        tag=tag.todict(),
+                        due=(db_contract.due - datetime.utcnow()).
+                        total_seconds())
+
+        if (app.mongo_logger is not None):
+            app.mongo_logger.log_event('chunk',
+                                       {'context': handler.context,
+                                        'response': response})
+
+        return jsonify(response)
 
     return handler.response
 
@@ -257,20 +298,35 @@ def api_downstream_chunk_contract(token, size):
 def api_downstream_chunk_contract_status(token, file_hash):
     """For prototyping, this will generate a new challenge
     """
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['server'] = app.config['SERVER_NAME']
+        handler.context['token'] = token
+        handler.context['file_hash'] = file_hash
+        handler.context['remote_addr'] = request.remote_addr
         db_contract = update_contract(token, file_hash)
 
-        return jsonify(challenge=db_contract.challenge.todict(),
-                       due=(db_contract.due - datetime.utcnow()).
-                       total_seconds(),
-                       answered=db_contract.answered)
+        response = dict(challenge=db_contract.challenge.todict(),
+                        due=(db_contract.due - datetime.utcnow()).
+                        total_seconds(),
+                        answered=db_contract.answered)
+
+        if (app.mongo_logger is not None):
+            app.mongo_logger.log_event('challenge',
+                                       {'context': handler.context,
+                                        'response': response})
+
+        return jsonify(response)
 
     return handler.response
 
 
 @app.route('/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
-    with HttpHandler() as handler:
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['server'] = app.config['SERVER_NAME']
+        handler.context['token'] = token
+        handler.context['file_hash'] = file_hash
+        handler.context['remote_addr'] = request.remote_addr
         d = request.get_json(silent=True)
 
         if (d is False or not isinstance(d, dict) or 'proof' not in d):
@@ -291,6 +347,13 @@ def api_downstream_challenge_answer(token, file_hash):
             raise InvalidParameterError(
                 'Invalid proof.')
 
-        return jsonify(status='ok')
+        response = dict(status='ok')
+
+        if (app.mongo_logger is not None):
+            app.mongo_logger.log_event('answer',
+                                       {'context': handler.context,
+                                        'response': response})
+
+        return jsonify(response)
 
     return handler.response
