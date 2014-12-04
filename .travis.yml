@@ -15,7 +15,7 @@
     - gunzip GeoLite2-City.mmdb.gz
     - cd ..
   install:
-    - "pip install coverage flake8 coveralls pymongo"
+    - "pip install coverage flake8 coveralls"
     - "pip install -r requirements.txt ."
   after_success:
     - coveralls

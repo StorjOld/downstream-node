@@ -13,7 +13,8 @@ install_requires = [
     'storj-heartbeat',
     'base58',
     'maxminddb',
-    'siggy'
+    'siggy',
+    'pymongo'
 ]
 
 if sys.version_info < (3,):
