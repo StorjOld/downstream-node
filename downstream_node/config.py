@@ -21,7 +21,7 @@ MMDB_PATH = 'data/GeoLite2-City.mmdb'
 HEARTBEAT = heartbeat.Swizzle.Swizzle
 
 MONGO_LOGGING = False
-MONGO_URI = 'mongodb://localhost/downstream_log'
+MONGO_URI = 'mongodb://localhost/dsnode_log'
 
 MAX_CHUNK_SIZE = 32000000
 DEFAULT_CHUNK_SIZE = 100
