@@ -4,7 +4,7 @@ import datetime
 
 class mongolog(object):
 
-    def __init__(self, uri, server_alias = None):
+    def __init__(self, uri, server_alias=None):
         self.client = pymongo.MongoClient(uri)
         self.db = self.client.get_default_database()
         self.events = self.db.events
