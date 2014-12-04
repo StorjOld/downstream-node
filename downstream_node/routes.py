@@ -160,7 +160,6 @@ def api_downstream_status_show(farmer_id):
 def api_downstream_new_token(sjcx_address):
     # generate a new token
     with HttpHandler(app.mongo_logger) as handler:
-        handler.context['server'] = app.config['SERVER_NAME']
         handler.context['sjcx_address'] = sjcx_address
         handler.context['remote_addr'] = request.remote_addr
 
@@ -232,7 +231,6 @@ def api_downstream_heartbeat(token):
     so having someone else's heartbeat does not help you.
     """
     with HttpHandler(app.mongo_logger) as handler:
-        handler.context['server'] = app.config['SERVER_NAME']
         handler.context['token'] = token
         handler.context['remote_addr'] = request.remote_addr
         db_token = Token.query.filter(Token.token == token).first()
@@ -261,7 +259,6 @@ def api_downstream_heartbeat(token):
 @app.route('/chunk/<token>/<int:size>')
 def api_downstream_chunk_contract(token, size):
     with HttpHandler(app.mongo_logger) as handler:
-        handler.context['server'] = app.config['SERVER_NAME']
         handler.context['token'] = token
         handler.context['size'] = size
         handler.context['remote_addr'] = request.remote_addr
@@ -299,7 +296,6 @@ def api_downstream_chunk_contract_status(token, file_hash):
     """For prototyping, this will generate a new challenge
     """
     with HttpHandler(app.mongo_logger) as handler:
-        handler.context['server'] = app.config['SERVER_NAME']
         handler.context['token'] = token
         handler.context['file_hash'] = file_hash
         handler.context['remote_addr'] = request.remote_addr
@@ -323,7 +319,6 @@ def api_downstream_chunk_contract_status(token, file_hash):
 @app.route('/answer/<token>/<file_hash>', methods=['POST'])
 def api_downstream_challenge_answer(token, file_hash):
     with HttpHandler(app.mongo_logger) as handler:
-        handler.context['server'] = app.config['SERVER_NAME']
         handler.context['token'] = token
         handler.context['file_hash'] = file_hash
         handler.context['remote_addr'] = request.remote_addr

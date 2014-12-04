@@ -12,7 +12,8 @@ app.config.from_object(config)
 db = SQLAlchemy(app)
 app.heartbeat = app.config['HEARTBEAT']()
 if (app.config['MONGO_LOGGING']):
-    app.mongo_logger = mongolog(app.config['MONGO_URI'])
+    app.mongo_logger = mongolog(app.config['MONGO_URI'],
+                                app.config['SERVER_ALIAS'])
 else:
     app.mongo_logger = None
 

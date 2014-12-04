@@ -5,10 +5,10 @@ import os
 import heartbeat
 
 # Flask
-DEBUG = False
+DEBUG = True
 SECRET_KEY = os.urandom(32)
 APPLICATION_ROOT = '/api/downstream/v1'
-SERVER_NAME = 'dsnode'
+SERVER_ALIAS = 'dsnode'
 
 # SQLAlchemy (DB)
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
