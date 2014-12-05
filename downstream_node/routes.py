@@ -282,9 +282,16 @@ def api_downstream_chunk_contract(token, size):
                         total_seconds())
 
         if (app.mongo_logger is not None):
+            # we'll remove the tag becauase it could potentially be very large
+            rsummary = {key: response[key] for key in ['seed',
+                                                       'size',
+                                                       'file_hash',
+                                                       'due',
+                                                       'challenge']}
+            rsummary['tag'] = 'REDACTED'
             app.mongo_logger.log_event('chunk',
                                        {'context': handler.context,
-                                        'response': response})
+                                        'response': rsummary})
 
         return jsonify(response)
 
