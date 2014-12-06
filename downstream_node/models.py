@@ -75,19 +75,18 @@ class Token(db.Model):
         ref = datetime.utcfromtimestamp(0)
         now = datetime.utcnow()
         count = 0
-        ccount = 0
         times = list()
         need_to_commit = False
 
         # pull sum from cache
         tsum = self.upsum
-        #print('Pulled upsum: {0}'.format(self.upsum))
-        
+        # print('Pulled upsum: {0}'.format(self.upsum))
+
         # last cached
         lcache = Contract.query.filter(and_(Contract.token_id == self.id,
                                             Contract.cached == true())).\
             order_by(desc(Contract.due)).first()
-            
+
         if (lcache is not None):
             last_time = lcache.expiration
         else:
@@ -118,10 +117,13 @@ class Token(db.Model):
                 c.cached = True
                 times.append(UptimeEvent(c.start - ref, 1))
                 times.append(UptimeEvent(c.expiration - ref, -1))
-                # and upsum will increase if this contract had any additional uptime past last
-                # cache point
-                corrected_start = (c.start if c.start >= last_time else last_time)
-                duration = c.expiration - corrected_start if corrected_start > c.expiration else timedelta(seconds=0)
+                # and upsum will increase if this contract had any additional
+                # uptime past last cache point
+                corrected_start = (
+                    c.start if c.start >= last_time else last_time)
+                duration = c.expiration - corrected_start \
+                    if corrected_start > c.expiration \
+                    else timedelta(seconds=0)
                 self.upsum += duration
             else:
                 times.append(UptimeEvent(c.start - ref, 1))
@@ -130,10 +132,10 @@ class Token(db.Model):
                      if c.expiration < now
                      else now - ref), -1))
 
-        #print('Looking at {0} events.'.format(len(times)))
+        # print('Looking at {0} events.'.format(len(times)))
         sevents = sorted(times, key=lambda x: x.time)
         for event in sevents:
-            #print('Analyzing event at time {0}, {1}'.format(
+            # print('Analyzing event at time {0}, {1}'.format(
             #    event.time, event.action))
             # set the start time to the earliest time
             if (self.start is None):
@@ -151,14 +153,14 @@ class Token(db.Model):
                     tsum += event.time
             # we keep track of the number of contracts that are online
             count += event.action
-            #print('Status: tsum: {0}, count: {1}'.format(tsum, count))
+            # print('Status: tsum: {0}, count: {1}'.format(tsum, count))
 
         if (need_to_commit):
-            #print('Committing upsum: {0}'.format(self.upsum))
+            # print('Committing upsum: {0}'.format(self.upsum))
             db.session.commit()
 
         try:
-            #print('Up time: {0}, total time: {1}'.format(
+            # print('Up time: {0}, total time: {1}'.format(
             #    tsum, (now - self.start)))
             return tsum.total_seconds() / ((now - self.start).total_seconds())
         except:
