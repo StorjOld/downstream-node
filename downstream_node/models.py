@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import select, func, and_, text, desc
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql import exists
-from sqlalchemy.sql.expression import false
+from sqlalchemy.sql.expression import false, true
 from datetime import datetime, timedelta
 
 from .startup import db
@@ -81,7 +81,17 @@ class Token(db.Model):
 
         # pull sum from cache
         tsum = self.upsum
-        print('Pulled upsum: {0}'.format(self.upsum))
+        #print('Pulled upsum: {0}'.format(self.upsum))
+        
+        # last cached
+        lcache = Contract.query.filter(and_(Contract.token_id == self.id,
+                                            Contract.cached == true())).\
+            order_by(desc(Contract.due)).first()
+            
+        if (lcache is not None):
+            last_time = lcache.expiration
+        else:
+            last_time = ref
 
         uncached = Contract.query.filter(and_(Contract.token_id == self.id,
                                               Contract.cached == false())).\
@@ -90,38 +100,41 @@ class Token(db.Model):
         # small class to handle calculation of uptime
         class UptimeEvent(object):
 
-            def __init__(self, time, action, cache):
+            def __init__(self, time, action):
                 """
                 Initialization method
 
                 :param time: the time the event occurs
                 :param action: integer representing whether the farmer goes
                     online or offline.  1 = online.  -1 = offline
-                :param cache: whether to cache this event or not
                 """
                 self.time = time
                 self.action = action
-                self.cache = cache
 
         for c in uncached:
             if (c.expiration < now):
                 # we can cache this contract
                 need_to_commit = True
                 c.cached = True
-                times.append(UptimeEvent(c.start - ref, 1, True))
-                times.append(UptimeEvent(c.expiration - ref, -1, True))
+                times.append(UptimeEvent(c.start - ref, 1))
+                times.append(UptimeEvent(c.expiration - ref, -1))
+                # and upsum will increase if this contract had any additional uptime past last
+                # cache point
+                corrected_start = (c.start if c.start >= last_time else last_time)
+                duration = c.expiration - corrected_start if corrected_start > c.expiration else timedelta(seconds=0)
+                self.upsum += duration
             else:
-                times.append(UptimeEvent(c.start - ref, 1, False))
+                times.append(UptimeEvent(c.start - ref, 1))
                 times.append(UptimeEvent(
                     (c.expiration - ref
                      if c.expiration < now
-                     else now - ref), -1, False))
+                     else now - ref), -1))
 
-        print('Looking at {0} events.'.format(len(times)))
+        #print('Looking at {0} events.'.format(len(times)))
         sevents = sorted(times, key=lambda x: x.time)
         for event in sevents:
-            print('Analyzing event at time {0}, {1}, {2}'.format(
-                event.time, event.action, event.cache))
+            #print('Analyzing event at time {0}, {1}'.format(
+            #    event.time, event.action))
             # set the start time to the earliest time
             if (self.start is None):
                 self.start = ref + event.time
@@ -131,29 +144,22 @@ class Token(db.Model):
                 if (count == 0):
                     # subtract start time (duration = final - initial)
                     tsum -= event.time
-                # if we're caching this contract because it's expired, then
-                if (ccount == 0 and event.cache):
-                    self.upsum -= event.time
             # check if the farmer is going offline
             elif (event.action == -1):
                 if (count == 1):
                     # if so, add final time
                     tsum += event.time
-                if (ccount == 1 and event.cache):
-                    self.upsum += event.time
             # we keep track of the number of contracts that are online
             count += event.action
-            if (event.cache):
-                ccount += event.action
-            print('Status: tsum: {0}, count: {1}'.format(tsum, count))
+            #print('Status: tsum: {0}, count: {1}'.format(tsum, count))
 
         if (need_to_commit):
-            print('Committing upsum: {0}'.format(self.upsum))
+            #print('Committing upsum: {0}'.format(self.upsum))
             db.session.commit()
 
         try:
-            print('Up time: {0}, total time: {1}'.format(
-                tsum, (now - self.start)))
+            #print('Up time: {0}, total time: {1}'.format(
+            #    tsum, (now - self.start)))
             return tsum.total_seconds() / ((now - self.start).total_seconds())
         except:
             return 0
