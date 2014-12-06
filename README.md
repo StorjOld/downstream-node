@@ -19,7 +19,7 @@ $ apt-get -y install mysql-server
 Get libcrypto and libgmp which is required for some dependencies of downstream-node.
 
 ```
-$ apt-get -y install libcrypto++-dev libgmp-dev
+$ apt-get -y install libcrypto++-dev libgmp-dev mongodb
 ```
 
 Get `downstream-node`:
