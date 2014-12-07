@@ -19,6 +19,7 @@ from downstream_node.startup import app, db
 from downstream_node import models
 from downstream_node import node
 from downstream_node import config
+from downstream_node import uptime
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
 class TestDownstreamModels(unittest.TestCase):
@@ -1035,6 +1036,57 @@ class TestDownstreamException(unittest.TestCase):
         mock.assert_called_with(status='error',
                                 message='Internal Server Error')
         self.assertEqual(handler.response.status_code,500)
+        
+
+class MockUptimeContract(object):
+    def __init__(self, start, expiration, cached=False):
+        self.start = start
+        self.expiration = expiration
+        self.cached = cached
+        
+class TestUptimeCalculator(unittest.TestCase):
+    def test_base(self):
+        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        contract2 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=60), datetime.utcnow())
+        contract3 = MockUptimeContract(datetime.utcnow()+timedelta(seconds=60), datetime.utcnow()+timedelta(seconds=120))
+        
+        uncached = [contract1,contract2,contract3]
+        
+        us = uptime.UptimeSummary()
+        
+        uc = uptime.UptimeCalculator(uncached, us)
+        
+        summary = uc.update()
+        
+        self.assertEqual(summary.uptime.total_seconds(), 120)
+        
+    def test_fraction(self):
+        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        
+        uncached = [contract1]
+        
+        us = uptime.UptimeSummary(contract1.start)
+        
+        uc = uptime.UptimeCalculator(uncached, us)
+        
+        summary = uc.update()
+        
+        self.assertEqual(uc.summary.uptime, timedelta(seconds=60))
+        self.assertEqual(uc.summary.start, contract1.start)
+        self.assertAlmostEqual(summary.fraction(), 0.5, places=3)
+        
+    def test_many_contracts(self):
+        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        contract2 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        contract3 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        contract4 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        contract5 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        
+        uncached = [contract1,contract2,contract3,contract4,contract5]
+        
+        summary = uptime.UptimeCalculator(uncached).update()
+        
+        self.assertEqual(summary.uptime.total_seconds(), 60)
 
 if __name__ == '__main__':
     unittest.main()
