@@ -162,7 +162,9 @@ class Contract(db.Model):
                                               cascade='all, delete-orphan'))
 
     __table_args__ = (
-        db.Index('ix_contracts_token_id_file_id', 'token_id', 'file_id'), )
+        db.Index('ix_contracts_token_id_file_id', 'token_id', 'file_id'),
+        db.Index('ix_contracts_token_id_cached', 'token_id', 'cached'))
+        
 
     @hybrid_property
     def expiration(self):

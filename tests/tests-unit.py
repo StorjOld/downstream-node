@@ -1058,7 +1058,7 @@ class TestUptimeCalculator(unittest.TestCase):
         
         summary = uc.update()
         
-        self.assertEqual(summary.uptime.total_seconds(), 120)
+        self.assertAlmostEqual(summary.uptime.total_seconds(), 120)
         
     def test_fraction(self):
         contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
@@ -1071,8 +1071,8 @@ class TestUptimeCalculator(unittest.TestCase):
         
         summary = uc.update()
         
-        self.assertEqual(uc.summary.uptime, timedelta(seconds=60))
-        self.assertEqual(uc.summary.start, contract1.start)
+        self.assertAlmostEqual(uc.summary.uptime, timedelta(seconds=60))
+        self.assertAlmostEqual(uc.summary.start, contract1.start)
         self.assertAlmostEqual(summary.fraction(), 0.5, places=3)
         
     def test_many_contracts(self):
@@ -1086,7 +1086,7 @@ class TestUptimeCalculator(unittest.TestCase):
         
         summary = uptime.UptimeCalculator(uncached).update()
         
-        self.assertEqual(summary.uptime.total_seconds(), 60)
+        self.assertAlmostEqual(summary.uptime.total_seconds(), 60)
 
 if __name__ == '__main__':
     unittest.main()
