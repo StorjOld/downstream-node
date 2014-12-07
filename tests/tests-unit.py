@@ -1046,9 +1046,10 @@ class MockUptimeContract(object):
         
 class TestUptimeCalculator(unittest.TestCase):
     def test_base(self):
-        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
-        contract2 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=60), datetime.utcnow())
-        contract3 = MockUptimeContract(datetime.utcnow()+timedelta(seconds=60), datetime.utcnow()+timedelta(seconds=120))
+        now = datetime.utcnow()
+        contract1 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
+        contract2 = MockUptimeContract(now-timedelta(seconds=60), now)
+        contract3 = MockUptimeContract(now+timedelta(seconds=60), now+timedelta(seconds=120))
         
         uncached = [contract1,contract2,contract3]
         
@@ -1061,7 +1062,8 @@ class TestUptimeCalculator(unittest.TestCase):
         self.assertAlmostEqual(summary.uptime.total_seconds(), 120)
         
     def test_fraction(self):
-        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        now = datetime.utcnow()
+        contract1 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
         
         uncached = [contract1]
         
@@ -1069,24 +1071,27 @@ class TestUptimeCalculator(unittest.TestCase):
         
         uc = uptime.UptimeCalculator(uncached, us)
         
-        summary = uc.update()
+        with patch('downstream_node.uptime.datetime') as p:
+            p.utcnow.return_value = now
+            summary = uc.update()
         
-        self.assertAlmostEqual(uc.summary.uptime, timedelta(seconds=60))
-        self.assertAlmostEqual(uc.summary.start, contract1.start)
-        self.assertAlmostEqual(summary.fraction(), 0.5, places=3)
+        self.assertEqual(uc.summary.uptime, timedelta(seconds=60))
+        self.assertEqual(uc.summary.start, contract1.start)
+        self.assertEqual(summary.fraction(), 0.5)
         
     def test_many_contracts(self):
-        contract1 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
-        contract2 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
-        contract3 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
-        contract4 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
-        contract5 = MockUptimeContract(datetime.utcnow()-timedelta(seconds=120), datetime.utcnow()-timedelta(seconds=60))
+        now = datetime.utcnow()
+        contract1 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
+        contract2 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
+        contract3 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
+        contract4 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
+        contract5 = MockUptimeContract(now-timedelta(seconds=120), now-timedelta(seconds=60))
         
         uncached = [contract1,contract2,contract3,contract4,contract5]
         
         summary = uptime.UptimeCalculator(uncached).update()
         
-        self.assertAlmostEqual(summary.uptime.total_seconds(), 60)
+        self.assertEqual(summary.uptime.total_seconds(), 60)
 
 if __name__ == '__main__':
     unittest.main()
