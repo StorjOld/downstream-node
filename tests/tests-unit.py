@@ -20,6 +20,7 @@ from downstream_node import models
 from downstream_node import node
 from downstream_node import config
 from downstream_node import uptime
+from downstream_node import log
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
 class TestDownstreamModels(unittest.TestCase):
@@ -1036,7 +1037,53 @@ class TestDownstreamException(unittest.TestCase):
         mock.assert_called_with(status='error',
                                 message='Internal Server Error')
         self.assertEqual(handler.response.status_code,500)
+
+class TestDownstreamHttpHandler(unittest.TestCase):
+    def test_logging(self):
+        logger = mock.MagicMock()
+        test_exception = Exception('test exception')
+        with patch('downstream_node.exc.jsonify'),\
+                HttpHandler(logger) as handler:
+            raise test_exception
         
+        logger.log_exception.assert_called_with(test_exception, handler.context)
+        
+class TestDownstreamNodeLog(unittest.TestCase):
+    def test_init(self):
+        test_uri = 'uri'
+        test_alias = 'alias'
+        with patch('pymongo.MongoClient') as p:
+            test_log = log.mongolog(test_uri, test_alias)
+        
+        client = p.return_value
+        client.get_default_database.assert_called_with()
+        db = client.get_default_database.return_value
+        self.assertEqual(test_log.db, db)
+        self.assertEqual(test_log.events, db.events)
+        self.assertEqual(test_log.server, test_alias)
+        
+    def test_log_exception(self):
+        with patch('pymongo.MongoClient') as p:
+            test_log = log.mongolog('uri')
+            with patch.object(log.mongolog, 'log_event') as m:
+                test_exception = Exception('test exception')
+                test_log.log_exception(test_exception, 'test context')
+                m.assert_called_with('exception', {'type': type(test_exception).__name__,
+                                     'value': str(test_exception),
+                                     'context': 'test context'})
+    
+    def test_log_event(self):
+        with patch('pymongo.MongoClient') as p,\
+            patch('downstream_node.log.datetime') as dt:
+            test_log = log.mongolog('uri')
+            test_time = 'test time'
+            dt.datetime.utcnow.return_value = test_time
+            test_log.log_event('test type', 'test value')
+            test_event = {'time': test_time,
+                 'type': 'test type',
+                 'value': 'test value',
+                 'server': test_log.server}
+            test_log.events.insert.assert_called_with(test_event)
 
 class MockUptimeContract(object):
     def __init__(self, start, expiration, cached=False):
