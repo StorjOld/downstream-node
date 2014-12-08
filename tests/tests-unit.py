@@ -81,6 +81,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['msg'],'ok')
 
     def test_api_downstream_new(self):
+        app.mongo_logger = mock.MagicMock()
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
@@ -134,7 +135,33 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             request.method = 'POST'
-            request.get_json.return_value = dict({'signature': 'invalidsignature',
+            request.get_json.return_value = dict({'signature': 'AyzVUenXXo4pa+kgm1vS8PNPM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I=',
+                                                  'message': self.test_message})
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 400)
+            self.assertEqual(r.content_type, 'application/json')
+            
+    def test_api_downstream_new_signed_too_long(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'POST'
+            request.get_json.return_value = dict({'signature': 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I=',
+                                                  'message': 'longmessage'*1000})
+            with patch('downstream_node.node.get_ip_location') as p:
+                p.return_value = dict()
+                r = self.app.get('/new/{0}'.format(self.test_address))
+            self.assertEqual(r.status_code, 400)
+            self.assertEqual(r.content_type, 'application/json')
+
+    def test_api_downstream_new_signed_too_short(self):
+        app.config['REQUIRE_SIGNATURE'] = True
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = 'test.ip.address'
+            request.method = 'POST'
+            request.get_json.return_value = dict({'signature': 'AyzVUenXXo4p',
                                                   'message': self.test_message})
             with patch('downstream_node.node.get_ip_location') as p:
                 p.return_value = dict()
@@ -163,6 +190,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_heartbeat(self):
+        app.mongo_logger = mock.MagicMock()
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
@@ -194,6 +222,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['message'], 'Nonexistent token.')
         
     def test_api_downstream_chunk(self):
+        app.mongo_logger = mock.MagicMock()
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
@@ -268,6 +297,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         token = db_token.token
         hash = db_contract.file.hash
     
+        app.mongo_logger = mock.MagicMock()
         r = self.app.get('/challenge/{0}/{1}'.format(token,hash))
         
         self.assertEqual(r.status_code, 200)
@@ -290,6 +320,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r.content_type, 'application/json')
         
     def test_api_downstream_answer(self):
+        app.mongo_logger = mock.MagicMock()
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
             with patch('downstream_node.node.get_ip_location') as p:
@@ -1010,7 +1041,6 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception), 'Answer failed: contract expired.')
         
         node.remove_file(db_file.hash)
-
        
 class TestDownstreamUtils(unittest.TestCase):
     def setUp(self):
