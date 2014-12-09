@@ -4,12 +4,13 @@
 import os
 import pickle
 import siggy
+from operator import itemgetter
 
 from flask import jsonify, request
 from sqlalchemy import desc
 from datetime import datetime
 
-from .startup import app
+from .startup import app, db
 from .node import (create_token, get_chunk_contract,
                    verify_proof,  update_contract,
                    lookup_contract)
@@ -74,8 +75,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
         if (sortby not in sort_map):
             raise InvalidParameterError('Invalid sort.')
-
-        # we need to calculate uptime manually
+        # we need to sort uptime manually
         # what we're doing here is going through each farmer's contracts. it
         # sums up the time that the farmer has been online, and then divides
         # by the total time the farmer has had any contracts.
@@ -83,15 +83,20 @@ def api_downstream_status_list(o, d, sortby, limit, page):
             all_tokens = Token.query.filter(Token.online).all()
         else:
             all_tokens = Token.query.all()
-        uptimes = dict()
+            
+        uptimes = list()
+        utdict = dict()
         for t in all_tokens:
-            uptimes[t.id] = t.uptime
-
-        if (sortby == 'uptime'):
-            key = lambda x: uptimes[x.id]
+            ut = t.uptime
+            utdict[t.id] = ut
             if (d):
-                key = lambda x: -uptimes[x.id]
-            farmer_list = sorted(all_tokens, key=key)
+                uptimes.append(-ut)
+            else:
+                uptimes.append(ut)
+                
+        if (sortby == 'uptime'):
+            (uptimes, farmer_list) = zip(*sorted(zip(uptimes, all_tokens), key=itemgetter(0)))
+            
             if (page is not None):
                 farmer_list = farmer_list[limit * page:limit * page + limit]
 
@@ -117,17 +122,18 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
             farmer_list = farmer_list_query.all()
 
-        farmers = list(map(lambda a:
-                           dict(id=a.farmer_id,
-                                address=a.addr,
-                                location=a.location,
-                                uptime=round(uptimes[a.id] * 100, 2),
-                                heartbeats=a.hbcount,
-                                contracts=a.contract_count,
-                                last_due=a.last_due,
-                                size=a.size,
-                                online=a.online), farmer_list))
+        farmers = [dict(id=a.farmer_id,
+                        address=a.addr,
+                        location=a.location,
+                        uptime=round(utdict[a.id] * 100, 2),
+                        heartbeats=a.hbcount,
+                        contracts=a.contract_count,
+                        last_due=a.last_due,
+                        size=a.size,
+                        online=a.online) for a in farmer_list]
 
+        db.session.commit()
+        
         return jsonify(farmers=farmers)
 
     return handler.response

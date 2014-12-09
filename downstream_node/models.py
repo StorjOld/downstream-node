@@ -94,8 +94,6 @@ class Token(db.Model):
         self.end = summary.end
         self.upsum = summary.uptime
 
-        db.session.commit()
-
         return summary.fraction()
 
     # Return the date of the contract with the latest due date.
