@@ -83,7 +83,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
             all_tokens = Token.query.filter(Token.online).all()
         else:
             all_tokens = Token.query.all()
-            
+
         uptimes = list()
         utdict = dict()
         for t in all_tokens:
@@ -93,10 +93,11 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 uptimes.append(-ut)
             else:
                 uptimes.append(ut)
-                
+
         if (sortby == 'uptime'):
-            (uptimes, farmer_list) = zip(*sorted(zip(uptimes, all_tokens), key=itemgetter(0)))
-            
+            (uptimes, farmer_list) = zip(
+                *sorted(zip(uptimes, all_tokens), key=itemgetter(0)))
+
             if (page is not None):
                 farmer_list = farmer_list[limit * page:limit * page + limit]
 
@@ -133,7 +134,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                         online=a.online) for a in farmer_list]
 
         db.session.commit()
-        
+
         return jsonify(farmers=farmers)
 
     return handler.response
