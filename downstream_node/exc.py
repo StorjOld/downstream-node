@@ -48,6 +48,7 @@ class HttpHandler(object):
             self.response = jsonify(status='error',
                                     message='Internal Server Error')
             print('Internal server error: {0}'.format(str(value)))
+            sys.stdout.flush()
             self.response.status_code = 500
             return True
         else:
