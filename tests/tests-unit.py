@@ -672,7 +672,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.testfile = RandomIO().genfile(1000)
             
         self.test_address = base58.b58encode_check(b'\x00'+os.urandom(20))
-        reader = maxminddb.open_database(app.config['MMDB_PATH'])
+        reader = maxminddb.Reader(app.config['MMDB_PATH'])
         self.full_location = reader.get('17.0.0.1')
         self.partial_location = {'continent': {'geoname_id': 6255151, 
                                                'code': 'OC', 
@@ -761,7 +761,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'Invalid address given: address must be in whitelist.')
         
     def test_get_ip_location(self):
-        with patch('downstream_node.node.maxminddb.open_database') as reader:
+        with patch('downstream_node.node.maxminddb.Reader') as reader:
             for l in [self.full_location, self.partial_location, self.no_location]:
                 reader.return_value = Mock()
                 reader.return_value.get.return_value = l

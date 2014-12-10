@@ -2,7 +2,7 @@ flask
 pymysql
 flask-sqlalchemy
 base58
-maxminddb
+maxminddb==1.0.0
 pymongo
 
 git+https://github.com/Storj/heartbeat.git#egg=storj-heartbeat

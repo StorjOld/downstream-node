@@ -40,7 +40,7 @@ def get_ip_location(remote_addr):
                 'lat': None,
                 'lon': None}
 
-    reader = maxminddb.open_database(app.config['MMDB_PATH'])
+    reader = maxminddb.Reader(app.config['MMDB_PATH'])
     mmloc = reader.get(remote_addr)
     if (mmloc is not None):
         if ('country' in mmloc):
