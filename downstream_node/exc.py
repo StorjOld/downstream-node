@@ -31,7 +31,7 @@ class HttpHandler(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        if (type is not None and self.logger is not None):
+        if (type is not None and self.logger is not None):            
             self.logger.log_exception(value, self.context)
 
         if (type is NotFoundError):
@@ -46,7 +46,7 @@ class HttpHandler(object):
             return True
         elif (type is not None):
             self.response = jsonify(status='error',
-                                    message='Internal Server Error')
+                                    message='Internal Server Error: {0}'.format(str(value)))
             print('Internal server error: {0}'.format(str(value)))
             self.response.status_code = 500
             return True
