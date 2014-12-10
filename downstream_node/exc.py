@@ -31,7 +31,7 @@ class HttpHandler(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        if (type is not None and self.logger is not None):            
+        if (type is not None and self.logger is not None):
             self.logger.log_exception(value, self.context)
 
         if (type is NotFoundError):
