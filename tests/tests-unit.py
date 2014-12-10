@@ -761,7 +761,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(str(ex.exception),'Invalid address given: address must be in whitelist.')
         
     def test_get_ip_location(self):
-        with patch('downstream_node.node.maxminddb.open_datase') as reader:
+        with patch('downstream_node.node.maxminddb.open_database') as reader:
             for l in [self.full_location, self.partial_location, self.no_location]:
                 reader.return_value = Mock()
                 reader.return_value.get.return_value = l
