@@ -10,10 +10,10 @@ from flask import Flask, jsonify
 from werkzeug.serving import run_simple
 from werkzeug.wsgi import DispatcherMiddleware
 from datetime import datetime, timedelta
-from sqlalchemy import select, engine, update, insert
+from sqlalchemy import select, engine, update, insert, bindparam, true
 
 from downstream_node.startup import app, db
-from downstream_node.models import Contract, Address, Token
+from downstream_node.models import Contract, Address, Token, File
 
 def initdb():   
     db.create_all()
@@ -22,14 +22,24 @@ def initdb():
 def cleandb():
     # delete old contracts
     Contract.query.filter(Contract.due < datetime.utcnow()
-                          -timedelta(seconds=60)).delete()
+                          -timedelta(seconds=60)).delete()    
     db.session.commit()
+    
+    # delete expired contracts and files
+    s = Contract.__table__.delete().where(Contract.cached == true())
+    
+    db.engine.execute(s)
+    
+    # and delete unreferenced files
+    s = File.__table__.delete().where(~File.__table__.c.id.in_(select([Contract.__table__.c.file_id])))
+    
+    db.engine.execute(s)
 
 def updatewhitelist(path):
     with open(path,'r') as f:
             r = csv.reader(f)
             next(r)
-            updated = list()
+            updated=list()
             for l in r:
                 s = Address.__table__.select().where(Address.address == l[0])
                 result = db.engine.execute(s).first()                
@@ -50,7 +60,7 @@ def updatewhitelist(path):
                     tbd_tokens = db.engine.execute(Token.__table__.select().\
                         where(Token.address_id == row.id)).fetchall()
                     for t in tbd_tokens:
-                        # and all contracts associated with that address
+                        # and all contracts associated with that address                        
                         db.engine.execute(Contract.__table__.delete().\
                             where(Contract.token_id == t.id))
                         db.engine.execute(Token.__table__.delete().\

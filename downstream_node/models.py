@@ -147,7 +147,7 @@ class Contract(db.Model):
     # for prototyping, include file seed for regeneration, and file size
     seed = db.Column(db.String(128))
     size = db.Column(db.Integer())
-    cached = db.Column(db.Boolean(), default=False)
+    cached = db.Column(db.Boolean(), default=False, index=True)
 
     token = db.relationship('Token',
                             backref=db.backref('contracts',

@@ -105,14 +105,12 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                            func.cast(total_time, Float),
                            0)
 
-        conn = db.engine.connect()
-
         cache_stmt = select([tokens.c.id,
                              tokens.c.start,
                              tokens.c.end,
                              tokens.c.upsum])
 
-        cache_info = conn.execute(cache_stmt).fetchall()
+        cache_info = db.engine.execute(cache_stmt).fetchall()
 
         # fetch all the uncached contracts
         uncached_stmt = select([contracts.c.id,
@@ -120,9 +118,12 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                                 expiration.label('expiration'),
                                 contracts.c.start,
                                 contracts.c.cached]).\
+            select_from(contracts.join(files)).\
             where(contracts.c.cached == false())
 
-        uncached = conn.execute(uncached_stmt).fetchall()
+        print(uncached_stmt)
+
+        uncached = db.engine.execute(uncached_stmt).fetchall()
 
         # map the uncached contracts to their tokens
         # for fast reference
@@ -145,7 +146,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 else:
                     # we have to look in all contracts, not just uncached ones
                     # this should rarely, if ever, be called.
-                    first_contract = conn.execute(
+                    first_contract = db.engine.execute(
                         select([func.min(contracts.c.start).label('start')])
                         .where(contracts.c.token_id == token.id))\
                         .fetchone()
@@ -175,7 +176,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
             s = contracts.update().where(contracts.c.id == bindparam('contract_id')).\
                 values(cached=True)
 
-            conn.execute(s, new_cache)
+            db.engine.execute(s, new_cache)
 
         if (len(new_summary) > 0):
             s = tokens.update().where(tokens.c.id == bindparam('token_id')).\
@@ -183,7 +184,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                        end=bindparam('end'),
                        upsum=bindparam('upsum'))
 
-            conn.execute(s, new_summary)
+            db.engine.execute(s, new_summary)
 
         farmer_stmt = select([tokens.c.farmer_id.label('id'),
                               addresses.c.address,
@@ -196,9 +197,8 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               (func.max(expiration) > datetime.utcnow())
                               .label('online'),
                               fraction.label('uptime')]).\
-            select_from(tokens.join(contracts).join(addresses).join(files))
-
-        farmer_stmt = farmer_stmt.group_by('id')
+            select_from(tokens.join(contracts).join(addresses).join(files)).\
+            group_by('id')
 
         # now get the tokens we need
         if (d):
@@ -214,7 +214,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         if (page is not None):
             farmer_stmt = farmer_stmt.offset(limit * page)
 
-        farmer_list = conn.execute(farmer_stmt)
+        farmer_list = db.engine.execute(farmer_stmt)
 
         farmers = [dict(id=a.id,
                         address=a.address,
