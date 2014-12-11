@@ -28,7 +28,9 @@ db.session.commit()
 pr = cProfile.Profile()
 
 
-for i in range(0,10):
+farmer_info = list()
+
+for i in range(0,3):
     with patch('downstream_node.routes.request') as request:
         request.remote_addr = '17.0.0.1'
         request.method = 'POST'
@@ -37,7 +39,6 @@ for i in range(0,10):
         r = application.get('/new/{0}'.format(test_address))
 
     r_json = json.loads(r.data.decode('utf-8'))
-
 
     beat = app.config['HEARTBEAT'].fromdict(r_json['heartbeat'])
 
@@ -51,47 +52,61 @@ for i in range(0,10):
 
     r_seed = r_json['seed']
     r_hash = r_json['file_hash']
-
+    
     tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
-
-    contents = RandomIO(r_seed).read(r_json['size'])
-
-    with patch('downstream_node.routes.request') as request:
-        request.remote_addr = '17.0.0.1'
-        r = application.get('/challenge/{0}/{1}'.format(r_token,r_hash))
-    assert(r.status_code==200)    
-    r_json = json.loads(r.data.decode('utf-8'))
-
-    chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
-
-    f = io.BytesIO(contents)
-    proof = beat.prove(f,chal,tag)
-
-    with patch('downstream_node.routes.request') as request:
-        request.remote_addr = '17.0.0.1'
-        data = {"proof":proof.todict()}
-        request.get_json.return_value = data
-        r = application.post('/answer/{0}/{1}'.format(r_token,r_hash),
-                             data=json.dumps(data),
-                             content_type='application/json')
-        assert(r.status_code==200)
-        r_json = json.loads(r.data.decode('utf-8'))
-        assert(r_json['status']=='ok')
-
-    # force due date to have passed
-    db_contract = node.lookup_contract(r_token,r_hash)
-    db_contract.due = datetime.datetime.utcnow()-datetime.timedelta(seconds=1)
-    db.session.commit()
-
-pr.enable()
+    
+    farmer_info.append({'token': r_token,
+                        'hash': r_hash,
+                        'seed': r_seed,
+                        'size': r_json['size'],
+                        'tag': tag,
+                        'answered': False})
 
 for i in range(0,10):
+    for farmer in farmer_info:
+        if (farmer['answered']):
+            # force due date to have passed
+            db_contract = node.lookup_contract(farmer['token'],farmer['hash'])
+            db_contract.due = datetime.datetime.utcnow()-datetime.timedelta(seconds=1)
+            db.session.commit()
+    
+        contents = RandomIO(farmer['seed']).read(farmer['size'])
+        
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = '17.0.0.1'
+            r = application.get('/challenge/{0}/{1}'.format(farmer['token'],farmer['hash']))        
+        assert(r.status_code==200)    
+        r_json = json.loads(r.data.decode('utf-8'))      
+
+        chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
+
+        f = io.BytesIO(contents)
+        proof = beat.prove(f,chal,farmer['tag'])
+
+        with patch('downstream_node.routes.request') as request:
+            request.remote_addr = '17.0.0.1'
+            data = {"proof":proof.todict()}
+            request.get_json.return_value = data
+            r = application.post('/answer/{0}/{1}'.format(farmer['token'],farmer['hash']),
+                                 data=json.dumps(data),
+                                 content_type='application/json')
+            assert(r.status_code==200)
+            r_json = json.loads(r.data.decode('utf-8'))
+            farmer['answered'] = True
+            assert(r_json['status']=='ok')        
+            
+    pr.enable()
+
     with patch('downstream_node.routes.request') as request:
         r = application.get('/status/list/by/d/uptime')
     assert(r.status_code==200)
 
+    pr.disable()
+    
+    r_json = json.loads(r.data.decode('utf-8'))
+    with open('status.txt','a') as f:
+        f.write(r.data.decode('utf-8'))
 
-pr.disable()
 
 ps = pstats.Stats(pr)
 ps.print_stats()

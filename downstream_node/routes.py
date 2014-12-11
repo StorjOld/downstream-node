@@ -114,6 +114,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
         cache_info = conn.execute(cache_stmt).fetchall()
 
+        # fetch all the uncached contracts
         uncached_stmt = select([contracts.c.id,
                                 contracts.c.token_id,
                                 expiration.label('expiration'),
@@ -123,36 +124,45 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
         uncached = conn.execute(uncached_stmt).fetchall()
 
-        token_info = dict()
+        # map the uncached contracts to their tokens
+        # for fast reference
+        uncached_contracts = dict()
 
-        for u in uncached:
-            if (u.token_id not in token_info):
-                token_info[u.token_id] = list()
-            token_info[u.token_id].append(u)
+        if (len(uncached) > 0):
+            for u in uncached:
+                uncached_contracts.setdefault(u.token_id, list()).append(u)
 
         new_cache = list()
         new_summary = list()
 
         # calculate uptime for each farmer
         for token in cache_info:
-            # get info on contracts associated with this token
-
-            if (token.id not in token_info):
-                continue
-
+            # ensure that we have a start date for this token
             if (token.start is None):
-                start = min([x.start for x in token_info[token.id]])
+                if (token.id in uncached_contracts):
+                    start = min(
+                        [x.start for x in uncached_contracts[token.id]])
+                else:
+                    # we have to look in all contracts, not just uncached ones
+                    # this should rarely, if ever, be called.
+                    first_contract = conn.execute(
+                        select([func.min(contracts.c.start).label('start')])
+                        .where(contracts.c.token_id == token.id))\
+                        .fetchone()
+                    start = first_contract.start
             else:
                 start = token.start
 
+            # calculate the new uptime stats given the summary
+            # and any uncached contracts associated with this token
             calc = UptimeCalculator(
-                token_info[token.id],
+                uncached_contracts.get(token.id, list()),
                 UptimeSummary(start, token.end, token.upsum))
 
             summary = calc.update()
 
             # update whether contracts have been cached or not
-            for c in calc.updated:
+            for c in calc.newly_cached:
                 new_cache.append({'contract_id': c})
 
             # and update the summary

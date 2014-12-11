@@ -29,7 +29,7 @@ class UptimeCalculator(object):
     def __init__(self, uncached, summary=UptimeSummary()):
         self.uncached = uncached
         self.summary = summary
-        self.updated = list()
+        self.newly_cached = list()
 
     def update(self):
         """
@@ -55,7 +55,7 @@ class UptimeCalculator(object):
                 end = c.expiration
                 # also, contract is expired
                 # we can cache
-                self.updated.append(c.id)
+                self.newly_cached.append(c.id)
             else:
                 end = now
 
