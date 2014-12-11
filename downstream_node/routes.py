@@ -130,6 +130,9 @@ def api_downstream_status_list(o, d, sortby, limit, page):
 
             uncached = conn.execute(s).fetchall()
 
+            if (len(uncached) == 0):
+                continue
+
             if (token.start is None):
                 start = min([x.start for x in uncached])
             else:
