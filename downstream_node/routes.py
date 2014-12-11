@@ -121,8 +121,6 @@ def api_downstream_status_list(o, d, sortby, limit, page):
             select_from(contracts.join(files)).\
             where(contracts.c.cached == false())
 
-        print(uncached_stmt)
-
         uncached = db.engine.execute(uncached_stmt).fetchall()
 
         # map the uncached contracts to their tokens
