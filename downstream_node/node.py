@@ -64,10 +64,10 @@ def assert_ip_allowed_one_more_token(remote_addr):
     existing tokens.
     """
     conflicting_tokens = Token.query.filter(
-        Token.ip_address == remote_addr).all()
+        Token.ip_address == remote_addr).count()
 
     if (app.config['MAX_TOKENS_PER_IP'] is not None and
-            len(conflicting_tokens) >= app.config['MAX_TOKENS_PER_IP']):
+            conflicting_tokens >= app.config['MAX_TOKENS_PER_IP']):
         # too many other tokens are using this ip address already
         # we will disallow it.
         raise InvalidParameterError(
