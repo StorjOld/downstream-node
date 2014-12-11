@@ -28,7 +28,7 @@ db.session.commit()
 pr = cProfile.Profile()
 
 
-for i in range(0,100):
+for i in range(0,10):
     with patch('downstream_node.routes.request') as request:
         request.remote_addr = '17.0.0.1'
         request.method = 'POST'

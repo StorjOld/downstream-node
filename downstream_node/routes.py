@@ -115,10 +115,20 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         cache_info = conn.execute(cache_stmt).fetchall()
 
         uncached_stmt = select([contracts.c.id,
+                                contracts.c.token_id,
                                 expiration.label('expiration'),
                                 contracts.c.start,
                                 contracts.c.cached]).\
             where(contracts.c.cached == false())
+
+        uncached = conn.execute(uncached_stmt).fetchall()
+
+        token_info = dict()
+
+        for u in uncached:
+            if (u.token_id not in token_info):
+                token_info[u.token_id] = list()
+            token_info[u.token_id].append(u)
 
         new_cache = list()
         new_summary = list()
@@ -126,15 +136,12 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         # calculate uptime for each farmer
         for token in cache_info:
             # get info on contracts associated with this token
-            s = uncached_stmt.where(contracts.c.token_id == token.id)
 
-            uncached = conn.execute(s).fetchall()
-
-            if (len(uncached) == 0):
+            if (token.id not in token_info):
                 continue
 
             if (token.start is None):
-                start = min([x.start for x in uncached])
+                start = min([x.start for x in token_info[token.id]])
             else:
                 start = token.start
 
