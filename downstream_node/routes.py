@@ -146,7 +146,8 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 start = token.start
 
             calc = UptimeCalculator(
-                uncached, UptimeSummary(start, token.end, token.upsum))
+                token_info[token.id],
+                UptimeSummary(start, token.end, token.upsum))
 
             summary = calc.update()
 
