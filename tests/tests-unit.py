@@ -1116,7 +1116,10 @@ class TestDownstreamNodeLog(unittest.TestCase):
             test_log.events.insert.assert_called_with(test_event)
 
 class MockUptimeContract(object):
+    static_id = 0
     def __init__(self, start, expiration, cached=False):
+        self.id = MockUptimeContract.static_id
+        MockUptimeContract.static_id += 1
         self.start = start
         self.expiration = expiration
         self.cached = cached

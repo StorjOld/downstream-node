@@ -4,18 +4,20 @@
 import os
 import pickle
 import siggy
-from operator import itemgetter
 
 from flask import jsonify, request
-from sqlalchemy import desc
+from sqlalchemy import func, desc, bindparam, text, Float
+from sqlalchemy.sql import select
+from sqlalchemy.sql.expression import false
 from datetime import datetime
 
 from .startup import app, db
 from .node import (create_token, get_chunk_contract,
                    verify_proof,  update_contract,
                    lookup_contract)
-from .models import Token
+from .models import Token, Address, Contract, File
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
+from .uptime import UptimeSummary, UptimeCalculator
 
 
 @app.route('/')
@@ -65,75 +67,145 @@ def api_index():
            defaults={'o': True, 'd': True})
 def api_downstream_status_list(o, d, sortby, limit, page):
     with HttpHandler(app.mongo_logger) as handler:
-        sort_map = {'id': Token.farmer_id,
-                    'address': Token.addr,
-                    'uptime': None,
-                    'heartbeats': Token.hbcount,
-                    'contracts': Token.contract_count,
-                    'size': Token.size,
-                    'online': Token.online}
+        # status page rewrite
+        # lets get all the data we need with one query and then do the
+        # sorting as we need
+
+        sort_map = {'id': 'id',
+                    'address': 'address',
+                    'uptime': 'uptime',
+                    'heartbeats': 'heartbeats',
+                    'contracts': 'contract_count',
+                    'size': 'size',
+                    'online': 'online'}
 
         if (sortby not in sort_map):
             raise InvalidParameterError('Invalid sort.')
-        # we need to sort uptime manually
-        # what we're doing here is going through each farmer's contracts. it
-        # sums up the time that the farmer has been online, and then divides
-        # by the total time the farmer has had any contracts.
-        if o:
-            all_tokens = Token.query.filter(Token.online).all()
-        else:
-            all_tokens = Token.query.all()
 
-        uptimes = list()
-        utdict = dict()
-        for t in all_tokens:
-            ut = t.uptime
-            utdict[t.id] = ut
-            if (d):
-                uptimes.append(-ut)
+        tokens = Token.__table__
+        addresses = Address.__table__
+        files = File.__table__
+        contracts = Contract.__table__
+
+        expiration = func.IF(contracts.c.answered,
+                             func.TIMESTAMPADD(text('second'),
+                                               files.c.interval,
+                                               contracts.c.due),
+                             contracts.c.due)
+
+        total_time = func.TIMESTAMPDIFF(text('second'),
+                                        tokens.c.start,
+                                        tokens.c.end)
+
+        fraction = func.IF(func.ABS(total_time) > 0,
+                           func.cast(func.TIMESTAMPDIFF(
+                               text('second'),
+                               '1970-01-01',
+                               tokens.c.upsum), Float) /
+                           func.cast(total_time, Float),
+                           0)
+
+        conn = db.engine.connect()
+
+        cache_stmt = select([tokens.c.id,
+                             tokens.c.start,
+                             tokens.c.end,
+                             tokens.c.upsum])
+
+        cache_info = conn.execute(cache_stmt).fetchall()
+
+        uncached_stmt = select([contracts.c.id,
+                                expiration.label('expiration'),
+                                contracts.c.start,
+                                contracts.c.cached]).\
+            where(contracts.c.cached == false())
+
+        new_cache = list()
+        new_summary = list()
+
+        # calculate uptime for each farmer
+        for token in cache_info:
+            # get info on contracts associated with this token
+            s = uncached_stmt.where(contracts.c.token_id == token.id)
+
+            uncached = conn.execute(s).fetchall()
+
+            if (token.start is None):
+                start = min([x.start for x in uncached])
             else:
-                uptimes.append(ut)
+                start = token.start
 
-        if (sortby == 'uptime'):
-            (uptimes, farmer_list) = zip(
-                *sorted(zip(uptimes, all_tokens), key=itemgetter(0)))
+            calc = UptimeCalculator(
+                uncached, UptimeSummary(start, token.end, token.upsum))
 
-            if (page is not None):
-                farmer_list = farmer_list[limit * page:limit * page + limit]
+            summary = calc.update()
 
-            if (limit is not None):
-                farmer_list = farmer_list[:limit]
+            # update whether contracts have been cached or not
+            for c in calc.updated:
+                new_cache.append({'contract_id': c})
+
+            # and update the summary
+            new_summary.append({'token_id': token.id,
+                                'start': summary.start,
+                                'end': summary.end,
+                                'upsum': summary.uptime})
+
+        if (len(new_cache) > 0):
+            s = contracts.update().where(contracts.c.id == bindparam('contract_id')).\
+                values(cached=True)
+
+            conn.execute(s, new_cache)
+
+        if (len(new_summary) > 0):
+            s = tokens.update().where(tokens.c.id == bindparam('token_id')).\
+                values(start=bindparam('start'),
+                       end=bindparam('end'),
+                       upsum=bindparam('upsum'))
+
+            conn.execute(s, new_summary)
+
+        farmer_stmt = select([tokens.c.farmer_id.label('id'),
+                              addresses.c.address,
+                              tokens.c.location,
+                              tokens.c.hbcount.label('heartbeats'),
+                              func.count(contracts.c.id).
+                              label('contract_count'),
+                              func.max(contracts.c.due).label('last_due'),
+                              func.sum(contracts.c.size).label('size'),
+                              (func.max(expiration) > datetime.utcnow())
+                              .label('online'),
+                              fraction.label('uptime')]).\
+            select_from(tokens.join(contracts).join(addresses).join(files))
+
+        farmer_stmt = farmer_stmt.group_by('id')
+
+        # now get the tokens we need
+        if (d):
+            sort_stmt = desc(sort_map[sortby])
         else:
             sort_stmt = sort_map[sortby]
-            if (d):
-                sort_stmt = desc(sort_stmt)
 
-            farmer_list_query = Token.query
+        farmer_stmt = farmer_stmt.order_by(sort_stmt)
 
-            if (o):
-                farmer_list_query = farmer_list_query.filter(Token.online)
+        if (limit is not None):
+            farmer_stmt = farmer_stmt.limit(limit)
 
-            farmer_list_query = farmer_list_query.order_by(sort_stmt)
+        if (page is not None):
+            farmer_stmt = farmer_stmt.offset(limit * page)
 
-            if (limit is not None):
-                farmer_list_query = farmer_list_query.limit(limit)
+        farmer_list = conn.execute(farmer_stmt)
 
-            if (page is not None):
-                farmer_list_query = farmer_list_query.offset(limit * page)
-
-            farmer_list = farmer_list_query.all()
-
-        farmers = [dict(id=a.farmer_id,
-                        address=a.addr,
+        farmers = [dict(id=a.id,
+                        address=a.address,
                         location=a.location,
-                        uptime=round(utdict[a.id] * 100, 2),
-                        heartbeats=a.hbcount,
+                        uptime=float(round(a.uptime * 100, 2)),
+                        heartbeats=a.heartbeats,
                         contracts=a.contract_count,
                         last_due=a.last_due,
-                        size=a.size,
-                        online=a.online) for a in farmer_list]
-
-        db.session.commit()
+                        size=int(a.size),
+                        online=a.online)
+                   for a in farmer_list
+                   if not o or a.online]
 
         return jsonify(farmers=farmers)
 
