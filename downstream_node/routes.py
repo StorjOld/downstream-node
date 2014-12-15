@@ -429,6 +429,8 @@ def api_downstream_challenge_answer(token, file_hash):
         handler.context['remote_addr'] = request.remote_addr
         d = request.get_json(silent=True)
 
+        handler.context['posted_data'] = d
+
         if (d is False or not isinstance(d, dict) or 'proof' not in d):
             raise InvalidParameterError('Posted data must be an JSON encoded '
                                         'proof object: '
