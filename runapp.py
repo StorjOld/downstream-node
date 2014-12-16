@@ -20,11 +20,6 @@ def initdb():
 
 
 def cleandb():
-    # delete old contracts
-    Contract.query.filter(Contract.due < datetime.utcnow()
-                          -timedelta(seconds=60)).delete()    
-    db.session.commit()
-    
     # delete expired contracts and files
     s = Contract.__table__.delete().where(Contract.cached == true())
     
@@ -35,38 +30,39 @@ def cleandb():
     
     db.engine.execute(s)
 
+
 def updatewhitelist(path):
     with open(path,'r') as f:
-            r = csv.reader(f)
-            next(r)
-            updated=list()
-            for l in r:
-                s = Address.__table__.select().where(Address.address == l[0])
-                result = db.engine.execute(s).first()                
-                if (result is not None):
-                    db.engine.execute(Address.__table__.update().\
-                        where(Address.id == result.id).\
-                        values(crowdsale_balance=int(l[1])))
-                else:
-                    db.engine.execute(Address.__table__.insert().\
-                        values(address=l[0], crowdsale_balance=l[1]))
-                    result = db.engine.execute(Address.__table__.select().\
-                        where(Address.address == l[0])).first()
-                updated.append(result.id)
-            all = db.engine.execute(Address.__table__.select()).fetchall()
-            for row in all:
-                if (row.id not in updated):
-                    # also recursively delete all tokens associated with that address
-                    tbd_tokens = db.engine.execute(Token.__table__.select().\
-                        where(Token.address_id == row.id)).fetchall()
-                    for t in tbd_tokens:
-                        # and all contracts associated with that address                        
-                        db.engine.execute(Contract.__table__.delete().\
-                            where(Contract.token_id == t.id))
-                        db.engine.execute(Token.__table__.delete().\
-                            where(Token.id == t.id))
-                    db.engine.execute(Address.__table__.delete().\
-                        where(Address.id == row.id))
+        r = csv.reader(f)
+        next(r)
+        updated=list()
+        for l in r:
+            s = Address.__table__.select().where(Address.address == l[0])
+            result = db.engine.execute(s).first()                
+            if (result is not None):
+                db.engine.execute(Address.__table__.update().\
+                    where(Address.id == result.id).\
+                    values(crowdsale_balance=int(l[1])))
+            else:
+                db.engine.execute(Address.__table__.insert().\
+                    values(address=l[0], crowdsale_balance=l[1]))
+                result = db.engine.execute(Address.__table__.select().\
+                    where(Address.address == l[0])).first()
+            updated.append(result.id)
+        all = db.engine.execute(Address.__table__.select()).fetchall()
+        for row in all:
+            if (row.id not in updated):
+                # also recursively delete all tokens associated with that address
+                tbd_tokens = db.engine.execute(Token.__table__.select().\
+                    where(Token.address_id == row.id)).fetchall()
+                for t in tbd_tokens:
+                    # and all contracts associated with that address                        
+                    db.engine.execute(Contract.__table__.delete().\
+                        where(Contract.token_id == t.id))
+                    db.engine.execute(Token.__table__.delete().\
+                        where(Token.id == t.id))
+                db.engine.execute(Address.__table__.delete().\
+                    where(Address.id == row.id))
 
 
 def eval_args(args):
