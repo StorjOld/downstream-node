@@ -1,29 +1,25 @@
----
-  language: python
-  python:
-    - "2.7"
-    - "3.3"
-    - "3.4"
-  # command to install dependencies
-  services:
-    - mysql
-  before_install:
-    - 'mysql -e "create database if not exists downstream;" -u root'
-    - sudo apt-get install libcrypto++-dev
-    - mkdir data && cd data
-    - curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
-    - gunzip GeoLite2-City.mmdb.gz
-    - cd ..
-  install:
-    - "pip install coverage flake8 coveralls"
-    - "pip install -r requirements.txt ."
-  after_success:
-    - coveralls
-
-  # command to run tests
-  script:
-    - flake8 downstream_node/
-    - nosetests -v --with-coverage --cover-package=downstream_node tests/
-
-#  notifications:
-#    slack: storj:IwoHonDxA5lauvwcKZRMkfps
+language: python
+python:
+- '2.7'
+- '3.3'
+- '3.4'
+services:
+- mysql
+before_install:
+- mysql -e "create database if not exists downstream;" -u root
+- sudo apt-get install libcrypto++-dev
+- mkdir data && cd data
+- curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
+- gunzip GeoLite2-City.mmdb.gz
+- cd ..
+install:
+- pip install coverage flake8 coveralls
+- pip install -r requirements.txt .
+after_success:
+- coveralls
+script:
+- flake8 downstream_node/
+- nosetests -v --with-coverage --cover-package=downstream_node tests/
+notifications:
+  slack:
+    secure: um7ZbDsqPi+O98cYU0E3jKqqxV2Jmp5F6+08C8NGfa0YX0Y8+tip16/ehXvopf4hkuHZsYsTfmqYD8AXrveX47KX7q6IQ/z9uKojZvzGvzKhDMsZGZyIn/XtIladVX6E0Hdq+BR9EByKRFQ0d8cPt28vv34wAnu2tN+c2B3PLs8=
