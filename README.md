@@ -164,7 +164,12 @@ Response:
 Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>
-Response:
+
+which gets a chunk of default size (100 bytes) or one can specify the size
+
+    GET /api/downstream/chunk/<token>/<size>
+	
+If a chunk is available, the response will be:
 ```
 {
     "challenge": "...challenge object string representation...",
@@ -173,6 +178,12 @@ Response:
     "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
 	"size": 1000,
     "tag": "...tag object string representation..."
+}
+```
+otherwise, if no chunks are available, the response will be
+```
+{
+	"status": "no chunks available"
 }
 ```
 
@@ -186,6 +197,13 @@ Response:
 {
    "challenge": "...challenge object string representation...",
    "expiration": 32,
+}
+```
+
+or, if there are no challenges available for this contract, the response will be
+```
+{
+	"status": "no more challenges"
 }
 ```
 

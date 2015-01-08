@@ -191,7 +191,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               func.count(contracts.c.id).
                               label('contract_count'),
                               func.max(contracts.c.due).label('last_due'),
-                              func.sum(contracts.c.size).label('size'),
+                              func.sum(files.c.size).label('size'),
                               (func.max(expiration) > datetime.utcnow())
                               .label('online'),
                               fraction.label('uptime')]).\
@@ -303,7 +303,7 @@ def api_downstream_new_token(sjcx_address):
 
         db_token = create_token(
             sjcx_address, request.remote_addr, message, signature)
-        beat = db_token.heartbeat
+        beat = app.heartbeat
         pub_beat = beat.get_public()
 
         response = dict(token=db_token.token,
@@ -336,7 +336,7 @@ def api_downstream_heartbeat(token):
         if (db_token is None):
             raise NotFoundError('Nonexistent token.')
 
-        beat = db_token.heartbeat
+        beat = app.heartbeat
         pub_beat = beat.get_public()
         response = dict(token=db_token.token,
                         type=type(beat).__name__,
@@ -363,16 +363,28 @@ def api_downstream_chunk_contract(token, size):
 
         db_contract = get_chunk_contract(token, size, request.remote_addr)
 
+        if (db_contract is None):
+            response = dict(status='no chunks available')
+        
+            # no contracts available
+            if (app.mongo_logger is not None):
+                rsummary = {'status': response['status']}
+                app.mongo_logger.log_event('chunk',
+                                           {'context': handler.context,
+                                            'response': rsummary})
+
+            return jsonify(response)
+        
         with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.load(f)
         chal = db_contract.challenge
 
-        # now since we are prototyping, we can delete the tag and file
-        os.remove(db_contract.file.path)
+        # we now delete the tag since it has been sent
+        # (we never actually create the file)
         os.remove(db_contract.tag_path)
 
-        response = dict(seed=db_contract.seed,
-                        size=db_contract.size,
+        response = dict(seed=db_contract.file.seed,
+                        size=db_contract.file.size,
                         file_hash=db_contract.file.hash,
                         challenge=chal.todict(),
                         tag=tag.todict(),
@@ -406,6 +418,18 @@ def api_downstream_chunk_contract_status(token, file_hash):
         handler.context['remote_addr'] = request.remote_addr
         db_contract = update_contract(token, file_hash)
 
+        if (db_contract is None):
+            response = dict(status='no more challenges')
+        
+            # no more challenges available
+            if (app.mongo_logger is not None):
+                rsummary = {'status': response['status']}
+                app.mongo_logger.log_event('chunk',
+                                           {'context': handler.context,
+                                            'response': rsummary})
+
+            return jsonify(response)
+        
         response = dict(challenge=db_contract.challenge.todict(),
                         due=(db_contract.due - datetime.utcnow()).
                         total_seconds(),
@@ -438,7 +462,7 @@ def api_downstream_challenge_answer(token, file_hash):
 
         db_contract = lookup_contract(token, file_hash)
 
-        beat = db_contract.token.heartbeat
+        beat = app.heartbeat
 
         try:
             proof = beat.proof_type().fromdict(d['proof'])

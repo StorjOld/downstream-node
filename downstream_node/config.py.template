@@ -18,6 +18,7 @@ TAGS_PATH = 'tags/'
 MMDB_PATH = 'data/GeoLite2-City.mmdb'
 
 HEARTBEAT = heartbeat.Swizzle.Swizzle
+HEARTBEAT_PATH = 'data/heartbeat'
 
 MONGO_LOGGING = True
 MONGO_URI = 'mongodb://localhost/dsnode_log'
