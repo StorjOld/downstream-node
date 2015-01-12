@@ -13,8 +13,7 @@ from datetime import datetime
 
 from .startup import app, db
 from .node import (create_token, get_chunk_contract,
-                   verify_proof,  update_contract,
-                   lookup_contract)
+                   verify_proof,  update_contract)
 from .models import Token, Address, Contract, File
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 from .uptime import UptimeSummary, UptimeCalculator
@@ -365,7 +364,7 @@ def api_downstream_chunk_contract(token, size):
 
         if (db_contract is None):
             response = dict(status='no chunks available')
-        
+
             # no contracts available
             if (app.mongo_logger is not None):
                 rsummary = {'status': response['status']}
@@ -374,7 +373,7 @@ def api_downstream_chunk_contract(token, size):
                                             'response': rsummary})
 
             return jsonify(response)
-        
+
         with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.load(f)
         chal = db_contract.challenge
@@ -420,7 +419,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
 
         if (db_contract is None):
             response = dict(status='no more challenges')
-        
+
             # no more challenges available
             if (app.mongo_logger is not None):
                 rsummary = {'status': response['status']}
@@ -429,7 +428,7 @@ def api_downstream_chunk_contract_status(token, file_hash):
                                             'response': rsummary})
 
             return jsonify(response)
-        
+
         response = dict(challenge=db_contract.challenge.todict(),
                         due=(db_contract.due - datetime.utcnow()).
                         total_seconds(),
@@ -459,8 +458,6 @@ def api_downstream_challenge_answer(token, file_hash):
             raise InvalidParameterError('Posted data must be an JSON encoded '
                                         'proof object: '
                                         '{"proof":"...proof object..."}')
-
-        db_contract = lookup_contract(token, file_hash)
 
         beat = app.heartbeat
 

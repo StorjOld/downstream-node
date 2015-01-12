@@ -8,6 +8,7 @@ class NotFoundError(Exception):
 class InvalidParameterError(Exception):
     pass
 
+
 class HttpHandler(object):
 
     def __init__(self, logger=None, context=dict()):

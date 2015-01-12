@@ -10,14 +10,11 @@ from datetime import datetime
 from Crypto.Hash import SHA256
 from RandomIO import RandomIO
 from sqlalchemy import and_, desc
-from heartbeat import HeartbeatError, Merkle
+from heartbeat import HeartbeatError
 
 from .startup import db, app
 from .models import Address, Token, File, Contract, Chunk
 from .exc import InvalidParameterError
-
-#testing import base64
-import base64
 
 __all__ = ['create_token',
            'delete_token',
@@ -123,7 +120,7 @@ def contract_insert_next_challenge(db_contract):
     db_contract.due = db_contract.expiration
     db_contract.state = state
     db_contract.answered = False
-    
+
     return True
 
 
@@ -160,8 +157,6 @@ def create_token(sjcx_address, remote_addr, message=None, signature=None):
 
     location = get_ip_location(remote_addr)
 
-    beat = app.heartbeat
-
     token = os.urandom(16)
     token_string = binascii.hexlify(token).decode('ascii')
     token_hash = SHA256.new(token).hexdigest()[:20]
@@ -194,19 +189,19 @@ def delete_token(token):
     db.session.delete(db_token)
     db.session.commit()
 
-    
+
 def generate_test_file(size):
     """This generates a test file and prepares it
     :param size: the file size to generate and prepare
     :returns: the test file database object
     """
-    
+
     seed = binascii.hexlify(os.urandom(16)).decode()
-    
+
     db_file = add_file(seed, size, 1)
-    
+
     db_chunk = prepare_contract(db_file)
-    
+
     return db_chunk
 
 
@@ -215,31 +210,31 @@ def prepare_contract(db_file):
     file to be a chunk, tags it and places the information in the database
     """
     beat = app.heartbeat
-    
+
     chunk_stream = RandomIO(db_file.seed, db_file.size)
-    
-    (tag, state) = beat.encode(chunk_stream)   
-    
+
+    (tag, state) = beat.encode(chunk_stream)
+
     bin_tag = pickle.dumps(tag, pickle.HIGHEST_PROTOCOL)
-    
+
     tag_hash = SHA256.new(bin_tag).hexdigest()
-    
+
     tag_path = os.path.join(app.config['TAGS_PATH'], tag_hash)
-    
+
     # and write the tag to our temporary files
     # we will eventually need to move to a streamed tag writing if tags
     # get large but for now, we'll stick with this since we're going to use
     # merkle with short contract lifetimes
     with open(tag_path, 'wb') as f:
         f.write(bin_tag)
-        
+
     db_chunk = Chunk(file=db_file,
                      state=state,
                      tag_path=tag_path)
-    
+
     db.session.add(db_chunk)
     db.session.commit()
-                  
+
     return db_chunk
 
 
@@ -284,11 +279,12 @@ def get_chunk_contract(token, size, remote_addr):
 
     # pick the best candidate
     # file = candidates[0]
-    
+
     # now we pull from pregenerated chunks
-    # we need a chunk that is smaller than the requested size    
-    db_chunk = Chunk.query.filter(File.size <= size).join(File).order_by(desc(File.size)).first()
-    
+    # we need a chunk that is smaller than the requested size
+    db_chunk = Chunk.query.filter(File.size <= size).join(
+        File).order_by(desc(File.size)).first()
+
     if (db_chunk is None):
         return None
 
@@ -313,13 +309,13 @@ def get_chunk_contract(token, size, remote_addr):
 
     # remove the chunk from the database since it has now been used.
     db.session.delete(db_chunk)
-        
+
     db.session.commit()
 
     return db_contract
 
 
-#def add_file(chunk_path, redundancy=3, interval=60):
+# def add_file(chunk_path, redundancy=3, interval=60):
 def add_file(seed, size, redundancy=3, interval=60):
     """This function adds a file to the database to be tracked by the
     application.
@@ -333,7 +329,7 @@ def add_file(seed, size, redundancy=3, interval=60):
     """
     # we don't want to generate the whole file
     chunk_stream = RandomIO(seed, size)
-    
+
     # first, hash the chunk to determine it's name
     h = SHA256.new()
     bufsz = 65535
@@ -422,7 +418,7 @@ def update_contract(token, file_hash):
         return db_contract
 
     if (not contract_insert_next_challenge(db_contract)):
-        # no more challenges.  
+        # no more challenges.
         return None
 
     db.session.commit()
@@ -456,7 +452,7 @@ def verify_proof(token, file_hash, proof, remote_addr):
     if (not db_contract.answered):
         valid = beat.verify(proof, chal, state)
     else:
-        valid = db_contract.answered        
+        valid = db_contract.answered
 
     if (valid and not db_contract.answered):
         db_contract.token.hbcount += 1

@@ -19,9 +19,10 @@ class File(db.Model):
     redundancy = db.Column(db.Integer(), nullable=False)
     interval = db.Column(db.Integer(), nullable=False)
     added = db.Column(db.DateTime(), nullable=False)
-    # for prototyping we will have file seed and size here    
+    # for prototyping we will have file seed and size here
     seed = db.Column(db.String(128))
     size = db.Column(db.Integer())
+
 
 class Address(db.Model):
     __tablename__ = 'addresses'
@@ -121,10 +122,10 @@ class Token(db.Model):
         return sum(c.file.size for c in self.contracts)
 
     # deprecated
-    #@size.expression
-    #def size(self):
-    #    return select([func.sum(Contract.size)]).\
-    #        where(Contract.token_id == self.id).label('size')
+    # @size.expression
+    #  def size(self):
+    #     return select([func.sum(Contract.size)]).\
+    #         where(Contract.token_id == self.id).label('size')
 
     @hybrid_property
     def addr(self):
@@ -135,23 +136,25 @@ class Token(db.Model):
         return select([Address.address]).where(Address.id == self.address_id).\
             label('addr')
 
+
 class Chunk(db.Model):
+
     """For storing cached chunks before they are distributed to farmers.
     A script will maintain a certain number of chunks in this database so that
     new farmers can quickly obtain test chunks
     """
     __tablename__ = 'chunks'
-    
+
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     file_id = db.Column(db.ForeignKey('files.id'))
     state = db.Column(db.PickleType(), nullable=False)
     tag_path = db.Column(db.String(128), unique=True)
-    
+
     file = db.relationship('File',
                            backref=db.backref('chunks',
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
-    
+
 
 class Contract(db.Model):
     __tablename__ = 'contracts'
