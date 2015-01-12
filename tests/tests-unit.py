@@ -16,13 +16,37 @@ from datetime import datetime, timedelta
 import heartbeat
 from RandomIO import RandomIO
 
-from downstream_node.startup import app, db
+from downstream_node.startup import app, db, load_heartbeat
 from downstream_node import models
 from downstream_node import node
 from downstream_node import config
 from downstream_node import uptime
 from downstream_node import log
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
+
+class TestStartup(unittest.TestCase):
+    def setUp(self):
+        pass
+    
+    def tearDown(self):
+        pass
+    
+    def test_load_heartbeat_exists(self):
+        test_file = 'test_heartbeat'
+        with open(test_file, 'wb') as f:
+            pickle.dump(app.heartbeat, f)
+        beat = load_heartbeat(None, test_file)
+        self.assertEqual(beat, app.heartbeat)
+        os.remove(test_file)
+    
+    def test_load_heartbeat_construct(self):
+        test_file = 'test_heartbeat'
+        beat = load_heartbeat(app.config['HEARTBEAT'], test_file)
+        self.assertIsInstance(beat, app.config['HEARTBEAT'])
+        with open(test_file, 'rb') as f:
+            loaded_beat = pickle.load(f)
+        self.assertEqual(loaded_beat, beat)
+        os.remove(test_file)
 
 class TestDownstreamModels(unittest.TestCase):
     def setUp(self):
@@ -291,6 +315,17 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         self.assertEqual(r_json['message'],'Nonexistent token.')
         
+    def test_api_downstream_chunk_contract_no_chunks(self):
+        with patch('downstream_node.routes.get_chunk_contract') as p:
+            p.return_value = None
+            r = self.app.get('/chunk/test_token')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['status'], 'no chunks available')
+        
     def test_api_downstream_challenge(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
@@ -324,6 +359,17 @@ class TestDownstreamRoutes(unittest.TestCase):
         r = self.app.get('/challenge/invalid_token/invalid_hash')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
+        
+    def test_downstream_chunk_contract_status_no_challenges(self):
+        with patch('downstream_node.routes.update_contract') as p:
+            p.return_value = None
+            r = self.app.get('/challenge/test_token/test_hash')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(r_json['status'], 'no more challenges')
         
     def test_api_downstream_answer(self):
         app.mongo_logger = mock.MagicMock()
@@ -445,14 +491,14 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         db.engine.execute('DROP TABLE IF EXISTS contracts,chunks,tokens,addresses,files')
         db.create_all()
         
-        a0 = models.Address(address='0',crowdsale_balance=20000)
+        self.a0 = models.Address(address='0',crowdsale_balance=20000)
         a1 = models.Address(address='1',crowdsale_balance=20000)
-        db.session.add(a0)
+        db.session.add(self.a0)
         db.session.add(a1)
         db.session.commit()
         
         t0 = models.Token(token='0',
-                          address_id=a0.id,
+                          address_id=self.a0.id,
                           ip_address='0',
                           farmer_id='0',
                           hbcount=0,
@@ -630,6 +676,28 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
     def test_api_status_list_by_uptime(self):
         self.generic_list_by('uptime')
+        
+    def test_api_status_list_empty_token(self):
+    
+        t2 = models.Token(token='2',
+                          address_id=self.a0.id,
+                          ip_address='2',
+                          farmer_id='2',
+                          hbcount=0,
+                          location=None)
+        db.session.add(t2)
+        db.session.commit()
+        
+        r = self.app.get('/status/list/by/uptime')
+        
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content_type, 'application/json')
+        
+        r_json = json.loads(r.data.decode('utf-8'))
+        
+        self.assertEqual(len(r_json['farmers']), 3)
+        self.assertEqual(r_json['farmers'][0]['uptime'], 0.0)
+        
     
     def test_api_status_list_by_uptime_limit(self):
         r = self.app.get('/status/list/by/uptime/1')
@@ -959,8 +1027,84 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             self.assertEqual(node.update_contract('token','hash'),a.return_value)
             b.assert_called_with(a.return_value)
             self.assertTrue(c.called)
-            
+    
+    def add_test_token(self):
+        with patch('downstream_node.node.get_ip_location') as p:
+            p.return_value = dict()
+            db_token = node.create_token(self.test_address,'test.ip.address')
         
+        db.session.add(db_token)
+        db.session.commit()
+        
+        return db_token
+        
+    def add_test_file(self):
+        db_file = node.add_file(self.test_seed, self.test_size)
+        
+        db.session.add(db_file)
+        db.session.commit()
+        
+        return db_file
+    
+    def add_test_contract(self):
+        db_file = self.add_test_file()
+        db_token = self.add_test_token()
+        
+        db_contract = models.Contract(token_id = db_token.id,
+                                      file_id = db_file.id,
+                                      state = 'test state',
+                                      challenge = 'test challenge',
+                                      due = datetime.utcnow() +
+                                         timedelta(seconds = 1))
+                                       
+        db.session.add(db_contract)
+        db.session.commit()
+        
+        return db_contract
+    
+    def test_contract_insert_next_challenge_fail(self):
+        db_contract = self.add_test_contract()
+        
+        with patch('downstream_node.node.app.heartbeat') as beat_patch:
+            beat_patch.gen_challenge = mock.MagicMock()
+            beat_patch.gen_challenge.side_effect = heartbeat.HeartbeatError('test error')
+            self.assertFalse(node.contract_insert_next_challenge(db_contract))
+        
+    def test_get_chunk_contract_no_chunks(self):
+        db_token = self.add_test_token()
+        
+        db_contract = node.get_chunk_contract(db_token.token, 100, 'test.ip.address')
+        
+        self.assertIsNone(db_contract)
+        
+    def add_test_chunk(self):
+        db_chunk = node.generate_test_file(self.test_size)
+        
+        return db_chunk
+        
+    def test_get_chunk_contract_init_failed(self):
+        db_token = self.add_test_token()
+        self.add_test_chunk()
+        
+        with patch('downstream_node.node.contract_insert_next_challenge') as p:
+            p.return_value = False
+            with self.assertRaises(RuntimeError) as ex:
+                node.get_chunk_contract(db_token.token, self.test_size, 'test.ip.address')
+        
+        self.assertEqual(str(ex.exception), 'Unable to initialize challenge for contract.')
+    
+    def test_update_contract_no_more_challenges(self):
+        db_contract = self.add_test_contract()
+        
+        db_contract.due = datetime.utcnow() - timedelta(seconds=1)
+        db_contract.answered = True
+        
+        with patch('downstream_node.node.contract_insert_next_challenge') as p:
+            p.return_value = False
+            db_contract = node.update_contract(db_contract.token.token, db_contract.file.hash)
+        
+        self.assertIsNone(db_contract)
+    
     def test_verify_proof(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
@@ -1053,6 +1197,18 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with self.assertRaises(InvalidParameterError) as ex:
             node.verify_proof(db_token.token,db_contract.file.hash,proof,'test.ip.address8')
         self.assertEqual(str(ex.exception), 'Answer failed: contract expired.')
+        
+    def test_verify_proof_already_answered(self):
+        db_contract = self.add_test_contract()
+        db_contract.answered = True
+        
+        with self.assertRaises(InvalidParameterError) as ex:
+            node.verify_proof(db_contract.token.token,
+                              db_contract.file.hash,
+                              None,
+                              'test.ip.address')
+        
+        self.assertEqual(str(ex.exception), 'Challenge already answered.')
 
        
 class TestDownstreamUtils(unittest.TestCase):

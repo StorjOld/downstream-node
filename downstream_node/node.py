@@ -452,9 +452,9 @@ def verify_proof(token, file_hash, proof, remote_addr):
     if (not db_contract.answered):
         valid = beat.verify(proof, chal, state)
     else:
-        valid = db_contract.answered
+        raise InvalidParameterError('Challenge already answered.')
 
-    if (valid and not db_contract.answered):
+    if (valid):
         db_contract.token.hbcount += 1
         db_contract.answered = True
         # update state

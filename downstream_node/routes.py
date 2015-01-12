@@ -143,11 +143,19 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 else:
                     # we have to look in all contracts, not just uncached ones
                     # this should rarely, if ever, be called.
-                    first_contract = db.engine.execute(
-                        select([func.min(contracts.c.start).label('start')])
-                        .where(contracts.c.token_id == token.id))\
-                        .fetchone()
-                    start = first_contract.start
+                    # the only time this will be called is if a token exists
+                    # and either all its contracts are cached but it has no
+                    # start time or it has no contracts, in which case its
+                    # uptime will be 0 and remain zero.  so let's just continue
+                    # instead of trying to select contracts that don't exist
+                    # this is tested in test_api_status_list_empty_token but
+                    # is optimized out so will not be seen by coverage
+                    continue  # pragma: no cover
+                    # first_contract = db.engine.execute(
+                    #     select([func.min(contracts.c.start).label('start')])
+                    #     .where(contracts.c.token_id == token.id))\
+                    #     .fetchone()
+                    # start = first_contract.start
             else:
                 start = token.start
 
@@ -194,7 +202,8 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               (func.max(expiration) > datetime.utcnow())
                               .label('online'),
                               fraction.label('uptime')]).\
-            select_from(tokens.join(contracts).join(addresses).join(files)).\
+            select_from(tokens.join(addresses).join(contracts.join(files),
+                                                    isouter=True)).\
             group_by('id')
 
         # now get the tokens we need
@@ -220,7 +229,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                         heartbeats=a.heartbeats,
                         contracts=a.contract_count,
                         last_due=a.last_due,
-                        size=int(a.size),
+                        size=int(a.size if a.size is not None else 0),
                         online=a.online)
                    for a in farmer_list
                    if not o or a.online]

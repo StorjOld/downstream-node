@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import and_
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import false
 from datetime import datetime, timedelta
 
@@ -70,11 +69,11 @@ class Token(db.Model):
     def online(self):
         return any(c.expiration > datetime.utcnow() for c in self.contracts)
 
-    @online.expression
-    def online(self):
-        return exists().where(and_(Contract.expiration > datetime.utcnow(),
-                                   Contract.token_id == self.id)).\
-            label('online')
+    # @online.expression
+    # def online(self):
+    #     return exists().where(and_(Contract.expiration > datetime.utcnow(),
+    #                                Contract.token_id == self.id)).\
+    #         label('online')
 
     @property
     def uptime(self):
@@ -112,10 +111,10 @@ class Token(db.Model):
     def contract_count(self):
         return self.contracts.count()
 
-    @contract_count.expression
-    def contract_count(self):
-        return select([func.count()]).where(Contract.token_id == self.id).\
-            label('contract_count')
+    # @contract_count.expression
+    # def contract_count(self):
+    #     return select([func.count()]).where(Contract.token_id == self.id).\
+    #         label('contract_count')
 
     @hybrid_property
     def size(self):
@@ -131,10 +130,11 @@ class Token(db.Model):
     def addr(self):
         return self.address.address
 
-    @addr.expression
-    def addr(self):
-        return select([Address.address]).where(Address.id == self.address_id).\
-            label('addr')
+    # @addr.expression
+    # def addr(self):
+    #     return select([Address.address]).\
+    #         where(Address.id == self.address_id).\
+    #         label('addr')
 
 
 class Chunk(db.Model):
@@ -191,13 +191,13 @@ class Contract(db.Model):
         else:
             return self.due
 
-    @expiration.expression
-    def expiration(self):
+    # @expiration.expression
+    # def expiration(self):
         # MySQL specific code.  will need to check compatibility on
         # moving to different db
-        return select([func.IF(self.answered,
-                               func.TIMESTAMPADD(text('SECOND'),
-                                                 File.interval,
-                                                 self.due),
-                               self.due)]).\
-            where(File.id == self.file_id).label('expiration')
+    #     return select([func.IF(self.answered,
+    #                            func.TIMESTAMPADD(text('SECOND'),
+    #                                              File.interval,
+    #                                              self.due),
+    #                            self.due)]).\
+    #         where(File.id == self.file_id).label('expiration')
