@@ -60,7 +60,7 @@ class TestStartup(unittest.TestCase):
         mock_uri = 'mock_uri'
         mock_alias = 'mock_alias'
         logger = load_logger(False,
-                             'mock_uri' ,
+                             'mock_uri',
                              'mock_alias')
         self.assertIsNone(logger)        
 
