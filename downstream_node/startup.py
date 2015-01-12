@@ -25,6 +25,7 @@ def load_heartbeat(constructor, path):
             pickle.dump(beat, f)
         return beat
 
+
 def load_logger(log, uri, server_alias):
     if (log):
         return mongolog(uri, server_alias)
