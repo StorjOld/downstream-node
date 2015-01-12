@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 import heartbeat
 from RandomIO import RandomIO
 
-from downstream_node.startup import app, db, load_heartbeat
+from downstream_node.startup import app, db, load_heartbeat, load_logger
 from downstream_node import models
 from downstream_node import node
 from downstream_node import config
@@ -47,6 +47,23 @@ class TestStartup(unittest.TestCase):
             loaded_beat = pickle.load(f)
         self.assertEqual(loaded_beat, beat)
         os.remove(test_file)
+        
+    def test_log_startup_log(self):
+        mock_alias = 'mock_alias'
+        logger = load_logger(True,
+                             app.config['MONGO_URI'],
+                             mock_alias)
+        self.assertIsInstance(logger, log.mongolog)
+        self.assertEqual(logger.server, mock_alias)
+        
+    def test_log_startup_none(self):
+        mock_uri = 'mock_uri'
+        mock_alias = 'mock_alias'
+        logger = load_logger(False,
+                             'mock_uri' ,
+                             'mock_alias')
+        self.assertIsNone(logger)        
+
 
 class TestDownstreamModels(unittest.TestCase):
     def setUp(self):

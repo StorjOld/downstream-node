@@ -25,16 +25,20 @@ def load_heartbeat(constructor, path):
             pickle.dump(beat, f)
         return beat
 
+def load_logger(log, uri, server_alias):
+    if (log):
+        return mongolog(uri, server_alias)
+    else:
+        return None
+
 
 app.heartbeat = load_heartbeat(
     app.config['HEARTBEAT'], app.config['HEARTBEAT_PATH'])
 
+app.mongo_logger = load_logger(app.config['MONGO_LOGGING'],
+                               app.config['MONGO_URI'],
+                               app.config['SERVER_ALIAS'])
 
-if (app.config['MONGO_LOGGING']):
-    app.mongo_logger = mongolog(app.config['MONGO_URI'],
-                                app.config['SERVER_ALIAS'])
-else:
-    app.mongo_logger = None
 
 from . import routes  # NOQA
 # from . import profiling

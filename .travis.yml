@@ -5,6 +5,7 @@ python:
 - '3.4'
 services:
 - mysql
+- mongodb
 before_install:
 - mysql -e "create database if not exists downstream;" -u root
 - sudo apt-get install libcrypto++-dev
