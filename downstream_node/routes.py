@@ -13,8 +13,7 @@ from datetime import datetime
 
 from .startup import app, db
 from .node import (create_token, get_chunk_contract,
-                   verify_proof,  update_contract,
-                   lookup_contract)
+                   verify_proof,  update_contract)
 from .models import Token, Address, Contract, File
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 from .uptime import UptimeSummary, UptimeCalculator
@@ -144,11 +143,19 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                 else:
                     # we have to look in all contracts, not just uncached ones
                     # this should rarely, if ever, be called.
-                    first_contract = db.engine.execute(
-                        select([func.min(contracts.c.start).label('start')])
-                        .where(contracts.c.token_id == token.id))\
-                        .fetchone()
-                    start = first_contract.start
+                    # the only time this will be called is if a token exists
+                    # and either all its contracts are cached but it has no
+                    # start time or it has no contracts, in which case its
+                    # uptime will be 0 and remain zero.  so let's just continue
+                    # instead of trying to select contracts that don't exist
+                    # this is tested in test_api_status_list_empty_token but
+                    # is optimized out so will not be seen by coverage
+                    continue  # pragma: no cover
+                    # first_contract = db.engine.execute(
+                    #     select([func.min(contracts.c.start).label('start')])
+                    #     .where(contracts.c.token_id == token.id))\
+                    #     .fetchone()
+                    # start = first_contract.start
             else:
                 start = token.start
 
@@ -191,11 +198,12 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               func.count(contracts.c.id).
                               label('contract_count'),
                               func.max(contracts.c.due).label('last_due'),
-                              func.sum(contracts.c.size).label('size'),
+                              func.sum(files.c.size).label('size'),
                               (func.max(expiration) > datetime.utcnow())
                               .label('online'),
                               fraction.label('uptime')]).\
-            select_from(tokens.join(contracts).join(addresses).join(files)).\
+            select_from(tokens.join(addresses).join(contracts.join(files),
+                                                    isouter=True)).\
             group_by('id')
 
         # now get the tokens we need
@@ -221,7 +229,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                         heartbeats=a.heartbeats,
                         contracts=a.contract_count,
                         last_due=a.last_due,
-                        size=int(a.size),
+                        size=int(a.size if a.size is not None else 0),
                         online=a.online)
                    for a in farmer_list
                    if not o or a.online]
@@ -303,7 +311,7 @@ def api_downstream_new_token(sjcx_address):
 
         db_token = create_token(
             sjcx_address, request.remote_addr, message, signature)
-        beat = db_token.heartbeat
+        beat = app.heartbeat
         pub_beat = beat.get_public()
 
         response = dict(token=db_token.token,
@@ -336,7 +344,7 @@ def api_downstream_heartbeat(token):
         if (db_token is None):
             raise NotFoundError('Nonexistent token.')
 
-        beat = db_token.heartbeat
+        beat = app.heartbeat
         pub_beat = beat.get_public()
         response = dict(token=db_token.token,
                         type=type(beat).__name__,
@@ -363,16 +371,28 @@ def api_downstream_chunk_contract(token, size):
 
         db_contract = get_chunk_contract(token, size, request.remote_addr)
 
+        if (db_contract is None):
+            response = dict(status='no chunks available')
+
+            # no contracts available
+            if (app.mongo_logger is not None):
+                rsummary = {'status': response['status']}
+                app.mongo_logger.log_event('chunk',
+                                           {'context': handler.context,
+                                            'response': rsummary})
+
+            return jsonify(response)
+
         with open(db_contract.tag_path, 'rb') as f:
             tag = pickle.load(f)
         chal = db_contract.challenge
 
-        # now since we are prototyping, we can delete the tag and file
-        os.remove(db_contract.file.path)
+        # we now delete the tag since it has been sent
+        # (we never actually create the file)
         os.remove(db_contract.tag_path)
 
-        response = dict(seed=db_contract.seed,
-                        size=db_contract.size,
+        response = dict(seed=db_contract.file.seed,
+                        size=db_contract.file.size,
                         file_hash=db_contract.file.hash,
                         challenge=chal.todict(),
                         tag=tag.todict(),
@@ -406,6 +426,18 @@ def api_downstream_chunk_contract_status(token, file_hash):
         handler.context['remote_addr'] = request.remote_addr
         db_contract = update_contract(token, file_hash)
 
+        if (db_contract is None):
+            response = dict(status='no more challenges')
+
+            # no more challenges available
+            if (app.mongo_logger is not None):
+                rsummary = {'status': response['status']}
+                app.mongo_logger.log_event('chunk',
+                                           {'context': handler.context,
+                                            'response': rsummary})
+
+            return jsonify(response)
+
         response = dict(challenge=db_contract.challenge.todict(),
                         due=(db_contract.due - datetime.utcnow()).
                         total_seconds(),
@@ -436,9 +468,7 @@ def api_downstream_challenge_answer(token, file_hash):
                                         'proof object: '
                                         '{"proof":"...proof object..."}')
 
-        db_contract = lookup_contract(token, file_hash)
-
-        beat = db_contract.token.heartbeat
+        beat = app.heartbeat
 
         try:
             proof = beat.proof_type().fromdict(d['proof'])

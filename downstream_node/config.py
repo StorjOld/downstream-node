@@ -17,8 +17,10 @@ FILES_PATH = 'tmp/'
 TAGS_PATH = 'tags/'
 MMDB_PATH = 'data/GeoLite2-City.mmdb'
 
-
-HEARTBEAT = heartbeat.Swizzle.Swizzle
+# the heartbeat we use should probably eventually be associated with
+# the uploading user so they can decide on the check_fraction...
+HEARTBEAT = heartbeat.Merkle.Merkle
+HEARTBEAT_PATH = 'data/heartbeat'
 
 MONGO_LOGGING = False
 MONGO_URI = 'mongodb://localhost/dsnode_log'
