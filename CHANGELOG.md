@@ -2,6 +2,7 @@
 
 ### Master
 
+* [ENHANCEMENT] Modified --maintain option so that software will maintain a diverse set of chunk sizes
 * [ENHANCEMENT] Restructured so that chunk/shards can be pre-generated before being requested in a contract
 * [ENHANCEMENT] Added --generate-chunk option to runapp.py in order to pre-generate chunks
 * [ENHANCEMENT] Added --maintain option to runapp.py for maintaining a certain size of pre-generated chunks.
