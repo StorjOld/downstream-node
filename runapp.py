@@ -16,6 +16,7 @@ from sqlalchemy import select, engine, update, insert, bindparam, true, func
 from downstream_node.startup import app, db
 from downstream_node.models import Contract, Address, Token, File, Chunk
 from downstream_node import node
+from downstream_node.utils import MonopolyDistribution, Distribution
 
 def initdb():   
     db.create_all()
@@ -31,23 +32,32 @@ def cleandb():
     s = File.__table__.delete().where(~File.__table__.c.id.in_(select([Contract.__table__.c.file_id])))
     
     db.engine.execute(s)
+
+def get_available_sizes():
+    available_sizes_stmt = select([File.__table__.c.size]).select_from(Chunk.__table__.join(File.__table__))
+    available_sizes_result = db.engine.execute(available_sizes_stmt).fetchall()
+    available_sizes = [a[0] for a in available_sizes_result]
+    return available_sizes
     
-def maintain_capacity(size, chunk_size):
+def maintain_capacity(size, min_chunk_size):
     # maintains a certain size of available chunks
     while(1):
-        available_size_stmt = select([func.sum(File.__table__.c.size)]).select_from(Chunk.__table__.join(File.__table__))
-        available_size_row = db.engine.execute(available_size_stmt).fetchone()
-        if (available_size_row[0] is not None):
-            available_size = int(available_size_row[0])
-        else:
-            available_size = 0
-        if (available_size < size):
-            print('Need {0} more bytes to maintain capacity'.format(size-available_size))
-            print('Generating {0} chunks of {1} bytes each'.format((size-available_size)//chunk_size, chunk_size))
-            generate_chunks(chunk_size, (size-available_size)//chunk_size)
-        time.sleep(30)
+        available_sizes = get_available_sizes()
+        available_dist = Distribution(from_list=available_sizes)
+        # print('Sizes already available: {0}'.format(available_dist))
+        # print('Total size available: {0}'.format(available_dist.get_total()))
+        dist = MonopolyDistribution(min_chunk_size, size)
+        # print('Desired distribution: {0}'.format(dist))
+        missing = dist.subtract(available_dist)
+        # print('Missing: {0}'.format(missing))
+        missing_list = missing.get_list()
+        if (len(missing_list) > 0):
+            print('Generating chunks: {0}'.format(missing_list))
+        for chunk_size in missing_list:
+            generate_chunks(chunk_size)
+        time.sleep(2)
     
-def generate_chunks(size, number=1):
+def generate_chunks(size):
     # generates a test chunk
     for i in range(0,number):
         node.generate_test_file(size)
@@ -97,7 +107,7 @@ def eval_args(args):
     elif (args.generate_chunk is not None):
         generate_chunks(args.generate_chunk, args.number)
     elif (args.maintain is not None):
-        maintain_capacity(args.maintain, 32000)
+        maintain_capacity(args.maintain, 1000)
     else:
         debug_root = Flask(__name__)
         debug_root.debug = True
@@ -117,8 +127,6 @@ def parse_args():
         'and the first row will be skipped.')
     parser.add_argument('--generate-chunk', help='Generates a test chunk of'
         'specified size.', type=int)
-    parser.add_argument('--number', help='Number of chunks to generate',
-        type=int, default=1)
     parser.add_argument('--maintain', help='Maintain available chunk capacity'
         'of the specified number of bytes', type=int)
     return parser.parse_args()
