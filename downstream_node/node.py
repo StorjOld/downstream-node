@@ -108,17 +108,14 @@ def contract_insert_next_challenge(db_contract):
     """
     beat = app.heartbeat
 
-    state = db_contract.state
-
     try:
-        chal = beat.gen_challenge(state)
+        chal = beat.gen_challenge(db_contract.state)
     except HeartbeatError as ex:
         print(ex)
         return False
 
     db_contract.challenge = chal
     db_contract.due = db_contract.expiration
-    db_contract.state = state
     db_contract.answered = False
 
     return True
@@ -417,11 +414,13 @@ def update_contract(token, file_hash):
             and datetime.utcnow() < db_contract.due):
         return db_contract
 
-    if (not contract_insert_next_challenge(db_contract)):
-        # no more challenges.
-        return None
+    contract_still_valid = contract_insert_next_challenge(db_contract)
 
     db.session.commit()
+
+    if (not contract_still_valid):
+        # no more challenges.
+        return None
 
     return db_contract
 
@@ -457,8 +456,6 @@ def verify_proof(token, file_hash, proof, remote_addr):
     if (valid):
         db_contract.token.hbcount += 1
         db_contract.answered = True
-        # update state
-        db_contract.state = state
         db.session.commit()
 
     return valid

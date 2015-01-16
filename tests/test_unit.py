@@ -817,7 +817,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
     def test_process_token_ip_address_change_ip(self):
         with patch('downstream_node.node.assert_ip_allowed_one_more_token') as a,\
-                patch('downstream_node.node.get_ip_location') as b:
+                patch('downstream_node.node.get_ip_location') as b,\
+                patch('downstream_node.node.db.session.add') as c:
             db_token = mock.MagicMock()
             db_token.ip_address = 'old_ip_address'
             new_ip = 'new_ip_address'

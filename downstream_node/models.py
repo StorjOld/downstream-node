@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from .startup import db
 from .uptime import UptimeSummary, UptimeCalculator
+from .types import MutableTypeWrapper
 
 
 class File(db.Model):
@@ -162,7 +163,8 @@ class Contract(db.Model):
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     token_id = db.Column(db.ForeignKey('tokens.id'), index=True)
     file_id = db.Column(db.ForeignKey('files.id'))
-    state = db.Column(db.PickleType(), nullable=False)
+    state = db.Column(
+        MutableTypeWrapper.as_mutable(db.PickleType), nullable=False)
     challenge = db.Column(db.PickleType())
     tag_path = db.Column(db.String(128), unique=True)
     start = db.Column(db.DateTime())

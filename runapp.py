@@ -57,7 +57,7 @@ def maintain_capacity(size, min_chunk_size):
             generate_chunks(chunk_size)
         time.sleep(2)
     
-def generate_chunks(size):
+def generate_chunks(size, number=1):
     # generates a test chunk
     for i in range(0,number):
         node.generate_test_file(size)
@@ -105,7 +105,7 @@ def eval_args(args):
     elif (args.whitelist is not None):
         updatewhitelist(args.whitelist)
     elif (args.generate_chunk is not None):
-        generate_chunks(args.generate_chunk, args.number)
+        generate_chunks(args.generate_chunk)
     elif (args.maintain is not None):
         maintain_capacity(args.maintain, 1000)
     else:
