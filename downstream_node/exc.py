@@ -1,6 +1,7 @@
 from flask import jsonify
 import traceback
 
+
 class NotFoundError(Exception):
     pass
 
@@ -30,7 +31,7 @@ class HttpHandler(object):
         """
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type, value, tb):
         if (type is not None and self.logger is not None):
             self.logger.log_exception(value, self.context)
 
