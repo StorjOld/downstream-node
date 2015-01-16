@@ -2,6 +2,7 @@
 
 ### Master
 
+* [BUGFIX] Fixed bug where heartbeat state was not being updated in the database, and so the same challenge was being answered over and over (for Merkle)
 * [ENHANCEMENT] Modified --maintain option so that software will maintain a diverse set of chunk sizes
 * [ENHANCEMENT] Restructured so that chunk/shards can be pre-generated before being requested in a contract
 * [ENHANCEMENT] Added --generate-chunk option to runapp.py in order to pre-generate chunks
