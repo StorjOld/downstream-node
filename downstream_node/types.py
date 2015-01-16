@@ -76,7 +76,8 @@ class MutableTypeWrapper(Mutable):
                                         pickle.HIGHEST_PROTOCOL)
 
     def _snapshot_changed(self):
-        return self._last_state != pickle.loads(self._last_state)
+        return self._last_state != pickle.dumps(self._underlying_object,
+                                                pickle.HIGHEST_PROTOCOL)
 
     def _notify_if_changed(self):
         if (self._snapshot_changed()):
