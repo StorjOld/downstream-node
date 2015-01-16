@@ -1,3 +1,4 @@
+import pickle
 from sqlalchemy.ext.mutable import Mutable
 
 
@@ -71,16 +72,11 @@ class MutableTypeWrapper(Mutable):
         self.changed()
 
     def _snapshot_update(self):
-        try:
-            self._last_state = self._underlying_object.__getstate__()
-        except:
-            self._last_state = dict(self._underlying_object.__dict__)
+        self._last_state = pickle.dumps(self._underlying_object,
+                                        pickle.HIGHEST_PROTOCOL)
 
     def _snapshot_changed(self):
-        try:
-            return self._last_state != self._underlying_object.__getstate__()
-        except:
-            return self._last_state != self._underlying_object.__dict__
+        return self._last_state != pickle.loads(self._last_state)
 
     def _notify_if_changed(self):
         if (self._snapshot_changed()):
