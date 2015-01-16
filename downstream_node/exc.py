@@ -1,5 +1,5 @@
 from flask import jsonify
-
+import traceback
 
 class NotFoundError(Exception):
     pass
@@ -47,7 +47,7 @@ class HttpHandler(object):
         elif (type is not None):
             self.response = jsonify(status='error',
                                     message='Internal Server Error')
-            print('Internal server error: {0}'.format(str(value)))
+            traceback.print_exc()
             self.response.status_code = 500
             return True
         else:
