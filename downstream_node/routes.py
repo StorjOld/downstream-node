@@ -104,14 +104,13 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                            func.cast(total_time, Float),
                            0)
 
-        online_size = func.sum(
-            func.IF(func.IF(contracts.c.answered,
-                            func.TIMESTAMPADD(text('second'),
-                                              files.c.interval,
-                                              contracts.c.due),
-                            contracts.c.due) > datetime.utcnow(),
-                    files.c.size,
-                    0))
+        online_contracts = func.sum(func.IF(expiration > datetime.utcnow(),
+                                            1,
+                                            0))
+
+        online_size = func.sum(func.IF(expiration > datetime.utcnow(),
+                                       files.c.size,
+                                       0))
 
         cache_stmt = select([tokens.c.id,
                              tokens.c.start,
@@ -204,7 +203,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               addresses.c.address,
                               tokens.c.location,
                               tokens.c.hbcount.label('heartbeats'),
-                              func.count(contracts.c.id).
+                              online_contracts.
                               label('contract_count'),
                               func.max(contracts.c.due).label('last_due'),
                               online_size.label('size'),
@@ -236,7 +235,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                         location=a.location,
                         uptime=float(round(a.uptime * 100, 2)),
                         heartbeats=a.heartbeats,
-                        contracts=a.contract_count,
+                        contracts=int(a.contract_count),
                         last_due=a.last_due,
                         size=int(a.size if a.size is not None else 0),
                         online=a.online)
