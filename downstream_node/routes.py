@@ -103,14 +103,15 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                                tokens.c.upsum), Float) /
                            func.cast(total_time, Float),
                            0)
-        
-        online_size = func.sum(func.IF(func.IF(contracts.c.answered,
-                                               func.TIMESTAMPADD(text('second'),
-                                                                 files.c.interval,
-                                                                 contracts.c.due),
-                                               contracts.c.due)>datetime.utcnow(),
-                                       files.c.size,
-                                       0))
+
+        online_size = func.sum(
+            func.IF(func.IF(contracts.c.answered,
+                            func.TIMESTAMPADD(text('second'),
+                                              files.c.interval,
+                                              contracts.c.due),
+                            contracts.c.due) > datetime.utcnow(),
+                    files.c.size,
+                    0))
 
         cache_stmt = select([tokens.c.id,
                              tokens.c.start,
