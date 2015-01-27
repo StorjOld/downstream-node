@@ -39,14 +39,14 @@ def get_available_sizes():
     available_sizes = [a[0] for a in available_sizes_result]
     return available_sizes
     
-def maintain_capacity(size, min_chunk_size, base=2):
+def maintain_capacity(min_chunk_size, max_chunk_size, size, base=2):
     # maintains a certain size of available chunks
     while(1):
         available_sizes = get_available_sizes()
         available_dist = Distribution(from_list=available_sizes)
         # print('Sizes already available: {0}'.format(available_dist))
         # print('Total size available: {0}'.format(available_dist.get_total()))
-        dist = MonopolyDistribution(min_chunk_size, size, base)
+        dist = MonopolyDistribution(min_chunk_size, max_chunk_size, size, base)
         # print('Desired distribution: {0}'.format(dist))
         missing = dist.subtract(available_dist)
         # print('Missing: {0}'.format(missing))
@@ -107,7 +107,11 @@ def eval_args(args):
     elif (args.generate_chunk is not None):
         generate_chunks(args.generate_chunk)
     elif (args.maintain is not None):
-        maintain_capacity(args.maintain, 1000)
+        print('Maintaining total size: {0}, min chunk size: {1}, max chunk size: {2}'.format(
+            args.maintain[2],
+            args.maintain[0],
+            args.maintain[1]))
+        maintain_capacity(int(args.maintain[0]), int(args.maintain[1]), int(args.maintain[2]))
     else:
         debug_root = Flask(__name__)
         debug_root.debug = True
@@ -128,7 +132,8 @@ def parse_args():
     parser.add_argument('--generate-chunk', help='Generates a test chunk of'
         'specified size.', type=int)
     parser.add_argument('--maintain', help='Maintain available chunk capacity'
-        'of the specified number of bytes', type=int)
+        'Specify three values (min chunk size, max chunk size, total pre-gen '
+        'size)', nargs=3)
     return parser.parse_args()
 
 

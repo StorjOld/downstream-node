@@ -35,10 +35,10 @@ class TestDistribution(unittest.TestCase):
 
 class TestMonopolyDistribution(unittest.TestCase):
     def setUp(self):
-        self.distribution_base2_10000 = utils.MonopolyDistribution(1024, 10000, 2)
-        self.distribution_base2_10000000000 = utils.MonopolyDistribution(1024, 10000000000, 2)
-        self.distribution_base10_100000 = utils.MonopolyDistribution(1000, 100000, 10)
-        self.distribution_base10_100000000000 = utils.MonopolyDistribution(1000, 100000000000, 10)
+        self.distribution_base2_10000 = utils.MonopolyDistribution(1024, 10000, 10000, 2)
+        self.distribution_base2_10000000000 = utils.MonopolyDistribution(1024, 10000000000, 10000000000, 2)
+        self.distribution_base10_100000 = utils.MonopolyDistribution(1000, 100000, 100000, 10)
+        self.distribution_base10_100000000000 = utils.MonopolyDistribution(1000, 100000000000, 100000000000, 10)
      
     def tearDown(self):
         pass

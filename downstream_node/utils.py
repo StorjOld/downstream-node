@@ -78,10 +78,11 @@ class Distribution(object):
 
 class MonopolyDistribution(Distribution):
 
-    def __init__(self, min, total, base=10):
+    def __init__(self, min, max, total, base=10):
         Distribution.__init__(self)
         self.base = base
         self.min = min
+        self.max = max
         self.total = total
         self._generate_counts()
 
@@ -120,11 +121,11 @@ class MonopolyDistribution(Distribution):
         """
         # we add self.base to make sure that rounding errors do not cause the
         # floor operation to make n lower than it should be
-        n = math.floor(math.log(self.min + self.base, self.base))
+        n = math.ceil(math.log(self.min, self.base))
         value = int(math.pow(self.base, n))
         unsorted = list()
 
-        while (value < self.total):
+        while (value < self.max):
             unsorted.append(value)
             n += 1
             value = int(math.pow(self.base, n))
