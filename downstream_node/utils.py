@@ -125,7 +125,7 @@ class MonopolyDistribution(Distribution):
         value = int(math.pow(self.base, n))
         unsorted = list()
 
-        while (value < self.max):
+        while (value <= self.max):
             unsorted.append(value)
             n += 1
             value = int(math.pow(self.base, n))
