@@ -17,14 +17,15 @@ FILES_PATH = 'tmp/'
 TAGS_PATH = 'tags/'
 MMDB_PATH = 'data/GeoLite2-City.mmdb'
 
-HEARTBEAT = heartbeat.Swizzle.Swizzle
+# the heartbeat we use should probably eventually be associated with
+# the uploading user so they can decide on the check_fraction...
+HEARTBEAT = heartbeat.Merkle.Merkle
 HEARTBEAT_PATH = 'data/heartbeat'
 
 MONGO_LOGGING = True
 MONGO_URI = 'mongodb://localhost/dsnode_log'
 
-MAX_CHUNK_SIZE = 32000
-DEFAULT_CHUNK_SIZE = 100
+DEFAULT_CHUNK_SIZE = 32000
 MAX_TOKENS_PER_IP = 5
 MIN_SJCX_BALANCE = 10000
 MAX_SIG_MESSAGE_SIZE = 1024

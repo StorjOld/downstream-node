@@ -101,7 +101,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.test_address = '19qVgG8C6eXwKMMyvVegsi3xCsKyk3Z3jV'
         self.test_signature = 'HyzVUenXXo4pa+kgm1vS8PNJM83eIXFC5r0q86FGbqFcdla6rcw72/ciXiEPfjli3ENfwWuESHhv6K9esI0dl5I='
         self.test_message = 'test message'
-        self.test_size = 100
+        self.test_size = app.config['DEFAULT_CHUNK_SIZE']
         address = models.Address(address=self.test_address,crowdsale_balance=10000)
         db.session.add(address)
         db.session.commit()

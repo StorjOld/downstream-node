@@ -35,8 +35,10 @@ class TestDistribution(unittest.TestCase):
 
 class TestMonopolyDistribution(unittest.TestCase):
     def setUp(self):
-        self.distribution_base2 = utils.MonopolyDistribution(1024, 10000, 2)
-        self.distribution_base10 = utils.MonopolyDistribution(1000, 100000, 10)
+        self.distribution_base2_10000 = utils.MonopolyDistribution(1024, 10000, 2)
+        self.distribution_base2_10000000000 = utils.MonopolyDistribution(1024, 10000000000, 2)
+        self.distribution_base10_100000 = utils.MonopolyDistribution(1000, 100000, 10)
+        self.distribution_base10_100000000000 = utils.MonopolyDistribution(1000, 100000000000, 10)
      
     def tearDown(self):
         pass
@@ -76,35 +78,36 @@ class TestMonopolyDistribution(unittest.TestCase):
         # there should not be any skipped values, so it should probably start iterating from the
         # lowest value and then go up to increase the number of chunks
         # the total should be less than the specified total by less than the smallest chunk
-        self.distribution_generic_test(self.distribution_base2)
-        self.distribution_generic_test(self.distribution_base10)
+        self.distribution_generic_test(self.distribution_base2_10000)
+        self.distribution_generic_test(self.distribution_base10_100000)
+        self.distribution_generic_test(self.distribution_base10_100000000000)
 
     def test_get_possible_chunks(self):
         class TestPossibleChunkVector(object):
-            def __init__(self, distribution, total, result):
+            def __init__(self, distribution, result):
                 self.distribution = distribution
-                self.total = total
                 self.result = result
                 
-        vectors = [TestPossibleChunkVector(self.distribution_base2, 10000, [1024, 2048, 4096, 8192]),
-                   TestPossibleChunkVector(self.distribution_base10, 100000, [1000, 10000])]
+        vectors = [TestPossibleChunkVector(self.distribution_base2_10000, [1024, 2048, 4096, 8192]),
+                   TestPossibleChunkVector(self.distribution_base10_100000, [1000, 10000]),
+                   TestPossibleChunkVector(self.distribution_base10_100000000000, [1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000])]
     
         for v in vectors:
             self.assertEqual(v.distribution.get_possible_chunks(), v.result)
 
     def test_get_missing(self):
-        fresh = self.distribution_base2.get_list()
+        fresh = self.distribution_base2_10000.get_list()
         left = fresh.pop(0)
         right = fresh.pop()
-        missing = self.distribution_base2.get_missing(fresh).get_list()
+        missing = self.distribution_base2_10000.get_missing(fresh).get_list()
         self.assertIn(left, missing)
         self.assertIn(right, missing)
         self.assertEqual(len(missing), 2)
         
-        fresh = self.distribution_base10.get_list()
+        fresh = self.distribution_base10_100000.get_list()
         left = fresh.pop(0)
         right = fresh.pop()
-        missing = self.distribution_base10.get_missing(fresh).get_list()
+        missing = self.distribution_base10_100000.get_missing(fresh).get_list()
         self.assertIn(left, missing)
         self.assertIn(right, missing)
         self.assertEqual(len(missing), 2)

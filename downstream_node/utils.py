@@ -118,7 +118,9 @@ class MonopolyDistribution(Distribution):
         range with the given base
         :returns: a list of possible chunk sizes sorted largest to smallest
         """
-        n = math.floor(math.log(self.min + 1e-7, self.base))
+        # we add self.base to make sure that rounding errors do not cause the
+        # floor operation to make n lower than it should be
+        n = math.floor(math.log(self.min + self.base, self.base))
         value = int(math.pow(self.base, n))
         unsorted = list()
 
