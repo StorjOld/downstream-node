@@ -165,29 +165,39 @@ Get a new chunk contract for a token.  Only allow one contract per token for now
 
     GET /api/downstream/chunk/<token>
 
-which gets a chunk of default size (100 bytes) or one can specify the size
+which gets a chunk of default size (32768 bytes) or one can specify the size
 
     GET /api/downstream/chunk/<token>/<size>
 	
-If a chunk is available, the response will be:
+If chunks are available that fill the required space, this will return an array of chunks:
 ```
 {
-    "challenge": "...challenge object string representation...",
-    "expiration": 59,
-    "file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
-    "seed": "70aacdc6a2f7ef0e7c1effde27299eda",
-	"size": 1000,
-    "tag": "...tag object string representation..."
+	"chunks": [
+		{
+			"challenge": "...challenge object string representation...",
+			"due": 59,
+			"file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
+			"seed": "70aacdc6a2f7ef0e7c1effde27299eda",
+			"size": 1024,
+			"tag": "...tag object string representation..."
+		},
+		{
+			"challenge": "...challenge object string representation...",
+			"due": 59,
+			"file_hash": "1ff230c833a9ebdc01e100f5a9a41668ffcd9dcba13b307dd99271674f668279",
+			"seed": "8b7c4859d0ec9a474fafc1c30e9b1911",
+			"size": 1024,
+			"tag": "...tag object string representation..."
+		}
+	]
 }
 ```
-otherwise, if no chunks are available, the response will be
+otherwise, if no chunks are available, the response will be an empty array of chunks
 ```
 {
-	"status": "no chunks available"
+	"chunks": []
 }
 ```
-
-In the future the new chunk contract route will have a parameter for desired size.  Then this function will return an (possibly empty) array of chunk contracts with total size not exceeding the size requested.
 
 Gets the currently due challenge for this token and file hash.
 
@@ -196,7 +206,8 @@ Response:
 ```
 {
    "challenge": "...challenge object string representation...",
-   "expiration": 32,
+   "due": 32,
+   "answered": false
 }
 ```
 
@@ -204,6 +215,37 @@ or, if there are no challenges available for this contract, the response will be
 ```
 {
 	"status": "no more challenges"
+}
+```
+
+For larger numbers of contracts, the farmer should request all the due challenges for a token by issuing
+
+    GET /api/downstream/challenge/<token>
+	
+with no file_hash, and the response will look like:
+Response:
+```
+{
+	"challenges": [
+		{
+			"file_hash": f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab,
+			"challenge": "...challenge object string representation...",
+			"due": 8,
+			"answered": false
+		},
+		{
+			"file_hash": e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89,
+			"challenge": "...challenge object string representation...",
+			"due": 41,
+			"answered": false
+		},
+		{
+			"file_hash": 7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d,
+			"challenge": "...challenge object string representation...",
+			"due": 84
+			"answered": true
+		}
+	]
 }
 ```
 
@@ -220,6 +262,29 @@ Response:
 ```
 {
     "status": "ok"
+}
+```
+
+Optionally, the farmer can answer multiple challenges with the following request
+
+    POST /api/downstream/answer/<token>
+Parameters:
+```
+{
+	"proofs": [
+		{
+			"file_hash": f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab,
+			"proof": "...proof object string represenation..."
+		},
+		{
+			"file_hash": e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89,
+			"proof": "...proof object string represenation..."
+		},
+		{
+			"file_hash": 7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d,
+			"proof": "...proof object string represenation..."
+		}
+	]
 }
 ```
 
