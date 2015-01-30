@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from sqlalchemy import and_
+from sqlalchemy import and_, func, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.expression import false
 from datetime import datetime, timedelta
@@ -193,13 +193,12 @@ class Contract(db.Model):
         else:
             return self.due
 
-    # @expiration.expression
-    # def expiration(self):
+    @expiration.expression
+    def expiration(cls):
         # MySQL specific code.  will need to check compatibility on
         # moving to different db
-    #     return select([func.IF(self.answered,
-    #                            func.TIMESTAMPADD(text('SECOND'),
-    #                                              File.interval,
-    #                                              self.due),
-    #                            self.due)]).\
-    #         where(File.id == self.file_id).label('expiration')
+        return func.IF(cls.__table__.c.answered,
+                       func.TIMESTAMPADD(text('SECOND'),
+                                         File.__table__.c.interval,
+                                         cls.__table__.c.due),
+                       cls.__table__.c.due)

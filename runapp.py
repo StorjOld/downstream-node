@@ -11,7 +11,7 @@ from flask import Flask, jsonify
 from werkzeug.serving import run_simple
 from werkzeug.wsgi import DispatcherMiddleware
 from datetime import datetime, timedelta
-from sqlalchemy import select, engine, update, insert, bindparam, true, func
+from sqlalchemy import select, engine, update, insert, bindparam, true, func, and_
 
 from downstream_node.startup import app, db
 from downstream_node.models import Contract, Address, Token, File, Chunk
@@ -29,7 +29,9 @@ def cleandb():
     db.engine.execute(s)
     
     # and delete unreferenced files
-    s = File.__table__.delete().where(~File.__table__.c.id.in_(select([Contract.__table__.c.file_id])))
+    s = File.__table__.delete().where(~File.__table__.c.id.in_(select([Contract.__table__.c.file_id])
+                                                               .union(
+                                                               select([Chunk.__table__.c.file_id]))))
     
     db.engine.execute(s)
 

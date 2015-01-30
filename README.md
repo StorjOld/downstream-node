@@ -161,7 +161,7 @@ Response:
 }
 ```
 
-Get a new chunk contract for a token.  Only allow one contract per token for now.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
+Get a new chunk contract for a token.  Returns the first challenge and expiration time (in seconds from now), the file hash, a seed for generation of the prototype file, and the file heartbeat tag.
 
     GET /api/downstream/chunk/<token>
 
@@ -228,26 +228,52 @@ Response:
 {
 	"challenges": [
 		{
-			"file_hash": f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab,
+			"file_hash": "f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab",
 			"challenge": "...challenge object string representation...",
 			"due": 8,
 			"answered": false
 		},
 		{
-			"file_hash": e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89,
+			"file_hash": "e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89",
 			"challenge": "...challenge object string representation...",
 			"due": 41,
 			"answered": false
 		},
 		{
-			"file_hash": 7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d,
+			"file_hash": "7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d",
 			"challenge": "...challenge object string representation...",
 			"due": 84
 			"answered": true
+		},
+		{
+			"file_hash": "1ff230c833a9ebdc01e100f5a9a41668ffcd9dcba13b307dd99271674f668279",
+			"status": "no more challenges"
+		},
+		{
+			"file_hash": "012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7",
+			"error": "contract expired"
 		}
 	]
 }
 ```
+
+or, the farmer can specify which challenges to update by posting a list of contracts:
+
+    POST /api/downstream/challenge/<token>
+Parameters:
+```
+{
+	"hashes": [
+		"f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab",
+		"e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89",
+		"7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d",
+		"1ff230c833a9ebdc01e100f5a9a41668ffcd9dcba13b307dd99271674f668279",
+		"012fb25d2f14bb31bcbad5b8d99703114ed970601b21142c93b50421e8ddb0d7"
+	]
+}
+```
+which has the same response as above.
+
 
 Posts an answer for the current challenge on token and file hash.
 
@@ -273,16 +299,36 @@ Parameters:
 {
 	"proofs": [
 		{
-			"file_hash": f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab,
+			"file_hash": "f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab",
 			"proof": "...proof object string represenation..."
 		},
 		{
-			"file_hash": e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89,
+			"file_hash": "e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89",
 			"proof": "...proof object string represenation..."
 		},
 		{
-			"file_hash": 7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d,
+			"file_hash": "7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d",
 			"proof": "...proof object string represenation..."
+		}
+	]
+}
+```
+
+and the response should be:
+```
+{
+	"report": [
+		{
+			"file_hash": "f04ab97fbf4300e3cdfc2ab56a9662a9f2dbaba9916870b331c53d7d181693ab",
+			"status": "ok"
+		},
+		{
+			"file_hash": "e2a8501ddd2ecfb032e652ff291398e2bf683e132a1579c5c5fdcbda84a93a89",
+			"error": "proof invalid"
+		},
+		{
+			"file_hash": "7a76d71cd338b285f1c455aa941d840686061d7633955d0b01724d3cfc676d3d",
+			"error": "contract expired"
 		}
 	]
 }

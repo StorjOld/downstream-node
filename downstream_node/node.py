@@ -235,19 +235,18 @@ def prepare_contract(db_file):
     return db_chunk
 
 
-def get_chunk_contract(token, size, remote_addr):
+def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
-    In this prototype, this function should generate a random file with a seed.
-    The seed can then be passed to a prototype farmer who can generate the file
-    for themselves.  The contract will include the next heartbeat challenge,
-    and the current heartbeat state for the encoded file.
+    In this prototype, returns a list of contracts that will fulfill the size
+    requirements requested
 
     :param token: the token to associate this contract with
-    :param size: the requested chunk size
+    :param size: the requested total contracts size
     :param remote_addr: the ip address of the farmer requesting a chunk
-    :returns: the chunk database object
+    :param max_chunk_count: maximum number of chunks to retrieve
+    :returns: a list of contracts from the database
     """
     # first, we need to find all the files that are not meeting their
     # redundancy requirements once we have found a candidate list, we sort
@@ -277,39 +276,51 @@ def get_chunk_contract(token, size, remote_addr):
     # pick the best candidate
     # file = candidates[0]
 
-    # now we pull from pregenerated chunks
-    # we need a chunk that is smaller than the requested size
-    db_chunk = Chunk.query.filter(File.size <= size).join(
-        File).order_by(desc(File.size)).first()
+    contracts = list()
+    total_size = 0
+    
+    while (max_chunk_count == 0
+           or len(contracts) < max_chunk_count
+           and total_size < size):
+        size_to_pull = size - total_size
+        # now we pull from pregenerated chunks
+        # we need a chunk that is smaller than the requested size
+        db_chunk = Chunk.query.filter(File.size <= size_to_pull).join(
+            File).order_by(desc(File.size)).first()
+            
+        if (db_chunk is None):
+            # no more of the appropriate size, we're done
+            break
 
-    if (db_chunk is None):
-        return None
+        db_contract = Contract(token=db_token,
+                               file=db_chunk.file,
+                               state=db_chunk.state,
+                               tag_path=db_chunk.tag_path,
+                               # due time and answered and challenge will be
+                               # inserted when we call update_contract() below
+                               start=datetime.utcnow(),
+                               due=datetime.utcnow(),
+                               answered=True)
 
-    db_contract = Contract(token=db_token,
-                           file=db_chunk.file,
-                           state=db_chunk.state,
-                           tag_path=db_chunk.tag_path,
-                           # due time and answered and challenge will be
-                           # inserted when we call update_contract() below
-                           start=datetime.utcnow(),
-                           due=datetime.utcnow(),
-                           answered=True)
+        db.session.add(db_contract)
 
-    db.session.add(db_contract)
+        if (not contract_insert_next_challenge(db_contract)):
+            # we were not able to insert the next challenge
+            # this is an issue at this stage, since the heartbeat should
+            # just have been generated
+            # raise an internal server error
+            raise RuntimeError('Unable to initialize challenge for contract.')
 
-    if (not contract_insert_next_challenge(db_contract)):
-        # we were not able to insert the next challenge
-        # this is an issue at this stage, since the heartbeat should
-        # just have been generated
-        # raise an internal server error
-        raise RuntimeError('Unable to initialize challenge for contract.')
-
-    # remove the chunk from the database since it has now been used.
-    db.session.delete(db_chunk)
+        # remove the chunk from the database since it has now been used.
+        db.session.delete(db_chunk)
+        
+        contracts.append(db_contract)
+        
+        total_size = sum([c.file.size for c in contracts])
 
     db.session.commit()
 
-    return db_contract
+    return contracts
 
 
 # def add_file(chunk_path, redundancy=3, interval=60):
@@ -393,17 +404,13 @@ def lookup_contract(token, file_hash):
         raise InvalidParameterError('Contract does not exist.')
 
     return db_contract
+    
+def update_contract(db_contract):
+    """This function updates the contract specified    
 
-
-def update_contract(token, file_hash):
-    """This function updates the contract associated with the token
-    and file_hash.
-
-    :param token: the token associated with this contract
-    :param file_hash: the file hash associated with this contract
+    :param db_contract: the contract to update
     :returns: the contract after it has been updated.
     """
-    db_contract = lookup_contract(token, file_hash)
 
     if (datetime.utcnow() >= db_contract.expiration):
         raise InvalidParameterError('Contract has expired.')
@@ -416,8 +423,6 @@ def update_contract(token, file_hash):
 
     contract_still_valid = contract_insert_next_challenge(db_contract)
 
-    db.session.commit()
-
     if (not contract_still_valid):
         # no more challenges.
         return None
@@ -425,24 +430,21 @@ def update_contract(token, file_hash):
     return db_contract
 
 
-def verify_proof(token, file_hash, proof, remote_addr):
+
+def verify_proof(db_contract, proof, received):
     """This queries the DB to retrieve the heartbeat, state and challenge for
     the contract id, and then checks the given proof.  Returns true if the
     proof is valid.  Can also return false if the contract is expired or if
     an ip address change has been rejected
 
-    :param token: the token for the farmer that this proof corresponds to
-    :param file_hash: the file hash for this proof
+    :param db_contract: the contract to verify
     :param proof: a heartbeat proof object that has been returned by the farmer
-    :param remote_addr: the remote address that is verifying this proof
+    :param received: the time the proof was received
     :returns: boolean true if the proof is valid, false otherwise
     """
-    db_contract = lookup_contract(token, file_hash)
 
-    if (datetime.utcnow() >= db_contract.expiration):
+    if (received >= db_contract.expiration):
         raise InvalidParameterError('Answer failed: contract expired.')
-
-    process_token_ip_address(db_contract.token, remote_addr)
 
     beat = app.heartbeat
     state = db_contract.state
@@ -456,6 +458,5 @@ def verify_proof(token, file_hash, proof, remote_addr):
     if (valid):
         db_contract.token.hbcount += 1
         db_contract.answered = True
-        db.session.commit()
 
     return valid
