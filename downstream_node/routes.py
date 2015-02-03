@@ -6,7 +6,7 @@ import pickle
 import siggy
 
 from flask import jsonify, request
-from sqlalchemy import func, desc, bindparam, text, Float, and_
+from sqlalchemy import func, desc, text, Float, and_
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import false
 from datetime import datetime
@@ -15,7 +15,7 @@ from .startup import app, db
 from .node import (create_token, get_chunk_contracts,
                    verify_proof,  update_contract,
                    process_token_ip_address)
-from .models import Token, Address, Contract, File
+from .models import Token, Address, Contract, File, update_uptime_summary
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 from .uptime import UptimeSummary, UptimeCalculator
 
@@ -82,138 +82,21 @@ def api_downstream_status_list(o, d, sortby, limit, page):
         if (sortby not in sort_map):
             raise InvalidParameterError('Invalid sort.')
 
-        tokens = Token.__table__
-        addresses = Address.__table__
-        files = File.__table__
-        contracts = Contract.__table__
+        update_uptime_summary()
 
-        expiration = func.IF(contracts.c.answered,
-                             func.TIMESTAMPADD(text('second'),
-                                               files.c.interval,
-                                               contracts.c.due),
-                             contracts.c.due)
-
-        total_time = func.TIMESTAMPDIFF(text('second'),
-                                        tokens.c.start,
-                                        tokens.c.end)
-
-        fraction = func.IF(func.ABS(total_time) > 0,
-                           func.cast(func.TIMESTAMPDIFF(
-                               text('second'),
-                               '1970-01-01',
-                               tokens.c.upsum), Float) /
-                           func.cast(total_time, Float),
-                           0)
-
-        online_contracts = func.sum(func.IF(expiration > datetime.utcnow(),
-                                            1,
-                                            0))
-
-        online_size = func.sum(func.IF(expiration > datetime.utcnow(),
-                                       files.c.size,
-                                       0))
-
-        cache_stmt = select([tokens.c.id,
-                             tokens.c.start,
-                             tokens.c.end,
-                             tokens.c.upsum])
-
-        cache_info = db.engine.execute(cache_stmt).fetchall()
-
-        # fetch all the uncached contracts
-        uncached_stmt = select([contracts.c.id,
-                                contracts.c.token_id,
-                                expiration.label('expiration'),
-                                contracts.c.start,
-                                contracts.c.cached]).\
-            select_from(contracts.join(files)).\
-            where(contracts.c.cached == false())
-
-        uncached = db.engine.execute(uncached_stmt).fetchall()
-
-        # map the uncached contracts to their tokens
-        # for fast reference
-        uncached_contracts = dict()
-
-        if (len(uncached) > 0):
-            for u in uncached:
-                uncached_contracts.setdefault(u.token_id, list()).append(u)
-
-        new_cache = list()
-        new_summary = list()
-
-        # calculate uptime for each farmer
-        for token in cache_info:
-            # ensure that we have a start date for this token
-            if (token.start is None):
-                if (token.id in uncached_contracts):
-                    start = min(
-                        [x.start for x in uncached_contracts[token.id]])
-                else:
-                    # we have to look in all contracts, not just uncached ones
-                    # this should rarely, if ever, be called.
-                    # the only time this will be called is if a token exists
-                    # and either all its contracts are cached but it has no
-                    # start time or it has no contracts, in which case its
-                    # uptime will be 0 and remain zero.  so let's just continue
-                    # instead of trying to select contracts that don't exist
-                    # this is tested in test_api_status_list_empty_token but
-                    # is optimized out so will not be seen by coverage
-                    continue  # pragma: no cover
-                    # first_contract = db.engine.execute(
-                    #     select([func.min(contracts.c.start).label('start')])
-                    #     .where(contracts.c.token_id == token.id))\
-                    #     .fetchone()
-                    # start = first_contract.start
-            else:
-                start = token.start
-
-            # calculate the new uptime stats given the summary
-            # and any uncached contracts associated with this token
-            calc = UptimeCalculator(
-                uncached_contracts.get(token.id, list()),
-                UptimeSummary(start, token.end, token.upsum))
-
-            summary = calc.update()
-
-            # update whether contracts have been cached or not
-            for c in calc.newly_cached:
-                new_cache.append({'contract_id': c})
-
-            # and update the summary
-            new_summary.append({'token_id': token.id,
-                                'start': summary.start,
-                                'end': summary.end,
-                                'upsum': summary.uptime})
-
-        if (len(new_cache) > 0):
-            s = contracts.update().where(contracts.c.id == bindparam('contract_id')).\
-                values(cached=True)
-
-            db.engine.execute(s, new_cache)
-
-        if (len(new_summary) > 0):
-            s = tokens.update().where(tokens.c.id == bindparam('token_id')).\
-                values(start=bindparam('start'),
-                       end=bindparam('end'),
-                       upsum=bindparam('upsum'))
-
-            db.engine.execute(s, new_summary)
-
-        farmer_stmt = select([tokens.c.farmer_id.label('id'),
-                              addresses.c.address,
-                              tokens.c.location,
-                              tokens.c.hbcount.label('heartbeats'),
-                              online_contracts.
-                              label('contract_count'),
-                              func.max(contracts.c.due).label('last_due'),
-                              online_size.label('size'),
-                              (func.max(expiration) > datetime.utcnow())
-                              .label('online'),
-                              fraction.label('uptime')]).\
-            select_from(tokens.join(addresses).join(contracts.join(files),
-                                                    isouter=True)).\
-            group_by('id')
+        farmer_stmt = select([Token.__table__.c.farmer_id.label('id'),
+                              Address.__table__.c.address,
+                              Token.__table__.c.location,
+                              Token.__table__.c.hbcount.label('heartbeats'),
+                              Token.online_count.label('contract_count'),
+                              func.max(Contract.__table__.c.due)
+                              .label('last_due'),
+                              Token.online_size.label('size'),
+                              Token.online.label('online'),
+                              Token.fraction.label('uptime')])\
+            .select_from(Token.__table__.join(Address.__table__)\
+                .join(Contract.__table__.join(File.__table__), isouter=True))\
+                .group_by('id')
 
         # now get the tokens we need
         if (d):
@@ -259,7 +142,7 @@ def api_downstream_status_show(farmer_id):
         response = dict(id=a.farmer_id,
                         address=a.addr,
                         location=a.location,
-                        uptime=round(a.uptime * 100, 2),
+                        uptime=round(a.online_time * 100, 2),
                         heartbeats=a.hbcount,
                         contracts=a.contract_count,
                         last_due=a.last_due,
@@ -385,7 +268,7 @@ def api_downstream_chunk_contract(token, size):
 
             # no contracts available
             if (app.mongo_logger is not None):
-                rsummary = {'status': response['status']}
+                rsummary = {'status': 'no chunks available'}
                 app.mongo_logger.log_event('chunk',
                                            {'context': handler.context,
                                             'response': rsummary})
@@ -455,7 +338,7 @@ def api_downstream_chunk_contract_status(token):
         
         d = request.get_json(silent=True)
         
-        if (d is not False):
+        if (request.method == 'POST' and d is not False):
             # we have posted data, check if it is a list of hashes
             if (not isinstance(d, dict) or 'hashes' not in d):
                 raise InvalidParameterError('Posted data must be an JSON encoded '

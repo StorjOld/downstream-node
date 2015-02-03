@@ -48,7 +48,7 @@ class HttpHandler(object):
         elif (type is not None):
             self.response = jsonify(status='error',
                                     message='Internal Server Error')
-            traceback.print_exc()
+            traceback.print_exception(type, value, tb)
             self.response.status_code = 500
             return True
         else:

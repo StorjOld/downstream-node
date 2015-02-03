@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, engine, update, insert, bindparam, true, func, and_
 
 from downstream_node.startup import app, db
-from downstream_node.models import Contract, Address, Token, File, Chunk
+from downstream_node.models import Contract, Address, Token, File, Chunk, update_uptime_summary
 from downstream_node import node
 from downstream_node.utils import MonopolyDistribution, Distribution
 
@@ -23,6 +23,9 @@ def initdb():
 
 
 def cleandb():
+    # update uptime summary
+    update_uptime_summary()
+
     # delete expired contracts and files
     s = Contract.__table__.delete().where(Contract.cached == true())
     

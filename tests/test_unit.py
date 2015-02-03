@@ -24,6 +24,8 @@ from downstream_node import uptime
 from downstream_node import log
 from downstream_node.exc import InvalidParameterError, NotFoundError, HttpHandler
 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://localhost/test_downstream'
+
 class TestStartup(unittest.TestCase):
     def setUp(self):
         pass
@@ -87,7 +89,7 @@ class TestDownstreamModels(unittest.TestCase):
             p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address')
             
-        self.assertEqual(db_token.uptime, 0)
+        self.assertEqual(db_token.online_time, 0)
 
 class TestDownstreamRoutes(unittest.TestCase):
     def setUp(self):
@@ -292,16 +294,18 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        r_seed = r_json['seed']
-        r_hash = r_json['file_hash']
+        chunk = r_json['chunks'][0]
+        
+        r_seed = chunk['seed']
+        r_hash = chunk['file_hash']
         
         contents = RandomIO(r_seed).read(app.config['DEFAULT_CHUNK_SIZE'])
         
-        chal = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
+        chal = app.config['HEARTBEAT'].challenge_type().fromdict(chunk['challenge'])
         
         self.assertIsInstance(chal,app.config['HEARTBEAT'].challenge_type())
         
-        tag = app.config['HEARTBEAT'].tag_type().fromdict(r_json['tag'])
+        tag = app.config['HEARTBEAT'].tag_type().fromdict(chunk['tag'])
         
         self.assertIsInstance(tag,app.config['HEARTBEAT'].tag_type())
         
@@ -333,15 +337,15 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['message'],'Nonexistent token.')
         
     def test_api_downstream_chunk_contract_no_chunks(self):
-        with patch('downstream_node.routes.get_chunk_contract') as p:
-            p.return_value = None
+        with patch('downstream_node.routes.get_chunk_contracts') as p:
+            p.return_value = []
             r = self.app.get('/chunk/test_token')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['status'], 'no chunks available')
+        self.assertEqual(r_json['chunks'], [])
         
     def test_api_downstream_challenge(self):
         with patch('downstream_node.node.get_ip_location') as p:
@@ -352,41 +356,32 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            db_contract = node.get_chunk_contract(db_token.token,self.test_size,'test.ip.address')
+            db_contract = node.get_chunk_contracts(db_token.token,self.test_size,'test.ip.address')[0]
         
         token = db_token.token
         hash = db_contract.file.hash
     
         app.mongo_logger = mock.MagicMock()
-        r = self.app.get('/challenge/{0}/{1}'.format(token,hash))
+        r = self.app.get('/challenge/{0}'.format(token))
         
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 200, r.data.decode('utf-8'))
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        challenge = app.config['HEARTBEAT'].challenge_type().fromdict(r_json['challenge'])
+        challenge = r_json['challenges'][0]
+        
+        chal = app.config['HEARTBEAT'].challenge_type().fromdict(challenge['challenge'])
         
         db_contract = node.lookup_contract(token, hash)
         
-        self.assertEqual(challenge,db_contract.challenge)
-        self.assertAlmostEqual(r_json['due'],(db_contract.due-datetime.utcnow()).total_seconds(),delta=0.5)       
+        self.assertEqual(chal,db_contract.challenge)
+        self.assertAlmostEqual(challenge['due'],(db_contract.due-datetime.utcnow()).total_seconds(),delta=0.5)       
         
         # test invalid token or hash
-        r = self.app.get('/challenge/invalid_token/invalid_hash')
+        r = self.app.get('/challenge/invalid_token')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.content_type, 'application/json')
-        
-    def test_downstream_chunk_contract_status_no_challenges(self):
-        with patch('downstream_node.routes.update_contract') as p:
-            p.return_value = None
-            r = self.app.get('/challenge/test_token/test_hash')
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.content_type, 'application/json')
-        
-        r_json = json.loads(r.data.decode('utf-8'))
-        
-        self.assertEqual(r_json['status'], 'no more challenges')
         
     def test_api_downstream_answer(self):
         app.mongo_logger = mock.MagicMock()
@@ -410,7 +405,7 @@ class TestDownstreamRoutes(unittest.TestCase):
                 p.return_value = dict()
                 r = self.app.get('/chunk/{0}'.format(r_token))
         
-        r_json = json.loads(r.data.decode('utf-8'))
+        r_json = json.loads(r.data.decode('utf-8'))['chunks'][0]
         
         r_seed = r_json['seed']
         r_hash = r_json['file_hash']
@@ -427,18 +422,20 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.node.get_ip_location') as p,\
                 patch('downstream_node.routes.request') as r:
             r.remote_addr = 'test.ip.address'
-            data = {"proof":proof.todict()}
+            data = {'proofs':[
+                {'file_hash': r_hash,
+                 'proof': proof.todict()}]}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
-        self.assertEqual(r.status_code,200)
+        self.assertEqual(r.status_code,200, r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['status'],'ok')
+        self.assertEqual(r_json['report'][0]['status'],'ok')
         
         # test invalid proof
         # insert a new challenge
@@ -451,54 +448,59 @@ class TestDownstreamRoutes(unittest.TestCase):
         with patch('downstream_node.node.get_ip_location') as p,\
                 patch('downstream_node.routes.request') as r:
             r.remote_addr = 'test.ip.address'
-            data = {"proof":proof.todict()}
+            data = {'proofs':[{
+                'file_hash': r_hash,
+                'proof': proof.todict()}]}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
-        self.assertEqual(r.status_code,400)
+        self.assertEqual(r.status_code,200,r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['message'],'Invalid proof.')
+        self.assertEqual(r_json['report'][0]['error'],'Invalid proof')
         
         # test corrupt proof
         
         with patch('downstream_node.node.get_ip_location') as p,\
                 patch('downstream_node.routes.request') as r:
             r.remote_addr = 'test.ip.address'
-            data = {"proof":"invalid proof object"}
+            data = {'proofs':[{'file_hash': r_hash, 
+                               'proof': "invalid proof object"}]}
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
-        self.assertEqual(r.status_code,400)
+        self.assertEqual(r.status_code,200,r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['message'],'Proof corrupted.')
+        self.assertEqual(r_json['report'][0]['error'],'Proof corrupted')
         
         # test invalid json
         
         with patch('downstream_node.node.get_ip_location') as p,\
                 patch('downstream_node.routes.request') as r:
             r.remote_addr = 'test.ip.address'
-            data = "invalid proof object"
+            data = 'invalid proof object'
             r.get_json.return_value = data
             p.return_value = dict()
-            r = self.app.post('/answer/{0}/{1}'.format(r_token,r_hash),
+            r = self.app.post('/answer/{0}'.format(r_token,r_hash),
                               data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,400)
 
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['message'],'Posted data must be an JSON encoded \
-proof object: {"proof":"...proof object..."}')
+        self.assertEqual(r_json['message'],
+                         'Posted data must be an JSON encoded '
+                         'proof list: '
+                         '{"proofs":[...proof list...]}')
 
 
 class TestDownstreamNodeStatus(unittest.TestCase):
@@ -992,14 +994,18 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             
         self.assertEqual(str(ex.exception),'File does not exist.  Cannot remove non existant file')
         
-    def test_get_chunk_contract(self):
+    def test_get_chunk_contracts(self):
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
             db_token = node.create_token(self.test_address,'test.ip.address4')
         
         db_chunk = node.generate_test_file(self.test_size)
         
-        db_contract = node.get_chunk_contract(db_token.token, self.test_size, 'test.ip.address4')
+        db_contracts = node.get_chunk_contracts(db_token.token, self.test_size, 'test.ip.address4')
+        
+        self.assertEqual(len(db_contracts), 1)
+        
+        db_contract = db_contracts[0]
         
         self.assertEqual(db_contract.file, db_chunk.file)
         
@@ -1010,7 +1016,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         os.remove(db_contract.tag_path)
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.get_chunk_contract('nonexistent token',self.test_size,'test.ip.address4')
+            node.get_chunk_contracts('nonexistent token',self.test_size,'test.ip.address4')
         
         self.assertEqual(str(ex.exception),'Nonexistent token.')
         
@@ -1031,20 +1037,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         db.session.commit()
         
         with self.assertRaises(InvalidParameterError) as ex:
-            node.update_contract(db_token.token, db_file.hash)
+            node.update_contract(contract)
             
         self.assertEqual(str(ex.exception),'Contract has expired.')
-        
-    def test_update_contract_new_challenge(self):
-        with patch('downstream_node.node.lookup_contract') as a,\
-                patch('downstream_node.node.contract_insert_next_challenge') as b,\
-                patch('downstream_node.startup.db.session.commit') as c:
-            a.return_value = mock.MagicMock()
-            a.return_value.expiration = datetime.utcnow() + timedelta(seconds=60)
-            a.return_value.challenge = None
-            self.assertEqual(node.update_contract('token','hash'),a.return_value)
-            b.assert_called_with(a.return_value)
-            self.assertTrue(c.called)
     
     def add_test_token(self):
         with patch('downstream_node.node.get_ip_location') as p:
@@ -1088,26 +1083,26 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             beat_patch.gen_challenge.side_effect = heartbeat.HeartbeatError('test error')
             self.assertFalse(node.contract_insert_next_challenge(db_contract))
         
-    def test_get_chunk_contract_no_chunks(self):
+    def test_get_chunk_contracts_no_chunks(self):
         db_token = self.add_test_token()
         
-        db_contract = node.get_chunk_contract(db_token.token, 100, 'test.ip.address')
+        db_contract = node.get_chunk_contracts(db_token.token, 100, 'test.ip.address')
         
-        self.assertIsNone(db_contract)
+        self.assertEqual(len(db_contract), 0)
         
     def add_test_chunk(self):
         db_chunk = node.generate_test_file(self.test_size)
         
         return db_chunk
         
-    def test_get_chunk_contract_init_failed(self):
+    def test_get_chunk_contracts_init_failed(self):
         db_token = self.add_test_token()
         self.add_test_chunk()
         
         with patch('downstream_node.node.contract_insert_next_challenge') as p:
             p.return_value = False
             with self.assertRaises(RuntimeError) as ex:
-                node.get_chunk_contract(db_token.token, self.test_size, 'test.ip.address')
+                node.get_chunk_contracts(db_token.token, self.test_size, 'test.ip.address')
         
         self.assertEqual(str(ex.exception), 'Unable to initialize challenge for contract.')
     
@@ -1119,114 +1114,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         with patch('downstream_node.node.contract_insert_next_challenge') as p:
             p.return_value = False
-            db_contract = node.update_contract(db_contract.token.token, db_contract.file.hash)
+            db_contract = node.update_contract(db_contract)
         
         self.assertIsNone(db_contract)
-    
-    def test_verify_proof(self):
-        with patch('downstream_node.node.get_ip_location') as p:
-            p.return_value = dict()
-            for i in range(0,app.config['MAX_TOKENS_PER_IP']):
-                other_token = node.create_token(self.test_address,'existing_ip')
-            db_token = node.create_token(self.test_address,'test.ip.address6')
-        
-        db_chunk = node.generate_test_file(self.test_size)
-        
-        db_contract = node.get_chunk_contract(db_token.token,self.test_size,'test.ip.address6')
-        
-        beat = app.heartbeat
-        
-        # get tags
-        with open(db_contract.tag_path,'rb') as f:
-            tag = pickle.load(f)
-        
-        chal = db_contract.challenge
-        
-        # generate a proof
-        f = RandomIO(db_contract.file.seed, db_contract.file.size)
-        
-        proof = beat.prove(f,chal,tag)
-            
-        self.assertTrue(node.verify_proof(db_token.token,db_contract.file.hash,proof,'test.ip.address6'))
-        self.assertEqual(db_token.ip_address, 'test.ip.address6')
-        
-        # check ip address resolution failure
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,db_contract.file.hash,proof,'existing_ip')
-        self.assertEqual(str(ex.exception), 'IP Disallowed, only {0} tokens are permitted per IP address'.\
-            format(app.config['MAX_TOKENS_PER_IP']))
-
-        # check nonexistent token
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof('invalid token',db_contract.file.hash,proof,'test.ip.address6')
-            
-        self.assertEqual(str(ex.exception),'Nonexistent token.')
-        
-        os.remove(db_chunk.tag_path)
-        
-        # check nonexistent file
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,'invalid file hash',proof,'test.ip.address6')
-            
-        self.assertEqual(str(ex.exception),'Invalid file hash')
-        
-        with patch('downstream_node.node.get_ip_location') as p:
-            p.return_value = self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address7')
-        
-        # check nonexistent contract
-        
-        db_file = node.add_file(self.test_seed, self.test_size)
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,db_file.hash,proof,'test.ip.address7')
-            
-        self.assertEqual(str(ex.exception),'Contract does not exist.')
-        
-        # check expiration
-        with patch('downstream_node.node.get_ip_location') as p:
-            p.return_value = self.full_location
-            db_token = node.create_token(self.test_address,'test.ip.address8')
-            
-        beat = app.heartbeat
-        
-        db_chunk = node.generate_test_file(self.test_size)
-            
-        chal = beat.gen_challenge(db_chunk.state)
-        
-        db_contract = models.Contract(token_id = db_token.id,
-                                      file_id = db_chunk.file.id,
-                                      state = db_chunk.state,
-                                      challenge = chal,
-                                      due = datetime.utcnow()-timedelta(seconds=1))
-                             
-        db.session.add(db_contract)
-        db.session.commit()
-        
-        with open(db_chunk.tag_path, 'rb') as f:
-            tag = pickle.load(f)
-        
-        f = RandomIO(db_chunk.file.seed, db_chunk.file.size)
-        
-        proof = beat.prove(f,chal,tag)
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_token.token,db_contract.file.hash,proof,'test.ip.address8')
-        self.assertEqual(str(ex.exception), 'Answer failed: contract expired.')
-        
-    def test_verify_proof_already_answered(self):
-        db_contract = self.add_test_contract()
-        db_contract.answered = True
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.verify_proof(db_contract.token.token,
-                              db_contract.file.hash,
-                              None,
-                              'test.ip.address')
-        
-        self.assertEqual(str(ex.exception), 'Challenge already answered.')
 
        
 class TestDownstreamUtils(unittest.TestCase):

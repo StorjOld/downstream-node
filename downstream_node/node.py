@@ -18,7 +18,7 @@ from .exc import InvalidParameterError
 
 __all__ = ['create_token',
            'delete_token',
-           'get_chunk_contract',
+           'get_chunk_contracts',
            'lookup_contract',
            'add_file',
            'remove_file',

@@ -31,8 +31,7 @@ def load_logger(log, uri, server_alias):
         return mongolog(uri, server_alias)
     else:
         return None
-
-
+        
 app.heartbeat = load_heartbeat(
     app.config['HEARTBEAT'], app.config['HEARTBEAT_PATH'])
 
@@ -42,4 +41,6 @@ app.mongo_logger = load_logger(app.config['MONGO_LOGGING'],
 
 
 from . import routes  # NOQA
-# from . import profiling
+
+if (app.config['PROFILE']):
+    from . import profiling

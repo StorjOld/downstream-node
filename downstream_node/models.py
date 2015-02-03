@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from sqlalchemy import and_, func, text
+from sqlalchemy import and_, func, text, Float, cast, bindparam
+from sqlalchemy.sql import select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.sql.expression import false
+from sqlalchemy.sql.expression import false, true
 from datetime import datetime, timedelta
 
 from .startup import db
@@ -70,35 +71,21 @@ class Token(db.Model):
     def online(self):
         return any(c.expiration > datetime.utcnow() for c in self.contracts)
 
-    # @online.expression
-    # def online(self):
-    #     return exists().where(and_(Contract.expiration > datetime.utcnow(),
-    #                                Contract.token_id == self.id)).\
-    #         label('online')
+    @online.expression
+    def online(self):
+        return func.IF(func.sum(Contract.online)>0, true(), false())
 
-    @property
-    def uptime(self):
-        if (self.start is None):
-            first_contract = Contract.query.filter(Contract.token_id == self.id).\
-                order_by(Contract.start).first()
-
-            if (first_contract is not None):
-                self.start = first_contract.start
-
-        uncached = Contract.query.filter(and_(Contract.token_id == self.id,
-                                              Contract.cached == false())).\
-            all()
-
-        calc = UptimeCalculator(
-            uncached, UptimeSummary(self.start, self.end, self.upsum))
-
-        summary = calc.update()
-
-        self.start = summary.start
-        self.end = summary.end
-        self.upsum = summary.uptime
-
-        return summary.fraction()
+    @hybrid_property
+    def online_time(self):
+        return self.upsum.total_seconds()
+    
+    @hybrid_property
+    def total_time(self):
+        return (self.end-self.start).total_seconds()
+    
+    @hybrid_property
+    def fraction(self):
+        return float(self.online_time)/float((self.total_time).total_seconds())
 
     # Return the date of the contract with the latest due date.
     @property
@@ -112,32 +99,48 @@ class Token(db.Model):
     def contract_count(self):
         return self.contracts.count()
 
-    # @contract_count.expression
-    # def contract_count(self):
-    #     return select([func.count()]).where(Contract.token_id == self.id).\
-    #         label('contract_count')
-
     @hybrid_property
     def size(self):
         return sum(c.file.size for c in self.contracts)
 
-    # deprecated
-    # @size.expression
-    #  def size(self):
-    #     return select([func.sum(Contract.size)]).\
-    #         where(Contract.token_id == self.id).label('size')
-
     @hybrid_property
     def addr(self):
         return self.address.address
+    
+    @total_time.expression
+    def total_time(cls):
+        return func.TIMESTAMPDIFF(text('second'),
+                                  cls.__table__.c.start,
+                                  cls.__table__.c.end)
 
-    # @addr.expression
-    # def addr(self):
-    #     return select([Address.address]).\
-    #         where(Address.id == self.address_id).\
-    #         label('addr')
+    @online_time.expression
+    def online_time(cls):
+        return func.TIMESTAMPDIFF(text('second'),
+                                  '1970-01-01',
+                                  cls.__table__.c.upsum)
+                                  
+    @fraction.expression
+    def fraction(cls):
+        return func.IF(func.ABS(cls.total_time) > 0,
+                       func.cast(cls.online_time, Float) /
+                       func.cast(cls.total_time, Float), 0)
+                       
+    @hybrid_property
+    def online_count(self):
+        return sum([1 for c in self.contracts if c.online])
+        
+    @online_count.expression
+    def online_count(cls):
+        return func.sum(func.IF(Contract.online, 1, 0))
 
-
+    @hybrid_property
+    def online_size(self):
+        return sum([c.size for c in self.contracts if c.online])
+        
+    @online_size.expression
+    def online_size(cls):
+        return func.sum(func.IF(Contract.online, File.__table__.c.size, 0))
+    
 class Chunk(db.Model):
 
     """For storing cached chunks before they are distributed to farmers.
@@ -202,3 +205,115 @@ class Contract(db.Model):
                                          File.__table__.c.interval,
                                          cls.__table__.c.due),
                        cls.__table__.c.due)
+
+    @hybrid_property
+    def online(self):
+        return self.expiration > datetime.utcnow()
+                       
+    @online.expression
+    def online(cls):
+        return Contract.expiration > datetime.utcnow()
+
+
+def update_uptime_summary():
+    """Moves add any online time from any uncached contracts
+    to the uptime for their token.  Then marks them as cached.
+    """
+    tokens = Token.__table__
+    addresses = Address.__table__
+    files = File.__table__
+    contracts = Contract.__table__
+
+    expiration = func.IF(contracts.c.answered,
+                         func.TIMESTAMPADD(text('second'),
+                                           files.c.interval,
+                                           contracts.c.due),
+                         contracts.c.due)
+
+    cache_stmt = select([tokens.c.id,
+                         tokens.c.start,
+                         tokens.c.end,
+                         tokens.c.upsum])
+
+    cache_info = db.engine.execute(cache_stmt).fetchall()
+
+    # fetch all the uncached contracts
+    uncached_stmt = select([contracts.c.id,
+                            contracts.c.token_id,
+                            Contract.expiration.label('expiration'),
+                            contracts.c.start,
+                            contracts.c.cached]).\
+        select_from(contracts.join(files)).\
+        where(contracts.c.cached == false())
+
+    uncached = db.engine.execute(uncached_stmt).fetchall()
+
+    # map the uncached contracts to their tokens
+    # for fast reference
+    uncached_contracts = dict()
+
+    if (len(uncached) > 0):
+        for u in uncached:
+            uncached_contracts.setdefault(u.token_id, list()).append(u)
+
+    new_cache = list()
+    new_summary = list()
+
+    # calculate uptime for each farmer
+    for token in cache_info:
+        # ensure that we have a start date for this token
+        if (token.start is None):
+            if (token.id in uncached_contracts):
+                start = min(
+                    [x.start for x in uncached_contracts[token.id]])
+            else:
+                # we have to look in all contracts, not just uncached ones
+                # this should rarely, if ever, be called.
+                # the only time this will be called is if a token exists
+                # and either all its contracts are cached but it has no
+                # start time or it has no contracts, in which case its
+                # uptime will be 0 and remain zero.  so let's just continue
+                # instead of trying to select contracts that don't exist
+                # this is tested in test_api_status_list_empty_token but
+                # is optimized out so will not be seen by coverage
+                continue  # pragma: no cover
+                # first_contract = db.engine.execute(
+                #     select([func.min(contracts.c.start).label('start')])
+                #     .where(contracts.c.token_id == token.id))\
+                #     .fetchone()
+                # start = first_contract.start
+        else:
+            start = token.start
+
+        # calculate the new uptime stats given the summary
+        # and any uncached contracts associated with this token
+        calc = UptimeCalculator(
+            uncached_contracts.get(token.id, list()),
+            UptimeSummary(start, token.end, token.upsum))
+
+        summary = calc.update()
+
+        # update whether contracts have been cached or not
+        for c in calc.newly_cached:
+            new_cache.append({'contract_id': c})
+
+        # and update the summary
+        new_summary.append({'token_id': token.id,
+                            'start': summary.start,
+                            'end': summary.end,
+                            'upsum': summary.uptime})
+
+    if (len(new_cache) > 0):
+        s = contracts.update().where(contracts.c.id == bindparam('contract_id')).\
+            values(cached=True)
+
+        db.engine.execute(s, new_cache)
+
+    if (len(new_summary) > 0):
+        s = tokens.update().where(tokens.c.id == bindparam('token_id')).\
+            values(start=bindparam('start'),
+                   end=bindparam('end'),
+                   upsum=bindparam('upsum'))
+
+        db.engine.execute(s, new_summary)
+    
