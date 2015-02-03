@@ -2,6 +2,10 @@
 
 ### Master
 
+* [ENHANCEMENT] Multiple contracts handled per request
+
+### v0.1.5
+
 * [ENHANCEMENT] Made contract count and contract size be the online count and size, not total, for a nicer dashboard experience
 * [BUGFIX] Fixed bug where heartbeat state was not being updated in the database, and so the same challenge was being answered over and over (for Merkle)
 * [ENHANCEMENT] Modified --maintain option so that software will maintain a diverse set of chunk sizes
