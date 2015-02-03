@@ -278,7 +278,7 @@ def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
 
     contracts = list()
     total_size = 0
-    
+
     while (max_chunk_count == 0
            or len(contracts) < max_chunk_count
            and total_size < size):
@@ -287,7 +287,7 @@ def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
         # we need a chunk that is smaller than the requested size
         db_chunk = Chunk.query.filter(File.size <= size_to_pull).join(
             File).order_by(desc(File.size)).first()
-            
+
         if (db_chunk is None):
             # no more of the appropriate size, we're done
             break
@@ -313,9 +313,9 @@ def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
 
         # remove the chunk from the database since it has now been used.
         db.session.delete(db_chunk)
-        
+
         contracts.append(db_contract)
-        
+
         total_size = sum([c.file.size for c in contracts])
 
     db.session.commit()
@@ -404,9 +404,10 @@ def lookup_contract(token, file_hash):
         raise InvalidParameterError('Contract does not exist.')
 
     return db_contract
-    
+
+
 def update_contract(db_contract):
-    """This function updates the contract specified    
+    """This function updates the contract specified
 
     :param db_contract: the contract to update
     :returns: the contract after it has been updated.
@@ -428,7 +429,6 @@ def update_contract(db_contract):
         return None
 
     return db_contract
-
 
 
 def verify_proof(db_contract, proof, received):

@@ -6,9 +6,8 @@ import pickle
 import siggy
 
 from flask import jsonify, request
-from sqlalchemy import func, desc, text, Float, and_
+from sqlalchemy import func, desc, and_
 from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import false
 from datetime import datetime
 
 from .startup import app, db
@@ -17,7 +16,6 @@ from .node import (create_token, get_chunk_contracts,
                    process_token_ip_address)
 from .models import Token, Address, Contract, File, update_uptime_summary
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
-from .uptime import UptimeSummary, UptimeCalculator
 
 
 @app.route('/')
@@ -94,9 +92,9 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               Token.online_size.label('size'),
                               Token.online.label('online'),
                               Token.fraction.label('uptime')])\
-            .select_from(Token.__table__.join(Address.__table__)\
-                .join(Contract.__table__.join(File.__table__), isouter=True))\
-                .group_by('id')
+            .select_from(Token.__table__.join(Address.__table__)
+                         .join(Contract.__table__.join(File.__table__), isouter=True))\
+            .group_by('id')
 
         # now get the tokens we need
         if (d):
@@ -277,7 +275,7 @@ def api_downstream_chunk_contract(token, size):
 
         chunks = list()
         summary = list()
-            
+
         for db_contract in db_contracts:
             with open(db_contract.tag_path, 'rb') as f:
                 tag = pickle.load(f)
@@ -294,17 +292,17 @@ def api_downstream_chunk_contract(token, size):
                          tag=tag.todict(),
                          due=(db_contract.due - datetime.utcnow()).
                          total_seconds())
-                         
+
             chunk_summary = {key: chunk[key] for key in ['seed',
                                                          'size',
                                                          'file_hash',
                                                          'challenge',
                                                          'due']}
             chunk_summary['tag'] = 'REDACTED'
-             
+
             chunks.append(chunk)
             summary.append(chunk_summary)
-            
+
         response = dict(chunks=chunks)
 
         if (app.mongo_logger is not None):
@@ -316,47 +314,48 @@ def api_downstream_chunk_contract(token, size):
         return jsonify(response)
 
     return handler.response
-    
+
 
 @app.route('/challenge/<token>', methods=['GET', 'POST'])
 def api_downstream_chunk_contract_status(token):
     """For prototyping, this will generate a new challenge,
     returns limit online contracts.  any expired contracts will not
     be sent
-    
+
     :param limit: only update limit contracts.
     :param answered: only update answered contracts
     """
     with HttpHandler(app.mongo_logger) as handler:
         handler.context['token'] = token
         handler.context['remote_addr'] = request.remote_addr
-        
+
         db_token = Token.query.filter(Token.token == token).first()
-        
+
         if (db_token is None):
             raise InvalidParameterError('Nonexistent token.')
-        
+
         d = request.get_json(silent=True)
-        
+
         if (request.method == 'POST' and d is not False):
             # we have posted data, check if it is a list of hashes
             if (not isinstance(d, dict) or 'hashes' not in d):
-                raise InvalidParameterError('Posted data must be an JSON encoded '
-                                            'hash list: '
-                                            '{"hashes":[...contract hashes...]}')
-            
+                raise InvalidParameterError('Posted data must be an JSON '
+                                            'encoded hash list: {"hashes":'
+                                            '[...contract hashes...]}')
+
             # pull the contracts for the hashes
             db_contracts = Contract.query.join(File).filter(
                 and_(Contract.token_id == db_token.id,
                      File.hash.in_(d['hashes']))).all()
         else:
-            db_contracts = Contract.query.filter(Contract.token_id == db_token.id).all()
-        
+            db_contracts = Contract.query.filter(
+                Contract.token_id == db_token.id).all()
+
         challenges = list()
-        
+
         for db_contract in db_contracts:
             challenge = dict(file_hash=db_contract.file.hash)
-            
+
             try:
                 db_contract = update_contract(db_contract)
             except InvalidParameterError:
@@ -375,11 +374,11 @@ def api_downstream_chunk_contract_status(token):
             challenge['answered'] = db_contract.answered
 
             challenges.append(challenge)
-        
+
         db.session.commit()
-        
+
         response = dict(challenges=challenges)
-            
+
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('challenge',
                                        {'context': handler.context,
@@ -398,54 +397,54 @@ def api_downstream_challenge_answer(token):
         d = request.get_json(silent=True)
 
         handler.context['posted_data'] = d
-        
+
         received = datetime.utcnow()
-        
+
         db_token = Token.query.filter(Token.token == token).first()
-        
+
         if (db_token is None):
             raise InvalidParameterError('Nonexistent token.')
-        
+
         process_token_ip_address(db_token, request.remote_addr)
 
         if (d is False or not isinstance(d, dict) or 'proofs' not in d
-            or not isinstance(d['proofs'], list)):
+                or not isinstance(d['proofs'], list)):
             raise InvalidParameterError('Posted data must be an JSON encoded '
                                         'proof list: '
                                         '{"proofs":[...proof list...]}')
 
-                                        
         beat = app.heartbeat
-        
+
         proofs = dict()
-        
-        for p in d['proofs']:            
+
+        for p in d['proofs']:
             if ('file_hash' not in p or 'proof' not in p):
                 raise InvalidParameterError('Posted data proof list must '
                                             'contain valid file_hash, proof '
                                             'pairs: '
                                             '{"file_hash": "abc123...",'
                                             ' "proof": "...proof object..."}')
-                                            
+
             proofs[p['file_hash']] = p['proof']
-            
+
         # pull contracts from db
         db_contracts = Contract.query.join(File).filter(
-            and_(Contract.token_id==db_token.id,
+            and_(Contract.token_id == db_token.id,
                  File.hash.in_(proofs.keys()))).all()
-        
+
         report = list()
-        
+
         for db_contract in db_contracts:
             r = dict(file_hash=db_contract.file.hash)
-            
+
             try:
-                proof = beat.proof_type().fromdict(proofs[db_contract.file.hash])
+                proof = beat.proof_type().fromdict(
+                    proofs[db_contract.file.hash])
             except:
                 r['error'] = 'Proof corrupted'
                 report.append(r)
                 continue
-            
+
             try:
                 if (not verify_proof(db_contract, proof, received)):
                     r['error'] = 'Invalid proof'
@@ -460,7 +459,7 @@ def api_downstream_challenge_answer(token):
             report.append(r)
 
         db.session.commit()
-            
+
         response = dict(report=report)
 
         if (app.mongo_logger is not None):
