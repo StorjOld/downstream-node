@@ -30,7 +30,7 @@ class TestModel(Base):
 
 class TestMutableTypeWrapper(unittest.TestCase):
     def setUp(self):
-        URI = 'mysql+pymysql://localhost/downstream'
+        URI = 'mysql+pymysql://localhost/test_downstream'
         self.engine = create_engine(URI, echo=True)
         self.engine.execute('DROP TABLE IF EXISTS testtable')
         Base.metadata.create_all(self.engine)
