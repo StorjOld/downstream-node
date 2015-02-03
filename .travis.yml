@@ -7,7 +7,7 @@ services:
 - mysql
 - mongodb
 before_install:
-- mysql -e "create database if not exists downstream;" -u root
+- mysql -e "create database if not exists test_downstream;" -u root
 - sudo apt-get install libcrypto++-dev
 - mkdir data && cd data
 - curl -o GeoLite2-City.mmdb.gz http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
