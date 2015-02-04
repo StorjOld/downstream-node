@@ -53,9 +53,11 @@ class UptimeCalculator(object):
             # until now
             if (c.expiration < now):
                 end = c.expiration
-                # also, contract is expired
-                # we can cache
-                self.newly_cached.append(c.id)
+                # also, we we can cache
+                # if the contract is well expired
+                # (just to be sure it isn't being answered right NOW
+                if (c.expiration + timedelta(seconds=60) < now):
+                    self.newly_cached.append(c.id)
             else:
                 end = now
 

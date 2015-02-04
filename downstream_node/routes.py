@@ -336,6 +336,8 @@ def api_downstream_chunk_contract_status(token):
 
         d = request.get_json(silent=True)
 
+        not_found = list()
+
         if (request.method == 'POST' and d is not False):
             # we have posted data, check if it is a list of hashes
             if (not isinstance(d, dict) or 'hashes' not in d):
@@ -347,6 +349,13 @@ def api_downstream_chunk_contract_status(token):
             db_contracts = Contract.query.join(File).filter(
                 and_(Contract.token_id == db_token.id,
                      File.hash.in_(d['hashes']))).all()
+
+            if (len(db_contracts) < len(d['hashes'])):
+                # list out unfound contracts... for debugging now.  later
+                # this will be unnecessary.
+                not_found = [hash for hash in d['hashes']
+                             if hash not in
+                             [c.file.hash for c in db_contracts]]
         else:
             db_contracts = Contract.query.filter(
                 Contract.token_id == db_token.id).all()
@@ -373,6 +382,10 @@ def api_downstream_chunk_contract_status(token):
                 .total_seconds()
             challenge['answered'] = db_contract.answered
 
+            challenges.append(challenge)
+
+        for hash in not_found:
+            challenge = dict(file_hash=hash, error='contract not found')
             challenges.append(challenge)
 
         db.session.commit()
@@ -432,6 +445,12 @@ def api_downstream_challenge_answer(token):
             and_(Contract.token_id == db_token.id,
                  File.hash.in_(proofs.keys()))).all()
 
+        if (len(db_contracts) < len(proofs)):
+            not_found = [hash for hash in proofs.keys()
+                         if hash not in [c.file.hash for c in db_contracts]]
+        else:
+            not_found = list()
+
         report = list()
 
         for db_contract in db_contracts:
@@ -456,6 +475,11 @@ def api_downstream_challenge_answer(token):
                 continue
 
             r['status'] = 'ok'
+            report.append(r)
+
+        for hash in not_found:
+            r = dict(file_hash=hash,
+                     error='contract not found')
             report.append(r)
 
         db.session.commit()
