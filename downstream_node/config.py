@@ -22,9 +22,9 @@ MMDB_PATH = 'data/GeoLite2-City.mmdb'
 HEARTBEAT = heartbeat.Merkle.Merkle
 HEARTBEAT_PATH = 'data/heartbeat'
 
-MONGO_LOGGING = True
+MONGO_LOGGING = False
 MONGO_URI = 'mongodb://localhost/dsnode_log'
-PROFILE = True
+PROFILE = False
 
 DEFAULT_CHUNK_SIZE = 32000
 MAX_TOKENS_PER_IP = 5
