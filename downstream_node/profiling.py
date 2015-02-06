@@ -73,13 +73,22 @@ def finish_profiling(exception=None):
 def get_function_source_hits(logged_function, line_hits, unit):
     filename = logged_function[0]
     source_hits = list()
-    for lineno in range(logged_function[1], min([l[0] for l in line_hits])):
+    line_dict = {l[0]: l for l in line_hits}
+    start_line = min(line_dict.keys())
+    end_line = max(line_dict.keys())
+    for lineno in range(logged_function[1], min(line_dict.keys())):
         function_def = linecache.getline(filename, lineno)
         source_hits.append((function_def.rstrip(), None, None))
-    for hit in line_hits:
-        source_line = linecache.getline(filename, hit[0])
-        source_hits.append(
-            (source_line.rstrip(), hit[1], float(hit[2]) * float(unit)))
+
+    for hit in range(start_line, end_line):
+        source_line = linecache.getline(filename, hit)
+        if (hit in line_dict):
+            source_hits.append(
+                (source_line.rstrip(),
+                 line_dict[hit][1],
+                 float(line_dict[hit][2]) * float(unit)))
+        else:
+            source_hits.append((source_line.rstrip(), None, None))
     return source_hits
 
 

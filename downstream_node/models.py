@@ -183,8 +183,9 @@ class Contract(db.Model):
                                                cascade='all, delete-orphan'))
 
     file = db.relationship('File',
+                           lazy='joined',
                            backref=db.backref('contracts',
-                                              lazy='dynamic',
+                                              lazy='joined',
                                               cascade='all, delete-orphan'))
 
     __table_args__ = (
