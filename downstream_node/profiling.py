@@ -1,6 +1,7 @@
 from flask import request, g, render_template
 from line_profiler import LineProfiler
 import inspect
+import pymongo
 
 import linecache
 
@@ -98,7 +99,9 @@ def profiling_profile(path):
         mod_path = '/' + path
         requests = list()
         print('Showing profile for route: {0}'.format(mod_path))
-        for p in app.mongo_logger.db.profiling.find({'path': mod_path}):
+        for p in app.mongo_logger.db.profiling\
+                .find({'path': mod_path}).limit(1)\
+                .sort('_id', pymongo.DESCENDING):
             request = dict(path=p['path'],
                            functions=list())
             for i in range(0, len(p['functions'])):

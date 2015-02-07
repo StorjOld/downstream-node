@@ -14,7 +14,14 @@ install_requires = [
     'base58',
     'maxminddb',
     'siggy',
-    'pymongo'
+    'pymongo',
+    'line_profiler'
+]
+
+dependencies = [
+    'https://github.com/Storj/heartbeat/tarball/master#egg=storj-heartbeat-0.1.9',
+    'https://github.com/Storj/RandomIO/tarball/master#egg=RandomIO-0.1.0',
+    'https://github.com/Storj/siggy/tarball/master#egg=siggy-0.1.0'
 ]
 
 if sys.version_info < (3,):
@@ -32,5 +39,6 @@ setup(
     author='Storj Labs',
     author_email='info@storj.io',
     description='Verification node for the Storj network',
+    dependency_links=dependencies,
     install_requires=install_requires
 )

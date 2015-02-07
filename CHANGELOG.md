@@ -2,6 +2,8 @@
 
 ### Master
 
+### v0.1.6
+
 * [ENHANCEMENT] Multiple contracts handled per request
 
 ### v0.1.5
