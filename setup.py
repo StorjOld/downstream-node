@@ -16,7 +16,8 @@ install_requires = [
     'siggy',
     'pymongo',
     'line_profiler',
-    'ijson'
+    'ijson',
+    'future'
 ]
 
 dependencies = [
