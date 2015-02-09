@@ -95,7 +95,8 @@ def api_downstream_status_list(o, d, sortby, limit, page):
                               Token.online.label('online'),
                               Token.fraction.label('uptime')])\
             .select_from(Token.__table__.join(Address.__table__)
-                         .join(Contract.__table__.join(File.__table__), isouter=True))\
+                         .join(Contract.__table__.join(File.__table__),
+                               isouter=True))\
             .group_by('id')
 
         # now get the tokens we need

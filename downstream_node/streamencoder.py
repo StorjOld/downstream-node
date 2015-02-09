@@ -1,9 +1,4 @@
 """Implementation of JSONEncoder
-
-Allows streaming.
-
-Pulled from https://github.com/Zectbumo/cpython/compare/master
-
 """
 import re
 
@@ -225,12 +220,14 @@ class JSONEncoder(object):
             markers = None
         if self.ensure_ascii:
             _encoder = encode_basestring_ascii
-            _stream_encoder = lambda s: ESCAPE.sub(
-                _encode_basestring_replace, s)
+
+            def _stream_encoder(s):
+                return ESCAPE.sub(_encode_basestring_replace, s)
         else:
             _encoder = encode_basestring
-            _stream_encoder = lambda s: ESCAPE_ASCII.sub(
-                _encode_basestring_ascii_replace, s)
+
+            def _stream_encoder(s):
+                return ESCAPE_ASCII.sub(_encode_basestring_ascii_replace, s)
 
         def floatstr(o, allow_nan=self.allow_nan,
                      _repr=FLOAT_REPR, _inf=INFINITY, _neginf=-INFINITY):
@@ -441,12 +438,10 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
             # see comment for int/float in _make_iterencode
             yield _floatstr(float(o))
         elif isinstance(o, (list, tuple)):
-            chunks = _iterencode_list(o, _current_indent_level)
-            for chunk in chunks:
+            for chunk in _iterencode_list(o, _current_indent_level):
                 yield chunk
         elif isinstance(o, dict):
-            chunks = _iterencode_dict(o, _current_indent_level)
-            for chunk in chunks:
+            for chunk in _iterencode_dict(o, _current_indent_level):
                 yield chunk
         elif stream and hasattr(o, 'read') and hasattr(o.read, '__call__'):
             yield '"'
@@ -456,9 +451,8 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
                 s = o.read(BUFSIZE)
             yield '"'
         elif stream and hasattr(o, '__iter__'):
-            chunks = _iterencode_list(o, _current_indent_level)
-            for chunk in chunks:
-                yield chunks
+            for chunk in _iterencode_list(o, _current_indent_level):
+                yield chunk
         else:
             if markers is not None:
                 markerid = id(o)
@@ -466,8 +460,7 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
                     raise ValueError("Circular reference detected")
                 markers[markerid] = o
             o = _default(o)
-            chunks = _iterencode(o, _current_indent_level)
-            for chunk in chunks:
+            for chunk in _iterencode(o, _current_indent_level):
                 yield chunk
             if markers is not None:
                 del markers[markerid]

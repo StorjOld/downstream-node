@@ -300,7 +300,8 @@ def update_uptime_summary():
                             'upsum': summary.uptime})
 
     if (len(new_cache) > 0):
-        s = contracts.update().where(contracts.c.id == bindparam('contract_id')).\
+        s = contracts.update()\
+            .where(contracts.c.id == bindparam('contract_id')).\
             values(cached=True)
 
         db.engine.execute(s, new_cache)
