@@ -1,6 +1,6 @@
 import unittest
 
-from downstream_farmer.streamencoder import JSONEncoder
+from downstream_node.streamencoder import JSONEncoder
 
 
 class TestJsonStream(unittest.TestCase):
