@@ -4,8 +4,9 @@
 import os
 import pickle
 import siggy
+import ijson
 
-from flask import jsonify, request
+from flask import jsonify, request, Response, stream_with_context
 from sqlalchemy import func, desc, and_
 from sqlalchemy.sql import select
 from datetime import datetime
@@ -16,6 +17,7 @@ from .node import (create_token, get_chunk_contracts,
                    process_token_ip_address)
 from .models import Token, Address, Contract, File, update_uptime_summary
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
+from .streamencoder import JSONEncoder as StreamEncoder
 
 
 @app.route('/')
@@ -259,61 +261,87 @@ def api_downstream_chunk_contract(token, size):
         handler.context['size'] = size
         handler.context['remote_addr'] = request.remote_addr
 
-        db_contracts = get_chunk_contracts(token, size, request.remote_addr)
+        # verify the token
+        db_token = Token.query.filter(Token.token == token).first()
 
-        if (len(db_contracts) == 0):
-            response = dict(chunks=[])
+        if (db_token is None):
+            raise InvalidParameterError('Nonexistent token.')
 
-            # no contracts available
-            if (app.mongo_logger is not None):
-                rsummary = {'status': 'no chunks available'}
-                app.mongo_logger.log_event('chunk',
-                                           {'context': handler.context,
-                                            'response': rsummary})
+        process_token_ip_address(db_token, request.remote_addr, True)
 
-            return jsonify(response)
+        db_contracts = get_chunk_contracts(db_token, size)
 
-        chunks = list()
-        summary = list()
+        def get_chunks():
+            for db_contract in db_contracts:
+                with open(db_contract.tag_path, 'rb') as f:
+                    tag = pickle.load(f)
+                chal = db_contract.challenge
 
-        for db_contract in db_contracts:
-            with open(db_contract.tag_path, 'rb') as f:
-                tag = pickle.load(f)
-            chal = db_contract.challenge
+                # we now delete the tag since it has been sent
+                # (we never actually create the file)
+                os.remove(db_contract.tag_path)
 
-            # we now delete the tag since it has been sent
-            # (we never actually create the file)
-            os.remove(db_contract.tag_path)
+                chunk = dict(seed=db_contract.file.seed,
+                             size=db_contract.file.size,
+                             file_hash=db_contract.file.hash,
+                             challenge=chal.todict(),
+                             tag=tag.todict(),
+                             due=(db_contract.due - datetime.utcnow()).
+                             total_seconds())
 
-            chunk = dict(seed=db_contract.file.seed,
-                         size=db_contract.file.size,
-                         file_hash=db_contract.file.hash,
-                         challenge=chal.todict(),
-                         tag=tag.todict(),
-                         due=(db_contract.due - datetime.utcnow()).
-                         total_seconds())
-
-            chunk_summary = {key: chunk[key] for key in ['seed',
-                                                         'size',
-                                                         'file_hash',
-                                                         'challenge',
-                                                         'due']}
-            chunk_summary['tag'] = 'REDACTED'
-
-            chunks.append(chunk)
-            summary.append(chunk_summary)
-
-        response = dict(chunks=chunks)
+                yield chunk
 
         if (app.mongo_logger is not None):
             # we'll remove the tag becauase it could potentially be very large
             app.mongo_logger.log_event('chunk',
                                        {'context': handler.context,
-                                        'response': dict(chunks=summary)})
+                                        'response': 'REDACTED (streaming)'})
 
-        return jsonify(response)
+        response = dict(chunks=get_chunks())
+
+        return Response(stream_with_context(StreamEncoder(stream=True)
+                                            .iterencode(response)),
+                        mimetype='application/json')
 
     return handler.response
+
+
+def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
+    """calls next() on hash_iterable until at most bufsz hashes have
+    been retrieved, at which point it queries the database and
+    retrieves all the contracts associated with those hashes.
+    then it yields each contract associated with the hashes in
+    hash_iterable, or None if a contract was not found associated with
+    the hash specified.  yields a list [contract, hash_iterable_item]
+    """
+    done = False
+    while (not done):
+        count = 0
+        map = dict()
+        try:
+            while (count < bufsz):
+                item = next(hash_iterable)
+                if (key is None):
+                    # item is hash
+                    hash = item
+                else:
+                    hash = item[key]
+                map[hash] = [None, item]
+                count += 1
+        except StopIteration:
+            done = True
+        except:
+            # fail quietly
+            return
+        if (count == 0):
+            return
+        contracts = Contract.query.join(File).filter(
+            and_(Contract.token_id == db_token.id,
+                 File.hash.in_(map.keys()))).all()
+        for c in contracts:
+            map[c.file.hash][0] = c
+        for pair in map.values():
+            yield pair
 
 
 @app.route('/challenge/<token>', methods=['GET', 'POST'])
@@ -334,70 +362,60 @@ def api_downstream_chunk_contract_status(token):
         if (db_token is None):
             raise InvalidParameterError('Nonexistent token.')
 
-        d = request.get_json(silent=True)
+        if (request.method == 'POST'):
+            # try to stream POST data
+            hash_iterable = ijson.items(request.stream, 'hashes.item')
 
-        not_found = list()
+            def get_contracts():
+                for pair in get_contract_iter(hash_iterable, db_token):
+                    yield pair[0]
 
-        if (request.method == 'POST' and d is not False):
-            # we have posted data, check if it is a list of hashes
-            if (not isinstance(d, dict) or 'hashes' not in d):
-                raise InvalidParameterError('Posted data must be an JSON '
-                                            'encoded hash list: {"hashes":'
-                                            '[...contract hashes...]}')
-
-            # pull the contracts for the hashes
-            db_contracts = Contract.query.join(File).filter(
-                and_(Contract.token_id == db_token.id,
-                     File.hash.in_(d['hashes']))).all()
-
-            if (len(db_contracts) < len(d['hashes'])):
-                # list out unfound contracts... for debugging now.  later
-                # this will be unnecessary.
-                not_found = [hash for hash in d['hashes']
-                             if hash not in
-                             [c.file.hash for c in db_contracts]]
+            db_contracts = get_contracts()
         else:
             db_contracts = Contract.query.filter(
                 Contract.token_id == db_token.id).all()
 
-        challenges = list()
+        def get_challenges():
+            for db_contract in db_contracts:
+                if (db_contract is None):
+                    challenge = dict(
+                        file_hash=hash, error='contract not found')
+                    yield challenge
+                    continue
 
-        for db_contract in db_contracts:
-            challenge = dict(file_hash=db_contract.file.hash)
+                challenge = dict(file_hash=db_contract.file.hash)
 
-            try:
-                db_contract = update_contract(db_contract)
-            except InvalidParameterError:
-                challenge['error'] = 'contract expired'
-                challenges.append(challenge)
-                continue
+                try:
+                    db_contract = update_contract(db_contract)
+                except InvalidParameterError:
+                    challenge['error'] = 'contract expired'
+                    yield challenge
+                    continue
 
-            if (db_contract is None):
-                challenge['status'] = 'no more challenges'
-                challenges.append(challenge)
-                continue
+                if (db_contract is None):
+                    challenge['status'] = 'no more challenges'
+                    yield challenge
+                    continue
 
-            challenge['challenge'] = db_contract.challenge.todict()
-            challenge['due'] = (db_contract.due - datetime.utcnow())\
-                .total_seconds()
-            challenge['answered'] = db_contract.answered
+                challenge['challenge'] = db_contract.challenge.todict()
+                challenge['due'] = (db_contract.due - datetime.utcnow())\
+                    .total_seconds()
+                challenge['answered'] = db_contract.answered
 
-            challenges.append(challenge)
+                yield challenge
 
-        for hash in not_found:
-            challenge = dict(file_hash=hash, error='contract not found')
-            challenges.append(challenge)
-
-        db.session.commit()
-
-        response = dict(challenges=challenges)
+            db.session.commit()
 
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('challenge',
                                        {'context': handler.context,
-                                        'response': response})
+                                        'response': 'REDACTED (streaming)'})
 
-        return jsonify(response)
+        response = dict(challenges=get_challenges())
+
+        return Response(stream_with_context(StreamEncoder(stream=True)
+                                            .iterencode(response)),
+                        mimetype='application/json')
 
     return handler.response
 
@@ -407,11 +425,6 @@ def api_downstream_challenge_answer(token):
     with HttpHandler(app.mongo_logger) as handler:
         handler.context['token'] = token
         handler.context['remote_addr'] = request.remote_addr
-        d = request.get_json(silent=True)
-
-        handler.context['posted_data'] = d
-
-        received = datetime.utcnow()
 
         db_token = Token.query.filter(Token.token == token).first()
 
@@ -420,77 +433,56 @@ def api_downstream_challenge_answer(token):
 
         process_token_ip_address(db_token, request.remote_addr)
 
-        if (d is False or not isinstance(d, dict) or 'proofs' not in d
-                or not isinstance(d['proofs'], list)):
-            raise InvalidParameterError('Posted data must be an JSON encoded '
-                                        'proof list: '
-                                        '{"proofs":[...proof list...]}')
-
         beat = app.heartbeat
 
-        proofs = dict()
+        hash_iterable = ijson.items(request.stream, 'proofs.item')
 
-        for p in d['proofs']:
-            if ('file_hash' not in p or 'proof' not in p):
-                raise InvalidParameterError('Posted data proof list must '
-                                            'contain valid file_hash, proof '
-                                            'pairs: '
-                                            '{"file_hash": "abc123...",'
-                                            ' "proof": "...proof object..."}')
+        pair_iterator = get_contract_iter(
+            hash_iterable, db_token, key='file_hash')
 
-            proofs[p['file_hash']] = p['proof']
+        def get_verification_reports():
+            for (db_contract, item) in pair_iterator:
+                if (db_contract is None):
+                    r = dict(file_hash=hash,
+                             error='contract not found')
+                    yield r
 
-        # pull contracts from db
-        db_contracts = Contract.query.join(File).filter(
-            and_(Contract.token_id == db_token.id,
-                 File.hash.in_(proofs.keys()))).all()
+                r = dict(file_hash=db_contract.file.hash)
 
-        if (len(db_contracts) < len(proofs)):
-            not_found = [hash for hash in proofs.keys()
-                         if hash not in [c.file.hash for c in db_contracts]]
-        else:
-            not_found = list()
-
-        report = list()
-
-        for db_contract in db_contracts:
-            r = dict(file_hash=db_contract.file.hash)
-
-            try:
-                proof = beat.proof_type().fromdict(
-                    proofs[db_contract.file.hash])
-            except:
-                r['error'] = 'Proof corrupted'
-                report.append(r)
-                continue
-
-            try:
-                if (not verify_proof(db_contract, proof, received)):
-                    r['error'] = 'Invalid proof'
-                    report.append(r)
+                try:
+                    proof = beat.proof_type().fromdict(
+                        item['proof'])
+                except:
+                    r['error'] = 'Proof corrupted'
+                    yield r
                     continue
-            except InvalidParameterError as ex:
-                r['error'] = str(ex)
-                report.append(r)
-                continue
 
-            r['status'] = 'ok'
-            report.append(r)
+                try:
+                    if (not verify_proof(db_contract,
+                                         proof,
+                                         datetime.utcnow())):
+                        r['error'] = 'Invalid proof'
+                        yield r
+                        continue
+                except InvalidParameterError as ex:
+                    r['error'] = str(ex)
+                    yield r
+                    continue
 
-        for hash in not_found:
-            r = dict(file_hash=hash,
-                     error='contract not found')
-            report.append(r)
+                r['status'] = 'ok'
+                yield r
 
-        db.session.commit()
-
-        response = dict(report=report)
+            db.session.commit()
 
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('answer',
                                        {'context': handler.context,
-                                        'response': response})
+                                        'response': 'REDACTED (streaming)'})
 
-        return jsonify(response)
+        response = dict(report=get_verification_reports())
+
+        return Response(stream_with_context(StreamEncoder(stream=True)
+                                            .iterencode(response)),
+                        mimetype='application/json')
 
     return handler.response

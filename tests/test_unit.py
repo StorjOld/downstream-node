@@ -337,10 +337,13 @@ class TestDownstreamRoutes(unittest.TestCase):
         self.assertEqual(r_json['message'],'Nonexistent token.')
         
     def test_api_downstream_chunk_contract_no_chunks(self):
-        with patch('downstream_node.routes.get_chunk_contracts') as p:
+        with patch('downstream_node.routes.get_chunk_contracts') as p,\
+                patch('downstream_node.routes.process_token_ip_address') as p2,\
+                patch('downstream_node.routes.Token') as p3:
+            p3.query.filter.return_value.first.return_value = 'dummy_token'
             p.return_value = []
             r = self.app.get('/chunk/test_token')
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.content_type, 'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
@@ -356,7 +359,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         with patch('downstream_node.node.get_ip_location') as p:
             p.return_value = dict()
-            db_contract = node.get_chunk_contracts(db_token.token,self.test_size,'test.ip.address')[0]
+            db_contract = list(node.get_chunk_contracts(db_token,self.test_size))[0]
         
         token = db_token.token
         hash = db_contract.file.hash
@@ -425,17 +428,17 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = {'proofs':[
                 {'file_hash': r_hash,
                  'proof': proof.todict()}]}
-            r.get_json.return_value = data
+            r.stream = io.BytesIO(json.dumps(data).encode('utf-8'))
             p.return_value = dict()
             r = self.app.post('/answer/{0}'.format(r_token,r_hash),
-                              data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,200, r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
         
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['report'][0]['status'],'ok')
+        self.assertIn('status', r_json['report'][0], r_json)
+        self.assertEqual(r_json['report'][0]['status'],'ok',r_json)
         
         # test invalid proof
         # insert a new challenge
@@ -451,10 +454,9 @@ class TestDownstreamRoutes(unittest.TestCase):
             data = {'proofs':[{
                 'file_hash': r_hash,
                 'proof': proof.todict()}]}
-            r.get_json.return_value = data
+            r.stream = io.BytesIO(json.dumps(data).encode('utf-8'))
             p.return_value = dict()
             r = self.app.post('/answer/{0}'.format(r_token,r_hash),
-                              data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,200,r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
@@ -470,10 +472,9 @@ class TestDownstreamRoutes(unittest.TestCase):
             r.remote_addr = 'test.ip.address'
             data = {'proofs':[{'file_hash': r_hash, 
                                'proof': "invalid proof object"}]}
-            r.get_json.return_value = data
+            r.stream = io.BytesIO(json.dumps(data).encode('utf-8'))
             p.return_value = dict()
             r = self.app.post('/answer/{0}'.format(r_token,r_hash),
-                              data=json.dumps(data),
                               content_type='application/json')
         self.assertEqual(r.status_code,200,r.data.decode('utf-8'))
         self.assertEqual(r.content_type,'application/json')
@@ -488,19 +489,15 @@ class TestDownstreamRoutes(unittest.TestCase):
                 patch('downstream_node.routes.request') as r:
             r.remote_addr = 'test.ip.address'
             data = 'invalid proof object'
-            r.get_json.return_value = data
+            r.stream = io.BytesIO(data.encode('utf-8'))
             p.return_value = dict()
             r = self.app.post('/answer/{0}'.format(r_token,r_hash),
-                              data=json.dumps(data),
                               content_type='application/json')
-        self.assertEqual(r.status_code,400)
+        self.assertEqual(r.status_code,200)
 
         r_json = json.loads(r.data.decode('utf-8'))
         
-        self.assertEqual(r_json['message'],
-                         'Posted data must be an JSON encoded '
-                         'proof list: '
-                         '{"proofs":[...proof list...]}')
+        self.assertEqual(r_json['report'], [])
 
 
 class TestDownstreamNodeStatus(unittest.TestCase):
@@ -1001,7 +998,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         db_chunk = node.generate_test_file(self.test_size)
         
-        db_contracts = node.get_chunk_contracts(db_token.token, self.test_size, 'test.ip.address4')
+        db_contracts = list(node.get_chunk_contracts(db_token, self.test_size))
         
         self.assertEqual(len(db_contracts), 1)
         
@@ -1014,11 +1011,6 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         # remove tag
         os.remove(db_contract.tag_path)
-        
-        with self.assertRaises(InvalidParameterError) as ex:
-            node.get_chunk_contracts('nonexistent token',self.test_size,'test.ip.address4')
-        
-        self.assertEqual(str(ex.exception),'Nonexistent token.')
         
     def test_update_contract_expired(self):
         db_file = node.add_file(self.test_seed, self.test_size)
@@ -1086,9 +1078,9 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_get_chunk_contracts_no_chunks(self):
         db_token = self.add_test_token()
         
-        db_contract = node.get_chunk_contracts(db_token.token, 100, 'test.ip.address')
+        db_contracts = list(node.get_chunk_contracts(db_token.token, 100))
         
-        self.assertEqual(len(db_contract), 0)
+        self.assertEqual(len(db_contracts), 0)
         
     def add_test_chunk(self):
         db_chunk = node.generate_test_file(self.test_size)
@@ -1102,7 +1094,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         with patch('downstream_node.node.contract_insert_next_challenge') as p:
             p.return_value = False
             with self.assertRaises(RuntimeError) as ex:
-                node.get_chunk_contracts(db_token.token, self.test_size, 'test.ip.address')
+                contracts = list(node.get_chunk_contracts(db_token, self.test_size))
         
         self.assertEqual(str(ex.exception), 'Unable to initialize challenge for contract.')
     

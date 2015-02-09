@@ -235,31 +235,23 @@ def prepare_contract(db_file):
     return db_chunk
 
 
-def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
+def get_chunk_contracts(db_token, size, max_chunk_count=0):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
-    In this prototype, returns a list of contracts that will fulfill the size
-    requirements requested
+    In this prototype, returns an iterable of contracts that will fulfill the
+    size requirements requested
 
     :param token: the token to associate this contract with
     :param size: the requested total contracts size
     :param remote_addr: the ip address of the farmer requesting a chunk
     :param max_chunk_count: maximum number of chunks to retrieve
-    :returns: a list of contracts from the database
+    :returns: an iterable of contracts from the database
     """
     # first, we need to find all the files that are not meeting their
     # redundancy requirements once we have found a candidate list, we sort
     # by when the file was added so that the most recently added file is
     # given out in a contract
-
-    # verify the token
-    db_token = Token.query.filter(Token.token == token).first()
-
-    if (db_token is None):
-        raise InvalidParameterError('Nonexistent token.')
-
-    process_token_ip_address(db_token, remote_addr, True)
 
     # these are the files we are tracking with their current redundancy counts
     # for now comment this since we're just generating a file for each contract
@@ -276,11 +268,11 @@ def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
     # pick the best candidate
     # file = candidates[0]
 
-    contracts = list()
+    contract_count = 0
     total_size = 0
 
-    while (max_chunk_count == 0
-           or len(contracts) < max_chunk_count
+    while ((max_chunk_count == 0
+            or contract_count < max_chunk_count)
            and total_size < size):
         size_to_pull = size - total_size
         # now we pull from pregenerated chunks
@@ -314,13 +306,12 @@ def get_chunk_contracts(token, size, remote_addr, max_chunk_count=0):
         # remove the chunk from the database since it has now been used.
         db.session.delete(db_chunk)
 
-        contracts.append(db_contract)
+        yield db_contract
 
-        total_size = sum([c.file.size for c in contracts])
+        total_size += db_contract.file.size
+        contract_count += 1
 
     db.session.commit()
-
-    return contracts
 
 
 # def add_file(chunk_path, redundancy=3, interval=60):

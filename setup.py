@@ -15,7 +15,8 @@ install_requires = [
     'maxminddb',
     'siggy',
     'pymongo',
-    'line_profiler'
+    'line_profiler',
+    'ijson'
 ]
 
 dependencies = [
