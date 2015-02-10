@@ -242,9 +242,8 @@ def get_chunk_contracts(db_token, size, max_chunk_count=0):
     In this prototype, returns an iterable of contracts that will fulfill the
     size requirements requested
 
-    :param token: the token to associate this contract with
+    :param db_token: the database token
     :param size: the requested total contracts size
-    :param remote_addr: the ip address of the farmer requesting a chunk
     :param max_chunk_count: maximum number of chunks to retrieve
     :returns: an iterable of contracts from the database
     """

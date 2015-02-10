@@ -5,6 +5,7 @@ import os
 import pickle
 import siggy
 import ijson
+import traceback
 
 from flask import jsonify, request, Response, stream_with_context
 from sqlalchemy import func, desc, and_
@@ -332,7 +333,7 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
         except StopIteration:
             done = True
         except:
-            # fail quietly
+            print(traceback.format_exc())
             return
         if (count == 0):
             return

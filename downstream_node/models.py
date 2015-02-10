@@ -167,7 +167,7 @@ class Contract(db.Model):
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
     token_id = db.Column(db.ForeignKey('tokens.id'), index=True)
-    file_id = db.Column(db.ForeignKey('files.id'))
+    file_id = db.Column(db.ForeignKey('files.id'), nullable=False)
     state = db.Column(
         MutableTypeWrapper.as_mutable(db.PickleType), nullable=False)
     challenge = db.Column(db.PickleType())
