@@ -6,9 +6,9 @@ with open('downstream_node/version.py','r') as f:
 
 # Reqirements for all versions of Python
 install_requires = [
-    'flask',
+    'Flask',
     'pymysql',
-    'flask-sqlalchemy',
+    'Flask-SQLAlchemy',
     'RandomIO',
     'storj-heartbeat',
     'base58',
@@ -22,7 +22,7 @@ install_requires = [
 
 dependencies = [
     'https://github.com/Storj/heartbeat/tarball/master#egg=storj-heartbeat-0.1.9',
-    'https://github.com/Storj/RandomIO/tarball/master#egg=RandomIO-0.1.0',
+    'https://github.com/Storj/RandomIO/tarball/master#egg=RandomIO-0.2.0',
     'https://github.com/Storj/siggy/tarball/master#egg=siggy-0.1.0'
 ]
 
