@@ -2,6 +2,10 @@
 
 ### Master
 
+### v0.1.7
+
+* [ENHANCEMENT] Supported streaming of challenges and chunks to speed up responsiveness of server.
+
 ### v0.1.6
 
 * [ENHANCEMENT] Multiple contracts handled per request
