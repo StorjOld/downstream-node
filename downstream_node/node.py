@@ -277,8 +277,8 @@ def get_chunk_contracts(db_token, size, max_chunk_count=0):
         size_to_pull = size - total_size
         # now we pull from pregenerated chunks
         # we need a chunk that is smaller than the requested size
-        db_chunk = Chunk.query.with_for_update()
-            .filter(File.size <= size_to_pull)
+        db_chunk = Chunk.query.with_for_update()\
+            .filter(File.size <= size_to_pull)\
             .join(File).order_by(desc(File.size)).first()
 
         if (db_chunk is None):
