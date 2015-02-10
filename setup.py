@@ -6,9 +6,9 @@ with open('downstream_node/version.py','r') as f:
 
 # Reqirements for all versions of Python
 install_requires = [
-    'Flask',
     'pymysql',
-    'Flask-SQLAlchemy',
+    'flask-sqlalchemy',
+    'flask',
     'RandomIO',
     'storj-heartbeat',
     'base58',
