@@ -1093,10 +1093,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         
         with patch('downstream_node.node.contract_insert_next_challenge') as p:
             p.return_value = False
-            with self.assertRaises(RuntimeError) as ex:
-                contracts = list(node.get_chunk_contracts(db_token, self.test_size))
-        
-        self.assertEqual(str(ex.exception), 'Unable to initialize challenge for contract.')
+            contracts = list(node.get_chunk_contracts(db_token, self.test_size))
+            self.assertEqual(len(contracts), 0)
     
     def test_update_contract_no_more_challenges(self):
         db_contract = self.add_test_contract()

@@ -1,7 +1,6 @@
 """Implementation of JSONEncoder
 """
-from __future__ import unicode_literals
-from builtins import str
+from builtins import str as text
 import re
 
 try:
@@ -309,7 +308,7 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
                 first = False
             else:
                 buf = separator
-            if isinstance(value, str) or isinstance(value, bytes):
+            if isinstance(value, str) or isinstance(value, text):
                 yield buf + _encoder(value)
             elif value is None:
                 yield buf + 'null'
@@ -368,7 +367,7 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
         else:
             items = dct.items()
         for key, value in items:
-            if isinstance(key, str) or isinstance(key, bytes):
+            if isinstance(key, str) or isinstance(key, text):
                 pass
             # JavaScript is weakly typed for these, so it makes sense to
             # also allow them.  Many encoders seem to do something like this.
@@ -394,7 +393,7 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
                 yield item_separator
             yield _encoder(key)
             yield _key_separator
-            if isinstance(value, str) or isinstance(value, bytes):
+            if isinstance(value, str) or isinstance(value, text):
                 yield _encoder(value)
             elif value is None:
                 yield 'null'
@@ -425,7 +424,7 @@ def _make_iterencode(markers, _default, _encoder, _stream_encoder, _indent,
             del markers[markerid]
 
     def _iterencode(o, _current_indent_level):
-        if isinstance(o, str) or isinstance(o, bytes):
+        if isinstance(o, str) or isinstance(o, text):
             yield _encoder(o)
         elif o is None:
             yield 'null'

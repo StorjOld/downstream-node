@@ -301,7 +301,13 @@ def get_chunk_contracts(db_token, size, max_chunk_count=0):
             # this is an issue at this stage, since the heartbeat should
             # just have been generated
             # raise an internal server error
-            raise RuntimeError('Unable to initialize challenge for contract.')
+            print('Unable to initialize challenge for contract. '
+                  'It is likely that the node heartbeat was '
+                  'regenerated but the available chunks were not '
+                  'which would leave inconsistencies in the '
+                  'state objects.  Please regenerate any chunks '
+                  'in the database.')
+            break
 
         # remove the chunk from the database since it has now been used.
         db.session.delete(db_chunk)
