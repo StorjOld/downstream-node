@@ -321,7 +321,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=10):
 
 
 # def add_file(chunk_path, redundancy=3, interval=60):
-def add_file(seed, size, redundancy=3, interval=300):
+def add_file(seed, size, redundancy=3, interval=None):
     """This function adds a file to the database to be tracked by the
     application.
 
@@ -332,6 +332,9 @@ def add_file(seed, size, redundancy=3, interval=300):
     :param interval: the desired heartbeat check interval
     :returns: the file database object
     """
+    if (interval is None):
+        interval = app.config['DEFAULT_INTERVAL']
+    
     # we don't want to generate the whole file
     # chunk_stream = RandomIO(seed, size)
 
