@@ -234,7 +234,7 @@ def prepare_contract(db_file):
     return db_chunk
 
 
-def get_chunk_contracts(db_token, size, max_chunk_count=10):
+def get_chunk_contracts(db_token, size, max_chunk_count=None):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -269,6 +269,9 @@ def get_chunk_contracts(db_token, size, max_chunk_count=10):
     contract_count = 0
     total_size = 0
 
+    if (max_chunk_count is None):
+        max_chunk_count = app.config['MAX_CHUNKS_PER_REQUEST']
+    
     while ((max_chunk_count == 0
             or contract_count < max_chunk_count)
            and total_size < size):
