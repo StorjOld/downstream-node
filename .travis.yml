@@ -16,6 +16,7 @@ before_install:
 install:
 - pip install coverage flake8 coveralls
 - python setup.py install
+- cp downstream_node/config.template.py downstream_node/config.py
 after_success:
 - coveralls
 script:
