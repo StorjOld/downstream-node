@@ -19,7 +19,6 @@ from .exc import InvalidParameterError
 __all__ = ['create_token',
            'delete_token',
            'get_chunk_contracts',
-           'lookup_contract',
            'add_file',
            'remove_file',
            'verify_proof',
@@ -334,17 +333,17 @@ def add_file(seed, size, redundancy=3, interval=300):
     :returns: the file database object
     """
     # we don't want to generate the whole file
-    #chunk_stream = RandomIO(seed, size)
+    # chunk_stream = RandomIO(seed, size)
 
     # first, hash the chunk to determine it's name
-    #h = SHA256.new()
-    #bufsz = 65535
+    # h = SHA256.new()
+    # bufsz = 65535
 
-    #for c in iter(lambda: chunk_stream.read(bufsz), b''):
-    #    h.update(c)
+    # for c in iter(lambda: chunk_stream.read(bufsz), b''):
+    #     h.update(c)
 
-    #hash = h.hexdigest()
-    
+    # hash = h.hexdigest()
+
     # we'll cheat for speed an just give it a random name
     hash = binascii.hexlify(os.urandom(16)).decode()
 
@@ -378,33 +377,6 @@ def remove_file(hash):
 
     db.session.delete(db_file)
     db.session.commit()
-
-
-def lookup_contract(token, file_hash):
-    """This function looks up a contract by token and file hash and returns
-    the database object of that contract.
-
-    :param token: the token string associated with this contract
-    :param file_hash: the file hash associated with this contract
-    :returns: the contract database object
-    """
-    db_token = Token.query.filter(Token.token == token).first()
-
-    if (db_token is None):
-        raise InvalidParameterError('Nonexistent token.')
-
-    db_file = File.query.filter(File.hash == file_hash).first()
-
-    if (db_file is None):
-        raise InvalidParameterError('Invalid file hash')
-
-    db_contract = Contract.query.filter(Contract.token_id == db_token.id,
-                                        Contract.file_id == db_file.id).first()
-
-    if (db_contract is None):
-        raise InvalidParameterError('Contract does not exist.')
-
-    return db_contract
 
 
 def update_contract(db_contract):

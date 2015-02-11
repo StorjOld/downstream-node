@@ -316,10 +316,8 @@ class TestDownstreamRoutes(unittest.TestCase):
         db_token = models.Token.query.filter(models.Token.token == r_token).first()
         beat = app.heartbeat
         
-        db_file = models.File.query.filter(models.File.hash == r_hash).first()
+        db_contract = models.Contract.query.filter(models.Contract.id == r_hash).first()
         
-        db_contract = models.Contract.query.filter(models.Contract.token_id == db_token.id,
-                                                   models.Contract.file_id == db_file.id).first()
         state = db_contract.state
         
         # verify proof
@@ -362,7 +360,7 @@ class TestDownstreamRoutes(unittest.TestCase):
             db_contract = list(node.get_chunk_contracts(db_token,self.test_size))[0]
         
         token = db_token.token
-        hash = db_contract.file.hash
+        hash = db_contract.id
     
         app.mongo_logger = mock.MagicMock()
         r = self.app.get('/challenge/{0}'.format(token))
@@ -376,7 +374,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         chal = app.config['HEARTBEAT'].challenge_type().fromdict(challenge['challenge'])
         
-        db_contract = node.lookup_contract(token, hash)
+        db_contract = models.Contract.query.filter(models.Contract.id == hash).first()
         
         self.assertEqual(chal,db_contract.challenge)
         self.assertAlmostEqual(challenge['due'],(db_contract.due-datetime.utcnow()).total_seconds(),delta=0.5)       
@@ -442,7 +440,7 @@ class TestDownstreamRoutes(unittest.TestCase):
         
         # test invalid proof
         # insert a new challenge
-        db_contract = node.lookup_contract(r_token, r_hash)
+        db_contract = models.Contract.query.filter(models.Contract.id == r_hash).first()
         
         node.contract_insert_next_challenge(db_contract)
         
@@ -934,7 +932,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(db_file.seed,self.test_seed)
         self.assertEqual(db_file.size,self.test_size)
         self.assertEqual(db_file.redundancy,3)
-        self.assertEqual(db_file.interval,60)
+        self.assertEqual(db_file.interval,300)
         
         db.session.delete(db_file)
         db.session.commit()
