@@ -295,6 +295,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=10):
                                answered=True)
 
         db.session.add(db_contract)
+        db.session.flush()
 
         if (not contract_insert_next_challenge(db_contract)):
             # we were not able to insert the next challenge
@@ -333,16 +334,19 @@ def add_file(seed, size, redundancy=3, interval=300):
     :returns: the file database object
     """
     # we don't want to generate the whole file
-    chunk_stream = RandomIO(seed, size)
+    #chunk_stream = RandomIO(seed, size)
 
     # first, hash the chunk to determine it's name
-    h = SHA256.new()
-    bufsz = 65535
+    #h = SHA256.new()
+    #bufsz = 65535
 
-    for c in iter(lambda: chunk_stream.read(bufsz), b''):
-        h.update(c)
+    #for c in iter(lambda: chunk_stream.read(bufsz), b''):
+    #    h.update(c)
 
-    hash = h.hexdigest()
+    #hash = h.hexdigest()
+    
+    # we'll cheat for speed an just give it a random name
+    hash = binascii.hexlify(os.urandom(16)).decode()
 
     db_file = File(hash=hash,
                    # no path since we're prototpying

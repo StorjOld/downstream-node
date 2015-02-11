@@ -285,7 +285,7 @@ def api_downstream_chunk_contract(token, size):
 
                 chunk = dict(seed=db_contract.file.seed,
                              size=db_contract.file.size,
-                             file_hash=db_contract.file.hash,
+                             file_hash=db_contract.id,
                              challenge=chal.todict(),
                              tag=tag.todict(),
                              due=(db_contract.due - datetime.utcnow()).
@@ -324,11 +324,11 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
             while (count < bufsz):
                 item = next(hash_iterable)
                 if (key is None):
-                    # item is hash
-                    hash = item
+                    # item is id
+                    id = int(item)
                 else:
-                    hash = item[key]
-                map[hash] = [None, item]
+                    id = int(item[key])
+                map[id] = [None, item]
                 count += 1
         except StopIteration:
             done = True
@@ -337,11 +337,11 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
             done = True
         if (count == 0):
             return
-        contracts = Contract.query.join(File).filter(
+        contracts = Contract.query.filter(
             and_(Contract.token_id == db_token.id,
-                 File.hash.in_(map.keys()))).all()
+                 Contract.id.in_(map.keys()))).all()
         for c in contracts:
-            map[c.file.hash][0] = c
+            map[c.id][0] = c
         for pair in map.values():
             yield pair
 
@@ -381,11 +381,11 @@ def api_downstream_chunk_contract_status(token):
             for db_contract in db_contracts:
                 if (db_contract is None):
                     challenge = dict(
-                        file_hash=hash, error='contract not found')
+                        file_hash=db_contract.id, error='contract not found')
                     yield challenge
                     continue
 
-                challenge = dict(file_hash=db_contract.file.hash)
+                challenge = dict(file_hash=db_contract.id)
 
                 try:
                     db_contract = update_contract(db_contract)
@@ -450,7 +450,7 @@ def api_downstream_challenge_answer(token):
                     yield r
                     continue
 
-                r = dict(file_hash=db_contract.file.hash)
+                r = dict(file_hash=db_contract.id)
 
                 try:
                     proof = beat.proof_type().fromdict(
