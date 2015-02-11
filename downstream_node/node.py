@@ -271,7 +271,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
 
     if (max_chunk_count is None):
         max_chunk_count = app.config['MAX_CHUNKS_PER_REQUEST']
-    
+
     while ((max_chunk_count == 0
             or contract_count < max_chunk_count)
            and total_size < size):
