@@ -4,9 +4,11 @@
 # Runs the development server of the downstream_node app.
 # Not for production use.
 
+import os
 import argparse
 import csv
 import time
+import base58
 from flask import Flask, jsonify
 from werkzeug.serving import run_simple
 from werkzeug.wsgi import DispatcherMiddleware
@@ -70,8 +72,31 @@ def generate_chunks(size, number=1):
         node.generate_test_file(size)
 
 
-def updatewhitelist(path):
-    with open(path,'r') as f:
+def updatewhitelist(arg):
+    if (not os.path.isfile(arg)):
+        # arg is not a file, see if it is an SJCX address
+        try:
+            base58.b58decode_check(arg)
+        except:
+            raise RuntimeError(
+                'Invalid address given: "{0}" is not a valid SJCX address '
+                'or path to whitelist file.'.format(arg))
+        s = Address.__table__.select().where(Address.address == arg)
+        result = db.engine.execute(s).first()
+        bal = app.config['MIN_SJCX_BALANCE']
+        if (result is not None):
+            if (result.crowdsale_balance <= bal):
+                db.engine.execute(Address.__table__.update().\
+                    where(Address.id == result.id).\
+                    values(crowdsale_balance = bal))
+            else:
+                print('{0} is already in the whitelist.'.format(arg))
+        else:
+            db.engine.execute(Address.__table__.insert().\
+                values(address=arg,
+                       crowdsale_balance=bal))
+        return
+    with open(arg,'r') as f:
         r = csv.reader(f)
         next(r)
         updated=list()
@@ -135,7 +160,10 @@ def parse_args():
         'in the db and exits from a whitelist csv file.  each row except'
         'the first should be in the format\n'
         '"address","crowdsale_balance",...\n'
-        'and the first row will be skipped.')
+        'and the first row will be skipped.  If argument is not a file name'
+        ' it will attempt to parse the argument as an SJCX address.'
+        'If successful, it will add that SJCX address to the in database'
+        'whitelist.')
     parser.add_argument('--generate-chunk', help='Generates a test chunk of'
         'specified size.', type=int)
     parser.add_argument('--maintain', help='Maintain available chunk capacity'

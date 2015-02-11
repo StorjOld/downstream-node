@@ -334,7 +334,7 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
             done = True
         except:
             print(traceback.format_exc())
-            return
+            done = True
         if (count == 0):
             return
         contracts = Contract.query.join(File).filter(
@@ -445,9 +445,10 @@ def api_downstream_challenge_answer(token):
         def get_verification_reports():
             for (db_contract, item) in pair_iterator:
                 if (db_contract is None):
-                    r = dict(file_hash=hash,
+                    r = dict(file_hash=item['file_hash'],
                              error='contract not found')
                     yield r
+                    continue
 
                 r = dict(file_hash=db_contract.file.hash)
 
