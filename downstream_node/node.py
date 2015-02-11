@@ -334,7 +334,7 @@ def add_file(seed, size, redundancy=3, interval=None):
     """
     if (interval is None):
         interval = app.config['DEFAULT_INTERVAL']
-    
+
     # we don't want to generate the whole file
     # chunk_stream = RandomIO(seed, size)
 
