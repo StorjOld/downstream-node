@@ -235,7 +235,7 @@ def prepare_contract(db_file):
     return db_chunk
 
 
-def get_chunk_contracts(db_token, size, max_chunk_count=0):
+def get_chunk_contracts(db_token, size, max_chunk_count=10):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -321,7 +321,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=0):
 
 
 # def add_file(chunk_path, redundancy=3, interval=60):
-def add_file(seed, size, redundancy=3, interval=60):
+def add_file(seed, size, redundancy=3, interval=300):
     """This function adds a file to the database to be tracked by the
     application.
 
