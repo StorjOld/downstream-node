@@ -305,7 +305,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
                                answered=True)
 
         db.session.add(db_contract)
-        
+
         # remove the chunk from the database since it has now been used.
         db.session.delete(db_chunk)
         # flush the session so we have a contract ID to work with
@@ -323,7 +323,6 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
                   'state objects.  Please regenerate any chunks '
                   'in the database.')
             break
-
 
         yield db_contract
 

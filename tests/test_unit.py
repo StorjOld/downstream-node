@@ -37,13 +37,17 @@ class TestStartup(unittest.TestCase):
         test_file = 'test_heartbeat'
         with open(test_file, 'wb') as f:
             pickle.dump(app.heartbeat, f)
-        beat = load_heartbeat(None, test_file)
+        beat = load_heartbeat(None,
+                              test_file,
+                              app.config['HEARTBEAT_CHECK_FRACTION'])
         self.assertEqual(beat, app.heartbeat)
         os.remove(test_file)
     
     def test_load_heartbeat_construct(self):
         test_file = 'test_heartbeat'
-        beat = load_heartbeat(app.config['HEARTBEAT'], test_file)
+        beat = load_heartbeat(app.config['HEARTBEAT'],
+                              test_file,
+                              app.config['HEARTBEAT_CHECK_FRACTION'])
         self.assertIsInstance(beat, app.config['HEARTBEAT'])
         with open(test_file, 'rb') as f:
             loaded_beat = pickle.load(f)
@@ -932,7 +936,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(db_file.seed,self.test_seed)
         self.assertEqual(db_file.size,self.test_size)
         self.assertEqual(db_file.redundancy,3)
-        self.assertEqual(db_file.interval,300)
+        self.assertEqual(db_file.interval,app.config['DEFAULT_INTERVAL'])
         
         db.session.delete(db_file)
         db.session.commit()

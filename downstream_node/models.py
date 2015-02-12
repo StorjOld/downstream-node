@@ -162,7 +162,6 @@ class Chunk(db.Model):
                                               cascade='all, delete-orphan'))
 
 
-
 class Contract(db.Model):
     __tablename__ = 'contracts'
 
@@ -192,7 +191,7 @@ class Contract(db.Model):
     __table_args__ = (
         db.Index('ix_contracts_token_id_file_id', 'token_id', 'file_id'),
         db.Index('ix_contracts_token_id_cached', 'token_id', 'cached'),
-        db.Index('ix_contracts_token_id_id', 'token_id', 'id') )
+        db.Index('ix_contracts_token_id_id', 'token_id', 'id'))
 
     @hybrid_property
     def expiration(self):

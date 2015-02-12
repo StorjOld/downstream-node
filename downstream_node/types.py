@@ -85,12 +85,13 @@ class MutableTypeWrapper(Mutable):
 
 
 class MutableTypeUnwrapper(object):
+
     def __init__(self, mutable_object):
         self.mutable_object = mutable_object
-    
+
     def __enter__(self):
         self.mutable_object._snapshot_update()
         return self.mutable_object._underlying_object
-    
+
     def __exit__(self, type, value, traceback):
         self.mutable_object._notify_if_changed()
