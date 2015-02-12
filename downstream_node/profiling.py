@@ -1,7 +1,6 @@
 from flask import request, g, render_template
 from line_profiler import LineProfiler
 import inspect
-import pymongo
 
 import linecache
 import pygments
@@ -74,7 +73,7 @@ def finish_profiling(exception=None):
              'functions': functions,
              'lines': lines,
              'unit': stats.unit},
-             upsert=True)
+            upsert=True)
 
 
 def get_function_source_hits(logged_function, line_hits, unit):
@@ -113,11 +112,12 @@ def profiling_profile(path):
         for i in range(0, len(p['functions'])):
             if any([len(l) > 0 for l in p['lines'][i]]):
                 lines = get_function_source_hits(p['functions'][i],
-                                                   p['lines'][i],
-                                                   p['unit'])
-                source_html = pygments.highlight('\n'.join([i[0] for i in lines]),
-                                                 lexer,
-                                                 formatter)
+                                                 p['lines'][i],
+                                                 p['unit'])
+                source_html = pygments.highlight(
+                    '\n'.join([i[0] for i in lines]),
+                    lexer,
+                    formatter)
                 timings = [(i[1], i[2]) for i in lines]
                 function = dict(
                     name=p['functions'][i][2],
@@ -126,6 +126,9 @@ def profiling_profile(path):
                     timings=timings)
                 request['functions'].append(function)
 
-        return render_template('profile.html', path=path, request=request, style=style)
+        return render_template('profile.html',
+                               path=path,
+                               request=request,
+                               style=style)
     else:
         return 'Profiling disabled.  Sorry!'

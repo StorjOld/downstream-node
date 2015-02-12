@@ -278,7 +278,7 @@ def api_downstream_chunk_contract(token, size):
                 with open(db_contract.tag_path, 'rb') as f:
                     tag = pickle.load(f)
                 chal = db_contract.challenge
-                
+
                 db.session.flush()
                 # we now delete the tag since it has been sent
                 # (we never actually create the file)
@@ -458,7 +458,8 @@ def get_verification_reports(pair_iterator, beat):
         yield r
 
     db.session.commit()
-    
+
+
 @app.route('/answer/<token>', methods=['POST'])
 def api_downstream_challenge_answer(token):
     with HttpHandler(app.mongo_logger) as handler:
