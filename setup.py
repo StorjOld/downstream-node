@@ -22,7 +22,7 @@ install_requires = [
 
 dependencies = [
     'https://github.com/Storj/heartbeat/tarball/master#egg=storj-heartbeat-0.1.10',
-    'https://github.com/Storj/RandomIO/tarball/master#egg=RandomIO-0.2.0',
+    'https://github.com/Storj/RandomIO/tarball/master#egg=RandomIO-0.2.1',
     'https://github.com/Storj/siggy/tarball/master#egg=siggy-0.1.0'
 ]
 
