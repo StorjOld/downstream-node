@@ -115,10 +115,10 @@ def profiling_profile(path):
                                                  p['lines'][i],
                                                  p['unit'])
                 source_html = pygments.highlight(
-                    '\n'.join([i[0].rstrip() for i in lines]),
+                    '\n'.join([j[0].rstrip() for j in lines]),
                     lexer,
                     formatter)
-                timings = [(i[1], i[2]) for i in lines]
+                timings = [(j[1], j[2]) for j in lines]
                 function = dict(
                     name=p['functions'][i][2],
                     filename=p['functions'][i][0],
