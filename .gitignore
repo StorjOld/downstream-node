@@ -41,6 +41,7 @@ coverage.xml
 
 # Data directory
 data/
+tags/*
 
 # Config file
 downstream_node/config.py

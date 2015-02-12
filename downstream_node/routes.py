@@ -278,7 +278,8 @@ def api_downstream_chunk_contract(token, size):
                 with open(db_contract.tag_path, 'rb') as f:
                     tag = pickle.load(f)
                 chal = db_contract.challenge
-
+                
+                db.session.flush()
                 # we now delete the tag since it has been sent
                 # (we never actually create the file)
                 os.remove(db_contract.tag_path)
@@ -346,6 +347,38 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
             yield pair
 
 
+def get_challenges(contract_iterator):
+    for db_contract in contract_iterator:
+        if (db_contract is None):
+            challenge = dict(
+                file_hash=db_contract.id, error='contract not found')
+            yield challenge
+            continue
+
+        challenge = dict(file_hash=db_contract.id)
+
+        try:
+            db_contract = update_contract(db_contract)
+        except InvalidParameterError:
+            challenge['error'] = 'contract expired'
+            yield challenge
+            continue
+
+        if (db_contract is None):
+            challenge['status'] = 'no more challenges'
+            yield challenge
+            continue
+
+        challenge['challenge'] = db_contract.challenge.todict()
+        challenge['due'] = (db_contract.due - datetime.utcnow())\
+            .total_seconds()
+        challenge['answered'] = db_contract.answered
+
+        yield challenge
+
+    db.session.commit()
+
+
 @app.route('/challenge/<token>', methods=['GET', 'POST'])
 def api_downstream_chunk_contract_status(token):
     """For prototyping, this will generate a new challenge,
@@ -372,48 +405,17 @@ def api_downstream_chunk_contract_status(token):
                 for pair in get_contract_iter(hash_iterable, db_token):
                     yield pair[0]
 
-            db_contracts = get_contracts()
+            contract_iterator = get_contracts()
         else:
-            db_contracts = Contract.query.filter(
+            contract_iterator = Contract.query.filter(
                 Contract.token_id == db_token.id).all()
-
-        def get_challenges():
-            for db_contract in db_contracts:
-                if (db_contract is None):
-                    challenge = dict(
-                        file_hash=db_contract.id, error='contract not found')
-                    yield challenge
-                    continue
-
-                challenge = dict(file_hash=db_contract.id)
-
-                try:
-                    db_contract = update_contract(db_contract)
-                except InvalidParameterError:
-                    challenge['error'] = 'contract expired'
-                    yield challenge
-                    continue
-
-                if (db_contract is None):
-                    challenge['status'] = 'no more challenges'
-                    yield challenge
-                    continue
-
-                challenge['challenge'] = db_contract.challenge.todict()
-                challenge['due'] = (db_contract.due - datetime.utcnow())\
-                    .total_seconds()
-                challenge['answered'] = db_contract.answered
-
-                yield challenge
-
-            db.session.commit()
 
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('challenge',
                                        {'context': handler.context,
                                         'response': 'REDACTED (streaming)'})
 
-        response = dict(challenges=get_challenges())
+        response = dict(challenges=get_challenges(contract_iterator))
 
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),
@@ -422,6 +424,41 @@ def api_downstream_chunk_contract_status(token):
     return handler.response
 
 
+def get_verification_reports(pair_iterator, beat):
+    for (db_contract, item) in pair_iterator:
+        if (db_contract is None):
+            r = dict(file_hash=item['file_hash'],
+                     error='contract not found')
+            yield r
+            continue
+
+        r = dict(file_hash=db_contract.id)
+
+        try:
+            proof = beat.proof_type().fromdict(
+                item['proof'])
+        except:
+            r['error'] = 'Proof corrupted'
+            yield r
+            continue
+
+        try:
+            if (not verify_proof(db_contract,
+                                 proof,
+                                 datetime.utcnow())):
+                r['error'] = 'Invalid proof'
+                yield r
+                continue
+        except InvalidParameterError as ex:
+            r['error'] = str(ex)
+            yield r
+            continue
+
+        r['status'] = 'ok'
+        yield r
+
+    db.session.commit()
+    
 @app.route('/answer/<token>', methods=['POST'])
 def api_downstream_challenge_answer(token):
     with HttpHandler(app.mongo_logger) as handler:
@@ -442,47 +479,12 @@ def api_downstream_challenge_answer(token):
         pair_iterator = get_contract_iter(
             hash_iterable, db_token, key='file_hash')
 
-        def get_verification_reports():
-            for (db_contract, item) in pair_iterator:
-                if (db_contract is None):
-                    r = dict(file_hash=item['file_hash'],
-                             error='contract not found')
-                    yield r
-                    continue
-
-                r = dict(file_hash=db_contract.id)
-
-                try:
-                    proof = beat.proof_type().fromdict(
-                        item['proof'])
-                except:
-                    r['error'] = 'Proof corrupted'
-                    yield r
-                    continue
-
-                try:
-                    if (not verify_proof(db_contract,
-                                         proof,
-                                         datetime.utcnow())):
-                        r['error'] = 'Invalid proof'
-                        yield r
-                        continue
-                except InvalidParameterError as ex:
-                    r['error'] = str(ex)
-                    yield r
-                    continue
-
-                r['status'] = 'ok'
-                yield r
-
-            db.session.commit()
-
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('answer',
                                        {'context': handler.context,
                                         'response': 'REDACTED (streaming)'})
 
-        response = dict(report=get_verification_reports())
+        response = dict(report=get_verification_reports(pair_iterator, beat))
 
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),

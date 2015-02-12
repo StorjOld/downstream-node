@@ -10,9 +10,9 @@ from .startup import app
 from . import node, routes, utils
 
 
-def get_module_function_info(module):
+def get_object_function_info(object):
     functions = list()
-    for item in inspect.getmembers(module, inspect.isfunction):
+    for item in inspect.getmembers(object, inspect.isfunction):
         # print('Inspecting member {0}'.format(item))
         try:
             functions.append(item[1])
@@ -26,7 +26,7 @@ def collect_module_functions(modules):
     functions = list()
     for m in modules:
         # print('Inspecting {0}'.format(m))
-        functions.extend(get_module_function_info(m))
+        functions.extend(get_object_function_info(m))
     return functions
 
 
@@ -40,6 +40,7 @@ def start_profiling():
             for f in function_info:
                 # print('Adding profile framework for function {0}'.format(f))
                 g.profiler.add_function(f)
+            app.mongo_logger.db.profiling.create_index('path', unique=True)
         g.profiler.enable()
 
 
@@ -64,11 +65,13 @@ def finish_profiling(exception=None):
         functions = list(stats.timings.keys())
         lines = list(stats.timings.values())
 
-        app.mongo_logger.db.profiling.insert(
+        app.mongo_logger.db.profiling.update(
+            {'path': request.path},
             {'path': request.path,
              'functions': functions,
              'lines': lines,
-             'unit': stats.unit})
+             'unit': stats.unit},
+             upsert=True)
 
 
 def get_function_source_hits(logged_function, line_hits, unit):
@@ -97,24 +100,20 @@ def get_function_source_hits(logged_function, line_hits, unit):
 def profiling_profile(path):
     if (app.config['PROFILE'] and app.mongo_logger is not None):
         mod_path = '/' + path
-        requests = list()
         print('Showing profile for route: {0}'.format(mod_path))
-        for p in app.mongo_logger.db.profiling\
-                .find({'path': mod_path}).limit(1)\
-                .sort('_id', pymongo.DESCENDING):
-            request = dict(path=p['path'],
-                           functions=list())
-            for i in range(0, len(p['functions'])):
-                if any([len(l) > 0 for l in p['lines'][i]]):
-                    function = dict(
-                        name=p['functions'][i][2],
-                        filename=p['functions'][i][0],
-                        lines=get_function_source_hits(p['functions'][i],
-                                                       p['lines'][i],
-                                                       p['unit']))
-                    request['functions'].append(function)
-            requests.append(request)
+        p = app.mongo_logger.db.profiling.find_one({'path': mod_path})
+        request = dict(path=p['path'],
+                       functions=list())
+        for i in range(0, len(p['functions'])):
+            if any([len(l) > 0 for l in p['lines'][i]]):
+                function = dict(
+                    name=p['functions'][i][2],
+                    filename=p['functions'][i][0],
+                    lines=get_function_source_hits(p['functions'][i],
+                                                   p['lines'][i],
+                                                   p['unit']))
+                request['functions'].append(function)
 
-        return render_template('profile.html', path=path, requests=requests)
+        return render_template('profile.html', path=path, request=request)
     else:
         return 'Profiling disabled.  Sorry!'

@@ -273,7 +273,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
 
     # pick the best candidate
     # file = candidates[0]
-
+    
     contract_count = 0
     total_size = 0
 
@@ -308,8 +308,6 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
 
         # remove the chunk from the database since it has now been used.
         db.session.delete(db_chunk)
-        # flush the session so we have a contract ID to work with
-        db.session.flush()
 
         if (not contract_insert_next_challenge(db_contract)):
             # we were not able to insert the next challenge
@@ -330,6 +328,7 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
         contract_count += 1
 
     db.session.commit()
+        
 
 
 # def add_file(chunk_path, redundancy=3, interval=60):
