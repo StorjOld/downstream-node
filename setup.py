@@ -9,7 +9,7 @@ install_requires = [
     'pymysql',
     'flask-sqlalchemy',
     'flask',
-    'RandomIO>=0.2.0',
+    'RandomIO>=0.2.1',
     'storj-heartbeat>=0.1.10',
     'base58',
     'maxminddb',
