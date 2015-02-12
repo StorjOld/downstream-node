@@ -71,6 +71,12 @@ def generate_chunks(size, number=1):
     for i in range(0,number):
         node.generate_test_file(size)
 
+def clear_chunks():
+    s = Chunk.__table__.delete()
+    
+    db.engine.execute(s)
+    
+    cleandb()
 
 def updatewhitelist(arg):
     if (not os.path.isfile(arg)):
@@ -134,6 +140,8 @@ def eval_args(args):
         initdb()
     elif args.cleandb:
         cleandb()
+    elif args.clearchunks:
+        clear_chunks()
     elif (args.whitelist is not None):
         updatewhitelist(args.whitelist)
     elif (args.generate_chunk is not None):
@@ -169,6 +177,8 @@ def parse_args():
     parser.add_argument('--maintain', help='Maintain available chunk capacity'
         'Specify three values (min chunk size, max chunk size, total pre-gen '
         'size)', nargs=3)
+    parser.add_argument('--clearchunks', help='Removes all chunks from '
+                        ' the database', action='store_true')
     return parser.parse_args()
 
 

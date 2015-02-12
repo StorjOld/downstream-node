@@ -1,0 +1,2 @@
+# ignore local config... copy config from config.template.py
+config.py

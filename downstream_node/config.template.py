@@ -22,7 +22,7 @@ MMDB_PATH = 'data/GeoLite2-City.mmdb'
 HEARTBEAT = heartbeat.Merkle.Merkle
 HEARTBEAT_PATH = 'data/heartbeat'
 
-MONGO_LOGGING = True
+MONGO_LOGGING = False
 MONGO_URI = 'mongodb://localhost/dsnode_log'
 PROFILE = False
 
@@ -33,3 +33,7 @@ MAX_SIG_MESSAGE_SIZE = 1024
 REQUIRE_SIGNATURE = True
 DEFAULT_INTERVAL = 300
 MAX_CHUNKS_PER_REQUEST = 100
+
+# changing this requires deleting the data/heartbeat file
+# and rebuilding the chunk database
+HEARTBEAT_CHECK_FRACTION = 0.01

@@ -14,13 +14,13 @@ app.config.from_object(config)
 db = SQLAlchemy(app)
 
 
-def load_heartbeat(constructor, path):
+def load_heartbeat(constructor, path, check_fraction):
     # we shall save the app wide heartbeat into a binary file
     if (os.path.isfile(path)):
         with open(path, 'rb') as f:
             return pickle.load(f)
     else:
-        beat = constructor()
+        beat = constructor(check_fraction)
         with open(path, 'wb') as f:
             pickle.dump(beat, f)
         return beat
@@ -33,7 +33,9 @@ def load_logger(log, uri, server_alias):
         return None
 
 app.heartbeat = load_heartbeat(
-    app.config['HEARTBEAT'], app.config['HEARTBEAT_PATH'])
+    app.config['HEARTBEAT'],
+    app.config['HEARTBEAT_PATH'],
+    app.config['HEARTBEAT_CHECK_FRACTION'])
 
 app.mongo_logger = load_logger(app.config['MONGO_LOGGING'],
                                app.config['MONGO_URI'],

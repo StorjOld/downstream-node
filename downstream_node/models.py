@@ -22,7 +22,7 @@ class File(db.Model):
     added = db.Column(db.DateTime(), nullable=False)
     # for prototyping we will have file seed and size here
     seed = db.Column(db.String(128))
-    size = db.Column(db.Integer())
+    size = db.Column(db.Integer(), index=True)
 
 
 class Address(db.Model):
@@ -152,7 +152,7 @@ class Chunk(db.Model):
     __tablename__ = 'chunks'
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    file_id = db.Column(db.ForeignKey('files.id'))
+    file_id = db.Column(db.ForeignKey('files.id'), index=True)
     state = db.Column(db.PickleType(), nullable=False)
     tag_path = db.Column(db.String(128), unique=True)
 
@@ -160,6 +160,7 @@ class Chunk(db.Model):
                            backref=db.backref('chunks',
                                               lazy='dynamic',
                                               cascade='all, delete-orphan'))
+
 
 
 class Contract(db.Model):
@@ -190,7 +191,8 @@ class Contract(db.Model):
 
     __table_args__ = (
         db.Index('ix_contracts_token_id_file_id', 'token_id', 'file_id'),
-        db.Index('ix_contracts_token_id_cached', 'token_id', 'cached'))
+        db.Index('ix_contracts_token_id_cached', 'token_id', 'cached'),
+        db.Index('ix_contracts_token_id_id', 'token_id', 'id') )
 
     @hybrid_property
     def expiration(self):

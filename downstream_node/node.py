@@ -5,6 +5,7 @@ import pickle
 import binascii
 import maxminddb
 import base58
+import traceback
 
 from datetime import datetime
 from Crypto.Hash import SHA256
@@ -15,6 +16,7 @@ from heartbeat import HeartbeatError
 from .startup import db, app
 from .models import Address, Token, File, Contract, Chunk
 from .exc import InvalidParameterError
+from .types import MutableTypeUnwrapper
 
 __all__ = ['create_token',
            'delete_token',
@@ -108,9 +110,15 @@ def contract_insert_next_challenge(db_contract):
     beat = app.heartbeat
 
     try:
-        chal = beat.gen_challenge(db_contract.state)
+        # this is to ensure that we get the actual state,
+        # and that it is modified in the db if appropriate
+        with MutableTypeUnwrapper(db_contract.state) as state:
+            chal = beat.gen_challenge(state)
     except HeartbeatError as ex:
         print(ex)
+        return False
+    except:
+        traceback.print_exc()
         return False
 
     db_contract.challenge = chal
@@ -297,6 +305,10 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
                                answered=True)
 
         db.session.add(db_contract)
+        
+        # remove the chunk from the database since it has now been used.
+        db.session.delete(db_chunk)
+        # flush the session so we have a contract ID to work with
         db.session.flush()
 
         if (not contract_insert_next_challenge(db_contract)):
@@ -312,8 +324,6 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
                   'in the database.')
             break
 
-        # remove the chunk from the database since it has now been used.
-        db.session.delete(db_chunk)
 
         yield db_contract
 
@@ -426,11 +436,13 @@ def verify_proof(db_contract, proof, received):
         raise InvalidParameterError('Answer failed: contract expired.')
 
     beat = app.heartbeat
-    state = db_contract.state
     chal = db_contract.challenge
 
     if (not db_contract.answered):
-        valid = beat.verify(proof, chal, state)
+        # this is a massive pain with sqlalchemy the way it is...
+        # it does not play well with c++ python objects.
+        with MutableTypeUnwrapper(db_contract.state) as state:
+            valid = beat.verify(proof, chal, state)
     else:
         raise InvalidParameterError('Challenge already answered.')
 
