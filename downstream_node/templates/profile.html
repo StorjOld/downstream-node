@@ -4,19 +4,39 @@
 <meta charset="UTF-8">
 <title>{{ path }}</title>
 <style>
-.linestats {
-	border-collapse: collapse;
-	border-spacing: 0;
-	margin: 0;
+.request {
+	clear: both;
 }
-pre {
-	margin: 0;
+.function {
+	clear: both;
+}
+.name {
+	float: left;
 }
 .stats {
-	font-family: courier new;
-	font-size: 10pt;
+	font-family: monospace;
 	padding-right: 10px;
+	margin: 0;
 }
+.source {
+	clear: both;
+	float: left;
+}
+.lines {
+	font-family: monospace;
+	float: left;
+	margin: 1em 0;
+}
+.timings {
+	border-spacing: 0;
+}
+td {
+	padding: 0;
+	margin: 0;
+}
+{% autoescape false %}
+{{ style }}
+{% endautoescape %}
 </style>
 </head>
 
@@ -24,20 +44,25 @@ pre {
 <div class="request">
 {% for function in request.functions %}
 	<div class="function">
-	<span>From {{ function.filename }}</span>
-	<table class="linestats">
-	<tr><th>Source Line</th><th>hits</th><th>time</th></tr>
-	{% for line in function.lines %}
+	<span class="name">From {{ function.filename }}</span>
+	<div class="source">
+	{% autoescape false %}
+	{{ function.source }}
+	{% endautoescape %}
+	</div>
+	<div class="lines">
+	<table class="timings">
+		{% for timing in function.timings %}
 		<tr>
-		<td class="source" {% if not line[1] or not line[2] %}colspan="2"{% endif %}>
-		<pre><code>{{ line[0] }}</code></pre>
-		</td>
-		{% if line[1] and line[2] %}
-		<td class="stats">{{ line[1] }}</td><td class="stats">{{ line[2] }}</td>
+		{% if timing[0] and timing[1] %}
+		<td class="stats">{{ timing[0] }}</td><td class="stats">{{ timing[1] }}</td>
+		{% else %}
+		<td class="stats" colspan="2">&nbsp;</td>
 		{% endif %}
 		</tr>
-	{% endfor %}
+		{% endfor %}
 	</table>
+	</div>
 	</div>
 {% endfor %}
 </div>
