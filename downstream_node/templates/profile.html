@@ -4,14 +4,33 @@
 <meta charset="UTF-8">
 <title>{{ path }}</title>
 <style>
+body {
+	background-color: #44AAFF;
+}
 .request {
 	clear: both;
 }
-.function {
+.function, .path {
 	clear: both;
+	background-color: white;
+	padding: 10px;
+	border-radius: 2px;
+	margin: 10px;
+	width: 900px;
 }
-.name {
+.path_name {
+	font-family: monospace;
+	padding: 4px;
+	font-weight: bold;
+}
+.function_name {
 	float: left;
+	background-color: #003366;
+	color: white;
+	font-family: monospace;
+	padding: 4px;
+	border: 1px #ffdd00;
+	border-radius: 2px;
 }
 .stats {
 	font-family: monospace;
@@ -21,6 +40,8 @@
 .source {
 	clear: both;
 	float: left;
+	width: 600px;
+	padding-left: 20px;
 }
 .lines {
 	font-family: monospace;
@@ -29,6 +50,9 @@
 }
 .timings {
 	border-spacing: 0;
+}
+.end {
+	clear: both;
 }
 td {
 	padding: 0;
@@ -42,9 +66,13 @@ td {
 
 <body>
 <div class="request">
+<div class="path">
+<span class="path_name">/{{ path }}</span>
+</div>
 {% for function in request.functions %}
+	{% if function.timings|count > 1 %}
 	<div class="function">
-	<span class="name">From {{ function.filename }}</span>
+	<span class="function_name">From {{ function.filename }}:</span>
 	<div class="source">
 	{% autoescape false %}
 	{{ function.source }}
@@ -63,7 +91,9 @@ td {
 		{% endfor %}
 	</table>
 	</div>
+	<div class="end">&nbsp;</div>
 	</div>
+	{% endif %}
 {% endfor %}
 </div>
 </body>

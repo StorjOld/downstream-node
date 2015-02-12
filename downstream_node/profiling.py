@@ -115,7 +115,7 @@ def profiling_profile(path):
                                                  p['lines'][i],
                                                  p['unit'])
                 source_html = pygments.highlight(
-                    '\n'.join([i[0] for i in lines]),
+                    '\n'.join([i[0].rstrip() for i in lines]),
                     lexer,
                     formatter)
                 timings = [(i[1], i[2]) for i in lines]
