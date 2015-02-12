@@ -158,7 +158,7 @@ class Chunk(db.Model):
 
     file = db.relationship('File',
                            backref=db.backref('chunks',
-                                              lazy='dynamic',
+                                              lazy='joined',
                                               cascade='all, delete-orphan'))
 
 
