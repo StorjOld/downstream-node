@@ -23,6 +23,11 @@ body {
 	padding: 4px;
 	font-weight: bold;
 }
+.last_access {
+	font-weight: normal;
+	font-family: monospace;
+	padding: 4px 0px 4px 30px;
+}
 .function_name {
 	float: left;
 	background-color: #003366;
@@ -30,6 +35,11 @@ body {
 	font-family: monospace;
 	padding: 4px;
 	border-radius: 2px;
+}
+.last_mod {
+	font-family: monospace;
+	float: left;
+	padding: 4px 0px 4px 30px;
 }
 .stats {
 	font-family: monospace;
@@ -54,10 +64,6 @@ body {
 .end {
 	clear: both;
 }
-td {
-	padding: 0;
-	margin: 0;
-}
 {% autoescape false %}
 {{ style }}
 {% endautoescape %}
@@ -67,11 +73,11 @@ td {
 <body>
 <div class="request">
 <div class="path">
-<span class="path_name">/{{ path }}</span>
+<span class="path_name">/{{ path }}</span>{% if request.time %}<span class="last_access">(Last accessed: {{ request.time.isoformat() }})</span>{% endif %}
 </div>
 {% for function in request.functions %}
 	<div class="function">
-	<span class="function_name">From {{ function.filename }}:</span>
+	<span class="function_name">From {{ function.filename }}: </span><span class="last_mod">(Last Mod: {{ function.mod.isoformat() }})</span>
 	<div class="source">
 {% for line in function.timed_lines %}{% autoescape false %}{{ line[0] }}{% endautoescape %}{% if line[1][0] and line[1][1] %}<span class="stats, count">{{ line[1][0] }}</span><span class="stats, time">{{ line[1][1] }}</span>{% endif %}
 {% endfor %}

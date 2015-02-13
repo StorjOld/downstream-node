@@ -346,11 +346,11 @@ def get_contract_iter(hash_iterable, key=None, bufsz=100):
 
 
 def get_challenges(contract_iterator, token_id):
-    for db_contract in contract_iterator:
+    for (db_contract, item) in contract_iterator:
         if (db_contract is None
                 or db_contract.token_id != token_id):
             challenge = dict(
-                file_hash=db_contract.id, error='contract not found')
+                file_hash=item, error='contract not found')
             yield challenge
             continue
 
@@ -400,11 +400,7 @@ def api_downstream_chunk_contract_status(token):
             # try to stream POST data
             hash_iterable = ijson.items(request.stream, 'hashes.item')
 
-            def get_contracts():
-                for pair in get_contract_iter(hash_iterable):
-                    yield pair[0]
-
-            contract_iterator = get_contracts()
+            contract_iterator = get_contract_iter(hash_iterable)
         else:
             contract_iterator = Contract.query.filter(
                 Contract.token_id == db_token.id).all()

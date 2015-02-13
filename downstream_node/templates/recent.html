@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{{ path }}</title>
+<style>
+body {
+	background-color: #44AAFF;
+}
+.requests {
+	clear: both;
+	display: inline-block;
+}
+.list {
+	background-color: white;
+	border-radius: 2px;
+	padding: 40px;
+}
+.path_name {
+	font-family: monospace;
+	padding: 4px;
+	font-weight: bold;
+}
+.time {
+	font-family: monospace;
+}
+li {
+	list-style-type: none;
+}
+{% autoescape false %}
+{{ style }}
+{% endautoescape %}
+</style>
+</head>
+
+<body>
+<div class="requests">
+<ul class="list">
+{% for path in paths %}
+<li>{% if path.time %}<span class="time">{{ path.time }}</span>{% endif %}<span class="path_name"><a href="{{ path.link }}">/{{ path.name }}</a></span></li>
+{% endfor %}
+</ul>
+</div>
+</body>
+
+</html>
