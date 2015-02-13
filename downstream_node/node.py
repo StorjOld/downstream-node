@@ -217,7 +217,7 @@ def prepare_contract(db_file):
 
     chunk_stream = RandomIO(db_file.seed, db_file.size)
 
-    (tag, state) = beat.encode(chunk_stream)
+    (tag, state) = beat.encode(chunk_stream, filesz=db_file.size)
 
     bin_tag = pickle.dumps(tag, pickle.HIGHEST_PROTOCOL)
 
