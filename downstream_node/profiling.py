@@ -82,11 +82,11 @@ def get_function_source_hits(logged_function, line_hits, unit):
     line_dict = {l[0]: l for l in line_hits}
     start_line = min(line_dict.keys())
     end_line = max(line_dict.keys())
-    for lineno in range(logged_function[1], min(line_dict.keys())):
+    for lineno in range(logged_function[1], start_line):
         function_def = linecache.getline(filename, lineno)
         source_hits.append((function_def.rstrip(), None, None))
 
-    for hit in range(start_line, end_line):
+    for hit in range(start_line, end_line+1):
         source_line = linecache.getline(filename, hit)
         if (hit in line_dict):
             source_hits.append(
@@ -94,7 +94,7 @@ def get_function_source_hits(logged_function, line_hits, unit):
                  line_dict[hit][1],
                  float(line_dict[hit][2]) * float(unit)))
         else:
-            source_hits.append((source_line, None, None))
+            source_hits.append((source_line.rstrip(), None, None))
     return source_hits
 
 
@@ -115,7 +115,7 @@ def profiling_profile(path):
                                                  p['lines'][i],
                                                  p['unit'])
                 source_html = pygments.highlight(
-                    '\n'.join([j[0].rstrip() for j in lines]),
+                    '\n'.join([j[0] for j in lines]),
                     lexer,
                     formatter)
                 timings = [(j[1], j[2]) for j in lines]
