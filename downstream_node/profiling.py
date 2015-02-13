@@ -12,7 +12,7 @@ import datetime
 
 from .startup import app
 
-from . import node, routes, utils
+from . import node, routes, utils, models
 
 
 def get_object_function_info(object):
@@ -41,7 +41,8 @@ def start_profiling():
         if (not hasattr(g, 'profiler') or g.profiler is None):
             setattr(g, 'profiler', LineProfiler())
             # print('Collecting function info')
-            function_info = collect_module_functions([node, routes, utils])
+            function_info = collect_module_functions(
+                [node, routes, utils, models])
             for f in function_info:
                 # print('Adding profile framework for function {0}'.format(f))
                 g.profiler.add_function(f)
@@ -104,19 +105,23 @@ def get_function_source_hits(logged_function, line_hits, unit):
             source_hits.append((source_line.rstrip(), None, None))
     return (source_hits, mod)
 
+
 @app.route('/profile/')
 def profiling_recent():
     if (app.config['PROFILE'] and app.mongo_logger is not None):
-        db_paths = app.mongo_logger.db.profiling.find().sort('time', pymongo.DESCENDING).limit(20)
+        db_paths = app.mongo_logger.db.profiling.find().sort(
+            'time', pymongo.DESCENDING).limit(20)
         paths = [{'name': p['path'].strip('/'),
-                  'link': url_for('profiling_profile', path=p['path'].strip('/')),
+                  'link': url_for('profiling_profile',
+                                  path=p['path'].strip('/')),
                   'time': p['time'] if 'time' in p else None}
                  for p in db_paths]
         return render_template('recent.html',
                                paths=paths)
     else:
         return 'Profiling is disabled.'
-    
+
+
 @app.route('/profile/<path:path>')
 def profiling_profile(path):
     try:
@@ -167,4 +172,3 @@ def profiling_profile(path):
             return 'Profiling disabled.  Sorry!'
     except:
         return Response(traceback.format_exc(), mimetype='text/plain')
-

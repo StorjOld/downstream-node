@@ -345,8 +345,8 @@ def get_contract_iter(hash_iterable, key=None, bufsz=100):
             yield pair
 
 
-def get_challenges(contract_iterator, token_id):
-    for (db_contract, item) in contract_iterator:
+def get_challenges(pair_iterator, token_id):
+    for (db_contract, item) in pair_iterator:
         if (db_contract is None
                 or db_contract.token_id != token_id):
             challenge = dict(
@@ -400,10 +400,15 @@ def api_downstream_chunk_contract_status(token):
             # try to stream POST data
             hash_iterable = ijson.items(request.stream, 'hashes.item')
 
-            contract_iterator = get_contract_iter(hash_iterable)
+            pair_iterator = get_contract_iter(hash_iterable)
         else:
-            contract_iterator = Contract.query.filter(
-                Contract.token_id == db_token.id).all()
+            def get_all():
+                contracts = Contract.query.filter(
+                    Contract.token_id == db_token.id).all()
+                for c in contracts:
+                    yield (c, c.id)
+
+            pair_iterator = get_all()
 
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('challenge',
@@ -411,7 +416,7 @@ def api_downstream_chunk_contract_status(token):
                                         'response': 'REDACTED (streaming)'})
 
         response = dict(
-            challenges=get_challenges(contract_iterator, db_token.id))
+            challenges=get_challenges(pair_iterator, db_token.id))
 
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),
