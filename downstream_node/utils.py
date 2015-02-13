@@ -93,8 +93,12 @@ class MonopolyDistribution(Distribution):
 
     def _generate_distribution_recursive(self, total, possibilities):
         sum_possibilities = sum(possibilities)
+        if (sum_possibilities == 0):
+            raise RuntimeError('No chunk sizes found.')
         # find out how many of each item we can have
         num_each = total // sum_possibilities
+
+        print('Generating {0} each chunk size.'.format(num_each))
 
         if (num_each > 0):
             this_count = Distribution(
@@ -122,13 +126,18 @@ class MonopolyDistribution(Distribution):
         # we add self.base to make sure that rounding errors do not cause the
         # floor operation to make n lower than it should be
         n = math.ceil(math.log(self.min, self.base))
+        print('ceil(log({0}, {1})) = {2}'.format(self.min, self.base, n))
         value = int(math.pow(self.base, n))
+        print('Starting chunk size search at {0}'.format(value))
         unsorted = list()
 
         while (value <= self.max):
             unsorted.append(value)
             n += 1
             value = int(math.pow(self.base, n))
+            print('Checking {0}'.format(value))
+
+        print('Possible chunk sizes: {0}'.format(unsorted))
 
         return sorted(unsorted)
 

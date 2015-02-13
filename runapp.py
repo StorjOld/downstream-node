@@ -9,6 +9,7 @@ import argparse
 import csv
 import time
 import base58
+import traceback
 from flask import Flask, jsonify
 from werkzeug.serving import run_simple
 from werkzeug.wsgi import DispatcherMiddleware
@@ -46,14 +47,18 @@ def get_available_sizes():
     available_sizes = [a[0] for a in available_sizes_result]
     return available_sizes
     
-def maintain_capacity(min_chunk_size, max_chunk_size, size, base=1024):
+def maintain_capacity(min_chunk_size, max_chunk_size, size, base):
     # maintains a certain size of available chunks
     while(1):
         available_sizes = get_available_sizes()
         available_dist = Distribution(from_list=available_sizes)
         # print('Sizes already available: {0}'.format(available_dist))
         # print('Total size available: {0}'.format(available_dist.get_total()))
-        dist = MonopolyDistribution(min_chunk_size, max_chunk_size, size, base)
+        try:
+            dist = MonopolyDistribution(min_chunk_size, max_chunk_size, size, base)
+        except:
+            print('No chunk sizes in that range will be created.')
+            return
         # print('Desired distribution: {0}'.format(dist))
         missing = dist.subtract(available_dist)
         # print('Missing: {0}'.format(missing))
@@ -72,9 +77,20 @@ def generate_chunks(size, number=1):
         node.generate_test_file(size)
 
 def clear_chunks():
+    tag_stmt = select([Chunk.__table__.c.tag_path])
+    
+    tags = db.engine.execute(tag_stmt).fetchall()
+
     s = Chunk.__table__.delete()
     
     db.engine.execute(s)
+    
+    # now delete tags
+    for (path, ) in tags:
+        try:
+            os.remove(path)
+        except:
+            print('Failed to delete {0} (it was probably already deleted)'.format(path))
     
     cleandb()
 
