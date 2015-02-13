@@ -151,7 +151,7 @@ def eval_args(args):
             args.maintain[2],
             args.maintain[0],
             args.maintain[1]))
-        maintain_capacity(int(args.maintain[0]), int(args.maintain[1]), int(args.maintain[2]))
+        maintain_capacity(int(args.maintain[0]), int(args.maintain[1]), int(args.maintain[2]), int(args.maintain[3]))
     else:
         debug_root = Flask(__name__)
         debug_root.debug = True
@@ -176,7 +176,7 @@ def parse_args():
         'specified size.', type=int)
     parser.add_argument('--maintain', help='Maintain available chunk capacity'
         'Specify three values (min chunk size, max chunk size, total pre-gen '
-        'size)', nargs=3)
+        'size)', nargs=4)
     parser.add_argument('--clearchunks', help='Removes all chunks from '
                         ' the database', action='store_true')
     return parser.parse_args()
