@@ -58,11 +58,11 @@ def maintain_capacity(min_chunk_size, max_chunk_size, size, base):
             dist = MonopolyDistribution(min_chunk_size, max_chunk_size, size, base)
         except:
             print('No chunk sizes in that range will be created.')
-            return
+            sys.exit(1)
         # print('Desired distribution: {0}'.format(dist))
         missing = dist.subtract(available_dist)
         # print('Missing: {0}'.format(missing))
-        missing_list = missing.get_list()
+        missing_list = missing.get_alternating_list()
         if (len(missing_list) > 0):
             print('Generating chunks: {0}'.format(missing_list))
         for chunk_size in sorted(missing_list, reverse=True):

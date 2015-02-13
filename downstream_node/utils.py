@@ -34,6 +34,18 @@ class Distribution(object):
             dist.extend([chunk_size] * self.counts[chunk_size])
         return dist
 
+    def get_alternating_list(self):
+        """Returns a list where the sizes are alternated"""
+        dist = list()
+        num_added = 0
+        tmp = self.counts.copy()
+        for i in sorted(self.counts, key=self.counts.get):
+            num_to_add = tmp[i] - num_added
+            dist.extend(list(tmp.keys()) * num_to_add)
+            del tmp[i]
+            num_added += num_to_add
+        return dist
+
     def get_counts(self):
         """Returns a dictionary where the key is the chunk size and the
         value is how many of that size there should be in this distribution
