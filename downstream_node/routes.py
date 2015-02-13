@@ -8,7 +8,7 @@ import ijson
 import traceback
 
 from flask import jsonify, request, Response, stream_with_context
-from sqlalchemy import func, desc, and_
+from sqlalchemy import func, desc
 from sqlalchemy.sql import select
 from datetime import datetime
 
@@ -309,7 +309,7 @@ def api_downstream_chunk_contract(token, size):
     return handler.response
 
 
-def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
+def get_contract_iter(hash_iterable, key=None, bufsz=100):
     """calls next() on hash_iterable until at most bufsz hashes have
     been retrieved, at which point it queries the database and
     retrieves all the contracts associated with those hashes.
@@ -338,18 +338,17 @@ def get_contract_iter(hash_iterable, db_token, key=None, bufsz=100):
             done = True
         if (count == 0):
             return
-        contracts = Contract.query.filter(
-            and_(Contract.token_id == db_token.id,
-                 Contract.id.in_(map.keys()))).all()
+        contracts = Contract.query.filter(Contract.id.in_(map.keys())).all()
         for c in contracts:
             map[c.id][0] = c
         for pair in map.values():
             yield pair
 
 
-def get_challenges(contract_iterator):
+def get_challenges(contract_iterator, token_id):
     for db_contract in contract_iterator:
-        if (db_contract is None):
+        if (db_contract is None
+                or db_contract.token_id != token_id):
             challenge = dict(
                 file_hash=db_contract.id, error='contract not found')
             yield challenge
@@ -402,7 +401,7 @@ def api_downstream_chunk_contract_status(token):
             hash_iterable = ijson.items(request.stream, 'hashes.item')
 
             def get_contracts():
-                for pair in get_contract_iter(hash_iterable, db_token):
+                for pair in get_contract_iter(hash_iterable):
                     yield pair[0]
 
             contract_iterator = get_contracts()
@@ -415,7 +414,8 @@ def api_downstream_chunk_contract_status(token):
                                        {'context': handler.context,
                                         'response': 'REDACTED (streaming)'})
 
-        response = dict(challenges=get_challenges(contract_iterator))
+        response = dict(
+            challenges=get_challenges(contract_iterator, db_token.id))
 
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),
@@ -424,9 +424,10 @@ def api_downstream_chunk_contract_status(token):
     return handler.response
 
 
-def get_verification_reports(pair_iterator, beat):
+def get_verification_reports(pair_iterator, beat, token_id):
     for (db_contract, item) in pair_iterator:
-        if (db_contract is None):
+        if (db_contract is None
+                or db_contract.token_id != token_id):
             r = dict(file_hash=item['file_hash'],
                      error='contract not found')
             yield r
@@ -478,14 +479,15 @@ def api_downstream_challenge_answer(token):
         hash_iterable = ijson.items(request.stream, 'proofs.item')
 
         pair_iterator = get_contract_iter(
-            hash_iterable, db_token, key='file_hash')
+            hash_iterable, key='file_hash')
 
         if (app.mongo_logger is not None):
             app.mongo_logger.log_event('answer',
                                        {'context': handler.context,
                                         'response': 'REDACTED (streaming)'})
 
-        response = dict(report=get_verification_reports(pair_iterator, beat))
+        response = dict(
+            report=get_verification_reports(pair_iterator, beat, db_token.id))
 
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),
