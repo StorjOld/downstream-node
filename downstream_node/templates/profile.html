@@ -9,6 +9,7 @@ body {
 }
 .request {
 	clear: both;
+	display: inline-block;
 }
 .function, .path {
 	clear: both;
@@ -16,7 +17,6 @@ body {
 	padding: 10px;
 	border-radius: 2px;
 	margin: 10px;
-	width: 900px;
 }
 .path_name {
 	font-family: monospace;
@@ -29,27 +29,27 @@ body {
 	color: white;
 	font-family: monospace;
 	padding: 4px;
-	border: 1px #ffdd00;
 	border-radius: 2px;
 }
 .stats {
 	font-family: monospace;
-	padding-right: 10px;
-	margin: 0;
+}
+.count {
+	position: absolute;
+	right: 215px;
+}
+.time {
+	width: 195px;
+	position: absolute;
+	right: 5px;
 }
 .source {
 	clear: both;
 	float: left;
-	width: 600px;
+	position: relative;
 	padding-left: 20px;
-}
-.lines {
-	font-family: monospace;
-	float: left;
-	margin: 1em 0;
-}
-.timings {
-	border-spacing: 0;
+	margin-right: 250px;
+	width: 100%;
 }
 .end {
 	clear: both;
@@ -70,31 +70,16 @@ td {
 <span class="path_name">/{{ path }}</span>
 </div>
 {% for function in request.functions %}
-	{% if function.timings|count > 1 %}
 	<div class="function">
 	<span class="function_name">From {{ function.filename }}:</span>
 	<div class="source">
-	{% autoescape false %}
-	{{ function.source }}
-	{% endautoescape %}
-	</div>
-	<div class="lines">
-	<table class="timings">
-		{% for timing in function.timings %}
-		<tr>
-		{% if timing[0] and timing[1] %}
-		<td class="stats">{{ timing[0] }}</td><td class="stats">{{ timing[1] }}</td>
-		{% else %}
-		<td class="stats" colspan="2">&nbsp;</td>
-		{% endif %}
-		</tr>
-		{% endfor %}
-	</table>
+{% for line in function.timed_lines %}{% autoescape false %}{{ line[0] }}{% endautoescape %}{% if line[1][0] and line[1][1] %}<span class="stats, count">{{ line[1][0] }}</span><span class="stats, time">{{ line[1][1] }}</span>{% endif %}
+{% endfor %}
 	</div>
 	<div class="end">&nbsp;</div>
 	</div>
-	{% endif %}
 {% endfor %}
+<div class="end">&nbsp;</div>
 </div>
 </body>
 

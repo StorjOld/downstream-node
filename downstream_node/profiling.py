@@ -86,7 +86,7 @@ def get_function_source_hits(logged_function, line_hits, unit):
         function_def = linecache.getline(filename, lineno)
         source_hits.append((function_def.rstrip(), None, None))
 
-    for hit in range(start_line, end_line+1):
+    for hit in range(start_line, end_line + 1):
         source_line = linecache.getline(filename, hit)
         if (hit in line_dict):
             source_hits.append(
@@ -107,23 +107,28 @@ def profiling_profile(path):
         request = dict(path=p['path'],
                        functions=list())
         lexer = PythonLexer()
-        formatter = HtmlFormatter()
-        style = formatter.get_style_defs()
+        style = HtmlFormatter().get_style_defs()
         for i in range(0, len(p['functions'])):
             if any([len(l) > 0 for l in p['lines'][i]]):
                 lines = get_function_source_hits(p['functions'][i],
                                                  p['lines'][i],
                                                  p['unit'])
+                formatter = HtmlFormatter(linenos='inline',
+                                          linenostart=p['functions'][i][1])
+                if (all([len(l[0]) == 0 for l in lines])):
+                    continue
                 source_html = pygments.highlight(
                     '\n'.join([j[0] for j in lines]),
                     lexer,
                     formatter)
+                source_lines = source_html.split('\n')
                 timings = [(j[1], j[2]) for j in lines]
+                timings.append((None, None))
+                timed_lines = list(zip(source_lines, timings))
                 function = dict(
                     name=p['functions'][i][2],
                     filename=p['functions'][i][0],
-                    source=source_html,
-                    timings=timings)
+                    timed_lines=timed_lines)
                 request['functions'].append(function)
 
         return render_template('profile.html',
