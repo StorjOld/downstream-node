@@ -46,7 +46,7 @@ def get_available_sizes():
     available_sizes = [a[0] for a in available_sizes_result]
     return available_sizes
     
-def maintain_capacity(min_chunk_size, max_chunk_size, size, base=2):
+def maintain_capacity(min_chunk_size, max_chunk_size, size, base=1024):
     # maintains a certain size of available chunks
     while(1):
         available_sizes = get_available_sizes()
