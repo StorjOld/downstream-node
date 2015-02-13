@@ -65,7 +65,7 @@ def maintain_capacity(min_chunk_size, max_chunk_size, size, base):
         missing_list = missing.get_alternating_list()
         if (len(missing_list) > 0):
             print('Generating chunks: {0}'.format(missing_list))
-        for chunk_size in sorted(missing_list, reverse=True):
+        for chunk_size in missing_list:
             generate_chunks(chunk_size)
         if (len(missing_list) > 0):
             print('Done.')
