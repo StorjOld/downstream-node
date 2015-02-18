@@ -32,11 +32,11 @@ the same secret key is maintained."""
 HEARTBEAT_PATH = 'data/heartbeat'
 
 """Whether to log each action on the node"""
-MONGO_LOGGING = True
+MONGO_LOGGING = False
 """Uri to use for logging"""
 MONGO_URI = 'mongodb://localhost/dsnode_log'
 """Whether to profile each request.  Requires MONGO_LOGGING to be true"""
-PROFILE = True
+PROFILE = False
 
 """The default chunk size that will be returned if no size is specified"""
 DEFAULT_CHUNK_SIZE = 33554432
