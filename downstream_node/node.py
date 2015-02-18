@@ -288,9 +288,9 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
     if (max_chunk_count is None):
         max_chunk_count = app.config['MAX_CHUNKS_PER_REQUEST']
 
-    while ((max_chunk_count == 0
-            or contract_count < max_chunk_count)
-           and total_size < size):
+    while ((max_chunk_count == 0 or
+            contract_count < max_chunk_count) and
+            total_size < size):
         size_to_pull = size - total_size
         # now we pull from pregenerated chunks
         # we need a chunk that is smaller than the requested size
@@ -413,8 +413,8 @@ def update_contract(db_contract):
 
     # if the current challenge is good,
     # and has a valid challenge, use it
-    if (db_contract.challenge is not None
-            and datetime.utcnow() < db_contract.due):
+    if (db_contract.challenge is not None and
+            datetime.utcnow() < db_contract.due):
         return db_contract
 
     contract_still_valid = contract_insert_next_challenge(db_contract)

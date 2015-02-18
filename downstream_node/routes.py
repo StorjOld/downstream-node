@@ -174,8 +174,8 @@ def api_downstream_new_token(sjcx_address):
                 # put the posted data into the context for logging
                 handler.context['posted_data'] = d
 
-                if (d is False or not isinstance(d, dict)
-                        or 'signature' not in d or 'message' not in d):
+                if (d is False or not isinstance(d, dict) or
+                        'signature' not in d or 'message' not in d):
                     raise InvalidParameterError(
                         'Posted data must be JSON encoded object including '
                         '"signature" and "message"')
@@ -347,8 +347,8 @@ def get_contract_iter(hash_iterable, key=None, bufsz=100):
 
 def get_challenges(pair_iterator, token_id):
     for (db_contract, item) in pair_iterator:
-        if (db_contract is None
-                or db_contract.token_id != token_id):
+        if (db_contract is None or
+                db_contract.token_id != token_id):
             challenge = dict(
                 file_hash=item, error='contract not found')
             yield challenge
@@ -427,8 +427,8 @@ def api_downstream_chunk_contract_status(token):
 
 def get_verification_reports(pair_iterator, beat, token_id):
     for (db_contract, item) in pair_iterator:
-        if (db_contract is None
-                or db_contract.token_id != token_id):
+        if (db_contract is None or
+                db_contract.token_id != token_id):
             r = dict(file_hash=item['file_hash'],
                      error='contract not found')
             yield r
