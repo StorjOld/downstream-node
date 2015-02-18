@@ -18,7 +18,7 @@ install:
 - python setup.py install
 - cp downstream_node/config_template.py downstream_node/config.py
 after_success:
-- coveralls --verbose
+- coveralls
 script:
 - coverage run setup.py test -a "--doctest-modules --pep8 -v tests/ downstream_node/"
 - coverage report -m --include="downstream_node/*"
