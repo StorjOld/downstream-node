@@ -28,9 +28,10 @@ __all__ = ['create_token',
 
 
 def get_ip_location(remote_addr):
-    """Gets the location of the request.remote_addr
+    """Gets the location of the specified remote_addr
 
-    :returns: the location
+    :param remote_addr: the ip address to get the location of
+    :returns: the location as a dictionary
     """
     # this code may need to be rethought for scalability, but for now,
     # we're going with just opening a reader each time we get a location
@@ -63,7 +64,10 @@ def get_ip_location(remote_addr):
 
 def assert_ip_allowed_one_more_token(remote_addr):
     """This function enforces the max token per IP count rule for
-    existing tokens.
+    existing tokens.  If the ip address already has the MAX_TOKENS_PER_IP,
+    raises an InvalidParameterError.  Otherwise returns None
+
+    :param remote_addr: The address to check.
     """
     conflicting_tokens = Token.query.filter(
         Token.ip_address == remote_addr).count()
@@ -134,6 +138,8 @@ def create_token(sjcx_address, remote_addr, message=None, signature=None):
 
     :param sjcx_address: address to use for token creation.
     :param remote_addr: ip address of the farmer requesting a token
+    :param message: the message for a signature
+    :param signature: the signature specified
     :returns: the token database object
     """
 
@@ -212,6 +218,8 @@ def generate_test_file(size):
 def prepare_contract(db_file):
     """This prepares a file for issuing to farmers.  For now, considers the
     file to be a chunk, tags it and places the information in the database
+
+    :param db_file: the file database object to prepare
     """
     beat = app.heartbeat
 
@@ -335,11 +343,12 @@ def add_file(seed, size, redundancy=3, interval=None):
     """This function adds a file to the database to be tracked by the
     application.
 
-    :param seed: for prototyping, the seed of the file
-    :param size: for prototyping, the size of the file
-    :param chunk_path: the path to the file to track
+    :param seed: for prototyping, the seed of the file (prototyping)
+    :param size: for prototyping, the size of the file (prototyping)
+    :param chunk_path: the path to the file to track (not used yet)
     :param redundancy: the desired redundancy of the file
-    :param interval: the desired heartbeat check interval
+    :param interval: the desired heartbeat check interval in seconds
+        if None, uses the default interval
     :returns: the file database object
     """
     if (interval is None):

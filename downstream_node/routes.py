@@ -14,7 +14,7 @@ from datetime import datetime
 
 from .startup import app, db
 from .node import (create_token, get_chunk_contracts,
-                   verify_proof,  update_contract,
+                   verify_proof, update_contract,
                    process_token_ip_address)
 from .models import Token, Address, Contract, File, update_uptime_summary
 from .exc import InvalidParameterError, NotFoundError, HttpHandler

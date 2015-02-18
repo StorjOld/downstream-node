@@ -221,7 +221,8 @@ class Contract(db.Model):
 
 def update_uptime_summary():
     """Moves add any online time from any uncached contracts
-    to the uptime for their token.  Then marks them as cached.
+    to the uptime for their token.  Then if they need to be cached
+    marks them as cached.
     """
     tokens = Token.__table__
     files = File.__table__

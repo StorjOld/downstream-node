@@ -90,7 +90,25 @@ class Distribution(object):
 
 class MonopolyDistribution(Distribution):
 
+    """Encapsulates a distribution that tries to have equal numbers of chunks
+    at all the different order of magnitude, as specified by a given base.
+    For instance, if the base is 10, and you specify a min and max of 10 and
+    10000, and your total is 100000, it will give you this distribution
+    size 10: 10
+    size 100: 9
+    size 1000: 9
+    size 10000: 9
+    """
+
     def __init__(self, min, max, total, base=10):
+        """Initialization function
+
+        :param min: minimum chunk size inclusive
+        :param max: maximum chunk size inclusive
+        :param total: total size of all chunks (will try to get as close as
+            possible without going over
+        :param base: the base to use
+        """
         Distribution.__init__(self)
         self.base = base
         self.min = min
