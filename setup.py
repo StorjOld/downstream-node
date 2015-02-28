@@ -7,7 +7,7 @@ with open('downstream_node/version.py','r') as f:
 
 # Reqirements for all versions of Python
 install_requires = [
-    'pymysql',
+    'pymysql==0.6.2',
     'flask-sqlalchemy',
     'flask',
     'RandomIO>=0.2.1',
