@@ -13,7 +13,7 @@ APPLICATION_ROOT = '/api/downstream/v1'
 SERVER_ALIAS = 'dsnode'
 
 """The SQLALCHEMY database uri"""
-SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream'  # NOQA
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream?charset=utf8'  # NOQA
 
 """Not used, but theoretically where staging files will be placed"""
 FILES_PATH = 'tmp/'
