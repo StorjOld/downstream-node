@@ -264,8 +264,6 @@ def calculate_size_to_return(db_token, desired_size, max_size_per_address):
 
     max_size = max_size_per_address - current_size
 
-    print('Max size to get this time: {0}'.format(max_size))
-
     if (desired_size < max_size):
         return desired_size
     elif (max_size > 0):

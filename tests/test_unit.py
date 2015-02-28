@@ -25,7 +25,7 @@ from downstream_node.exc import (InvalidParameterError,
                                  HttpHandler)
 
 app.config[
-    'SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://localhost/test_downstream'
+    'SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://localhost/test_downstream?charset=utf8'
 
 
 class TestStartup(unittest.TestCase):
