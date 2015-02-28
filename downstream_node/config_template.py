@@ -52,6 +52,8 @@ REQUIRE_SIGNATURE = True
 DEFAULT_INTERVAL = 300
 """Maximum number of chunks each /chunk/ request will return"""
 MAX_CHUNKS_PER_REQUEST = 10
+"""Maximum size that an address can be farming on this prototype node"""
+MAX_SIZE_PER_ADDRESS = 1073741824
 
 """The heartbeat check fraction: the fraction of the chunk that is
 checked on each heartbeat

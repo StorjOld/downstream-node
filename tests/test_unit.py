@@ -1089,6 +1089,28 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         # remove tag
         os.remove(db_contract.tag_path)
 
+    def test_get_chunk_contracts_limited_by_max_size(self):
+        app.config['MAX_SIZE_PER_ADDRESS'] = self.test_size
+        with patch('downstream_node.node.get_ip_location') as p:
+            p.return_value = dict()
+            db_token = node.create_token(self.test_address, 'test.ip.address')
+
+        db_chunk = node.generate_test_file(self.test_size)
+        db_chunk2 = node.generate_test_file(self.test_size)
+
+        db_contracts = list(
+            node.get_chunk_contracts(
+                db_token,
+                2 *
+                self.test_size))
+
+        self.assertEqual(len(db_contracts), 1)
+
+        self.assertEqual(db_contracts[0].file.size, self.test_size)
+
+        os.remove(db_contracts[0].tag_path)
+        os.remove(db_chunk2.tag_path)
+
     def test_update_contract_expired(self):
         db_file = node.add_file(self.test_seed, self.test_size)
 
@@ -1159,7 +1181,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
     def test_get_chunk_contracts_no_chunks(self):
         db_token = self.add_test_token()
 
-        db_contracts = list(node.get_chunk_contracts(db_token.token, 100))
+        db_contracts = list(node.get_chunk_contracts(db_token, 100))
 
         self.assertEqual(len(db_contracts), 0)
 

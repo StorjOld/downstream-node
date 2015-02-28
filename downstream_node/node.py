@@ -10,7 +10,7 @@ import traceback
 from datetime import datetime
 from Crypto.Hash import SHA256
 from RandomIO import RandomIO
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, func
 from heartbeat import HeartbeatError
 
 from .startup import db, app
@@ -250,7 +250,34 @@ def prepare_contract(db_file):
     return db_chunk
 
 
-def get_chunk_contracts(db_token, size, max_chunk_count=None):
+def calculate_size_to_return(db_token, desired_size, max_size_per_address):
+    """Calculates the size to return to the farmer, given
+    current size, desired size and size restrictions"""
+
+    current_size = db.session.query(func.sum(File.size))\
+        .select_from(File)\
+        .join(Contract).join(Token).join(Address)\
+        .filter(Address.id == db_token.address_id).scalar()
+
+    if (current_size is None):
+        current_size = 0
+
+    max_size = max_size_per_address - current_size
+
+    print('Max size to get this time: {0}'.format(max_size))
+
+    if (desired_size < max_size):
+        return desired_size
+    elif (max_size > 0):
+        return max_size
+    else:
+        return 0
+
+
+def get_chunk_contracts(db_token,
+                        size,
+                        max_chunk_count=None,
+                        max_size_per_address=None):
     """In the final version, this function should analyze currently available
     file chunks and disburse contracts for files that need higher redundancy
     counts.
@@ -287,6 +314,11 @@ def get_chunk_contracts(db_token, size, max_chunk_count=None):
 
     if (max_chunk_count is None):
         max_chunk_count = app.config['MAX_CHUNKS_PER_REQUEST']
+
+    if (max_size_per_address is None):
+        max_size_per_address = app.config['MAX_SIZE_PER_ADDRESS']
+
+    size = calculate_size_to_return(db_token, size, max_size_per_address)
 
     while ((max_chunk_count == 0 or
             contract_count < max_chunk_count) and
