@@ -1085,10 +1085,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(db_contract.file, db_chunk.file)
 
         # check presence of tag
-        self.assertTrue(os.path.isfile(db_contract.tag_path))
+        self.assertTrue(os.path.isfile(node.get_local_tag_path(db_contract.tag_path)))
 
         # remove tag
-        os.remove(db_contract.tag_path)
+        os.remove(node.get_local_tag_path(db_contract.tag_path))
 
     def test_get_chunk_contracts_limited_by_max_size(self):
         app.config['MAX_SIZE_PER_ADDRESS'] = self.test_size
@@ -1109,8 +1109,8 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
 
         self.assertEqual(db_contracts[0].file.size, self.test_size)
 
-        os.remove(db_contracts[0].tag_path)
-        os.remove(db_chunk2.tag_path)
+        os.remove(node.get_local_tag_path(db_contracts[0].tag_path))
+        os.remove(node.get_local_tag_path(db_chunk2.tag_path))
 
     def test_update_contract_expired(self):
         db_file = node.add_file(self.test_seed, self.test_size)
