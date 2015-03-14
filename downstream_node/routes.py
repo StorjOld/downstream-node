@@ -8,6 +8,7 @@ import ijson
 import traceback
 
 from flask import jsonify, request, Response, stream_with_context
+from flask import make_response
 from sqlalchemy import func, desc
 from sqlalchemy.sql import select
 from datetime import datetime
@@ -15,7 +16,7 @@ from datetime import datetime
 from .startup import app, db
 from .node import (create_token, get_chunk_contracts,
                    verify_proof, update_contract,
-                   process_token_ip_address)
+                   process_token_ip_address, get_tag)
 from .models import Token, Address, Contract, File, update_uptime_summary
 from .exc import InvalidParameterError, NotFoundError, HttpHandler
 from .streamencoder import JSONEncoder as StreamEncoder
@@ -275,14 +276,12 @@ def api_downstream_chunk_contract(token, size):
 
         def get_chunks():
             for db_contract in db_contracts:
-                with open(db_contract.tag_path, 'rb') as f:
-                    tag = pickle.load(f)
+
                 chal = db_contract.challenge
 
+                tag = get_tag(db_contract.tag_path)
+
                 db.session.flush()
-                # we now delete the tag since it has been sent
-                # (we never actually create the file)
-                os.remove(db_contract.tag_path)
 
                 chunk = dict(seed=db_contract.file.seed,
                              size=db_contract.file.size,
@@ -493,5 +492,23 @@ def api_downstream_challenge_answer(token):
         return Response(stream_with_context(StreamEncoder(stream=True)
                                             .iterencode(response)),
                         mimetype='application/json')
+
+    return handler.response
+
+
+@app.route('/tag/<hash>', methods=['GET'])
+def api_downstream_tag(hash):
+    with HttpHandler(app.mongo_logger) as handler:
+        handler.context['hash'] = hash
+        handler.context['remote_addr'] = request.remote_addr
+
+        tag_path = os.path.join(app.config['TAGS_PATH'], hash)
+        with open(tag_path, 'rb') as f:
+            tag = pickle.load(f)
+
+        # delete the tag
+        os.remove(tag_path)
+
+        return make_response(tag)
 
     return handler.response

@@ -6,6 +6,7 @@ import binascii
 import maxminddb
 import base58
 import traceback
+import requests
 
 from datetime import datetime
 from Crypto.Hash import SHA256
@@ -215,6 +216,37 @@ def generate_test_file(size):
     return db_chunk
 
 
+def get_local_tag_path(hash):
+    return os.path.join(app.config['TAGS_PATH'], hash)
+
+
+def get_tag(hash):
+    if (app.config['REMOTE_TAGS_PATH'] is None):
+        tag = None
+        tag_path = get_local_tag_path(hash)
+        with open(tag_path, 'rb') as f:
+            tag = pickle.load(f)
+        os.remove(tag_path)
+        return tag
+    else:
+        # this route deletes the tag
+        url = app.config['REMOTE_TAGS_PATH'] + '/' + hash
+        print('Getting: {0}'.format(url))
+        binary_tag = requests.get(url).content
+        return pickle.loads(binary_tag)
+
+
+def put_tag(tag):
+    bin_tag = pickle.dumps(tag, pickle.HIGHEST_PROTOCOL)
+
+    hash = SHA256.new(bin_tag).hexdigest()
+
+    with open(get_local_tag_path(hash), 'wb') as f:
+        f.write(bin_tag)
+
+    return hash
+
+
 def prepare_contract(db_file):
     """This prepares a file for issuing to farmers.  For now, considers the
     file to be a chunk, tags it and places the information in the database
@@ -227,22 +259,11 @@ def prepare_contract(db_file):
 
     (tag, state) = beat.encode(chunk_stream, filesz=db_file.size)
 
-    bin_tag = pickle.dumps(tag, pickle.HIGHEST_PROTOCOL)
-
-    tag_hash = SHA256.new(bin_tag).hexdigest()
-
-    tag_path = os.path.join(app.config['TAGS_PATH'], tag_hash)
-
-    # and write the tag to our temporary files
-    # we will eventually need to move to a streamed tag writing if tags
-    # get large but for now, we'll stick with this since we're going to use
-    # merkle with short contract lifetimes
-    with open(tag_path, 'wb') as f:
-        f.write(bin_tag)
+    hash = put_tag(tag)
 
     db_chunk = Chunk(file=db_file,
                      state=state,
-                     tag_path=tag_path)
+                     tag_path=hash)
 
     db.session.add(db_chunk)
     db.session.commit()
