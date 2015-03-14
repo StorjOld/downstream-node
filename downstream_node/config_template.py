@@ -19,6 +19,9 @@ SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://localhost/downstream?charset=utf8'  #
 FILES_PATH = 'tmp/'
 """Where tags are placed"""
 TAGS_PATH = 'tags/'
+"""Where tags are retrieved from.  If none, indicates tags are stored locally.
+Otherwise, provide an http url to retrieve tags from."""
+REMOTE_TAGS_PATH = None
 """The path to the MMDB database used for locating IP addresses
 geographically"""
 MMDB_PATH = 'data/GeoLite2-City.mmdb'
