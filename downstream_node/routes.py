@@ -497,14 +497,14 @@ def api_downstream_challenge_answer(token):
 
 
 @app.route('/tag/<key>/<hash>')
-def api_downstream_tag(key,hash):
+def api_downstream_tag(key, hash):
     with HttpHandler(app.mongo_logger) as handler:
         handler.context['hash'] = hash
         handler.context['remote_addr'] = request.remote_addr
 
         if (key != app.config['TAG_KEY']):
             raise InvalidParameterError('Invalid key')
-        
+
         tag_path = os.path.join(app.config['TAGS_PATH'], hash)
         with open(tag_path, 'rb') as f:
             binary_tag = f.read()
@@ -516,14 +516,15 @@ def api_downstream_tag(key,hash):
 
     return handler.response
 
+
 @app.route('/private_heartbeat/<key>')
 def api_downstream_private_heartbeat(key):
     with HttpHandler(app.mongo_logger) as handler:
         handler.context['remote_addr'] = request.remote_addr
-        
+
         if (key != app.config['TAG_KEY']):
             raise InvalidParameterError('Invalid key')
-        
+
         return make_response(pickle.dumps(app.heartbeat))
-    
+
     return handler.response

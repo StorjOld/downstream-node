@@ -230,7 +230,8 @@ def get_tag(hash):
         return tag
     else:
         # this route deletes the tag
-        url = app.config['REMOTE_TAGS_PATH'] + '/' + app.config['TAGS_KEY'] + '/' + hash
+        url = app.config['REMOTE_TAGS_PATH'] + \
+            '/' + app.config['TAGS_KEY'] + '/' + hash
         response = requests.get(url)
         response.raise_for_status()
         binary_tag = response.content

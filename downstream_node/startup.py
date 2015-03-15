@@ -14,12 +14,14 @@ app = Flask(__name__)
 app.config.from_object(config)
 db = SQLAlchemy(app)
 
+
 def try_local_heartbeat(path):
     if (os.path.isfile(path)):
         with open(path, 'rb') as f:
             return pickle.load(f)
     else:
         return False
+
 
 def try_remote_heartbeat(path):
     try:
@@ -29,19 +31,19 @@ def try_remote_heartbeat(path):
     except:
         return False
 
-        
+
 def load_heartbeat(constructor, path, check_fraction):
     # we shall save the app wide heartbeat into a binary file
     beat = try_local_heartbeat(path)
-    
+
     if (not beat):
         beat = try_remote_heartbeat(path)
-    
+
     if (not beat):
         beat = constructor(check_fraction)
         with open(path, 'wb') as f:
             pickle.dump(beat, f)
-    
+
     return beat
 
 
