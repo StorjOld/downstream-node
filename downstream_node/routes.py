@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import pickle
 import siggy
 import ijson
 import traceback
@@ -509,7 +508,7 @@ def api_downstream_tag(hash):
 
         # delete the tag
         os.remove(tag_path)
-        
+
         return make_response(binary_tag)
 
     return handler.response
