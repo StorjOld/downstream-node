@@ -631,8 +631,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['farmers'][0]['id'], '0')
-        self.assertEqual(r_json['farmers'][1]['id'], '1')
+        self.assertEqual(r_json['farmers'][0]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][1]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_invalid_sort(self):
         r = self.app.get('/status/list/by/invalid.sort')
@@ -652,8 +652,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 1)
-        self.assertEqual(r_json['farmers'][0]['id'], '1')
+        self.assertEqual(len(r_json['farmers']), 1, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_limit(self):
         r = self.app.get('/status/list/1')
@@ -663,8 +663,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 1)
-        self.assertEqual(r_json['farmers'][0]['id'], '0')
+        self.assertEqual(len(r_json['farmers']), 1, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_limit_page(self):
         r = self.app.get('/status/list/1/1')
@@ -674,8 +674,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 1)
-        self.assertEqual(r_json['farmers'][0]['id'], '1')
+        self.assertEqual(len(r_json['farmers']), 1, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_by_farmer_id(self):
         r = self.app.get('/status/list/by/d/id')
@@ -685,8 +685,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['farmers'][0]['id'], '1')
-        self.assertEqual(r_json['farmers'][1]['id'], '0')
+        self.assertEqual(r_json['farmers'][0]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][1]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
 
     def generic_list_by(self, string):
         r = self.app.get('/status/list/by/{0}'.format(string))
@@ -696,8 +696,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['farmers'][0]['id'], '0')
-        self.assertEqual(r_json['farmers'][1]['id'], '1')
+        self.assertEqual(r_json['farmers'][0]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][1]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
 
         r = self.app.get('/status/list/by/d/{0}'.format(string))
 
@@ -706,8 +706,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(r_json['farmers'][0]['id'], '1')
-        self.assertEqual(r_json['farmers'][1]['id'], '0')
+        self.assertEqual(r_json['farmers'][0]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][1]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_by_address(self):
         self.generic_list_by('address')
@@ -745,8 +745,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 3)
-        self.assertEqual(r_json['farmers'][0]['uptime'], 0.0)
+        self.assertEqual(len(r_json['farmers']), 3, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['uptime'], 0.0, 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_by_uptime_limit(self):
         r = self.app.get('/status/list/by/uptime/1')
@@ -756,8 +756,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 1)
-        self.assertEqual(r_json['farmers'][0]['id'], '0')
+        self.assertEqual(len(r_json['farmers']), 1, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['id'], '0', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_list_by_uptime_limit_page(self):
         r = self.app.get('/status/list/by/uptime/1/1')
@@ -767,8 +767,8 @@ class TestDownstreamNodeStatus(unittest.TestCase):
 
         r_json = json.loads(r.data.decode('utf-8'))
 
-        self.assertEqual(len(r_json['farmers']), 1)
-        self.assertEqual(r_json['farmers'][0]['id'], '1')
+        self.assertEqual(len(r_json['farmers']), 1, 'unexpected returned json: {0}'.format(r_json))
+        self.assertEqual(r_json['farmers'][0]['id'], '1', 'unexpected returned json: {0}'.format(r_json))
 
     def test_api_status_show_invalid_id(self):
         r = self.app.get('/status/show/invalidfarmer')
