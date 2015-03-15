@@ -4,6 +4,7 @@
 import os
 import siggy
 import ijson
+import pickle
 import traceback
 
 from flask import jsonify, request, Response, stream_with_context
@@ -524,3 +525,5 @@ def api_downstream_private_heartbeat(key):
             raise InvalidParameterError('Invalid key')
         
         return make_response(pickle.dumps(app.heartbeat))
+    
+    return handler.response
