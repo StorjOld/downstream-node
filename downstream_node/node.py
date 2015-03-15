@@ -231,8 +231,9 @@ def get_tag(hash):
     else:
         # this route deletes the tag
         url = app.config['REMOTE_TAGS_PATH'] + '/' + hash
-        print('Getting: {0}'.format(url))
-        binary_tag = requests.get(url).content
+        response = requests.get(url)
+        response.raise_for_status()
+        binary_tag = response.content
         return pickle.loads(binary_tag)
 
 

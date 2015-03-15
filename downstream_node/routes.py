@@ -496,19 +496,20 @@ def api_downstream_challenge_answer(token):
     return handler.response
 
 
-@app.route('/tag/<hash>', methods=['GET'])
+@app.route('/tag/<hash>')
 def api_downstream_tag(hash):
+    print('Getting tag/{0}'.format(hash))
     with HttpHandler(app.mongo_logger) as handler:
         handler.context['hash'] = hash
         handler.context['remote_addr'] = request.remote_addr
 
         tag_path = os.path.join(app.config['TAGS_PATH'], hash)
         with open(tag_path, 'rb') as f:
-            tag = pickle.load(f)
+            binary_tag = f.read()
 
         # delete the tag
         os.remove(tag_path)
-
-        return make_response(tag)
+        
+        return make_response(binary_tag)
 
     return handler.response

@@ -173,7 +173,7 @@ def eval_args(args):
         debug_root.debug = True
         debug_root.add_url_rule('/','index',lambda: jsonify(msg='debugging'))
         prefixed_app = DispatcherMiddleware(debug_root, {app.config['APPLICATION_ROOT']:app})
-        run_simple('localhost', 5000, prefixed_app, use_reloader=True)
+        run_simple('localhost', 5000, prefixed_app, use_reloader=True, threaded=True)
 
 
 def parse_args():
