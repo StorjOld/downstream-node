@@ -430,7 +430,7 @@ class TestDownstreamRoutes(unittest.TestCase):
 
         r_token = r_json['token']
 
-        node.generate_test_file(self.test_size)
+        chunk = node.generate_test_file(self.test_size)
 
         with patch('downstream_node.routes.request') as request:
             request.remote_addr = 'test.ip.address'
