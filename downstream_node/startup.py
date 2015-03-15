@@ -25,7 +25,7 @@ def try_local_heartbeat(path):
 
 def try_remote_heartbeat(path):
     try:
-        response = requests.get(path)
+        response = requests.get(path, verify=False)
         response.raise_for_status()
         return pickle.loads(response.content)
     except:
