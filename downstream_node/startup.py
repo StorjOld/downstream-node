@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import pickle
+import requests
 
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
@@ -21,11 +22,13 @@ def try_local_heartbeat(path):
         return False
 
 def try_remote_heartbeat(path):
-    response = requests.get(url)
-    if (response.status_code == 200):
+    try:
+        response = requests.get(path)
+        response.raise_for_status()
         return pickle.loads(response.content)
-    else:
+    except:
         return False
+
         
 def load_heartbeat(constructor, path, check_fraction):
     # we shall save the app wide heartbeat into a binary file
