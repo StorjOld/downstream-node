@@ -99,7 +99,7 @@ def api_downstream_status_list(o, d, sortby, limit, page):
             .select_from(Token.__table__.join(Address.__table__)
                          .join(Contract.__table__.join(File.__table__),
                                isouter=True))\
-            .group_by('id')
+            .group_by(Token.__table__.c.farmer_id)
 
         # now get the tokens we need
         if (d):
