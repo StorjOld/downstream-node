@@ -26,7 +26,7 @@ from downstream_node.exc import (InvalidParameterError,
 
 app.config[
     'SQLALCHEMY_DATABASE_URI'] = \
-        'mysql+pymysql://localhost/test_downstream?charset=utf8'
+    'mysql+pymysql://localhost/test_downstream?charset=utf8'
 
 
 class TestStartup(unittest.TestCase):
@@ -1085,7 +1085,10 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
         self.assertEqual(db_contract.file, db_chunk.file)
 
         # check presence of tag
-        self.assertTrue(os.path.isfile(node.get_local_tag_path(db_contract.tag_path)))
+        self.assertTrue(
+            os.path.isfile(
+                node.get_local_tag_path(
+                    db_contract.tag_path)))
 
         # remove tag
         os.remove(node.get_local_tag_path(db_contract.tag_path))
@@ -1096,7 +1099,7 @@ class TestDownstreamNodeFuncs(unittest.TestCase):
             p.return_value = dict()
             db_token = node.create_token(self.test_address, 'test.ip.address')
 
-        db_chunk = node.generate_test_file(self.test_size)
+        node.generate_test_file(self.test_size)
         db_chunk2 = node.generate_test_file(self.test_size)
 
         db_contracts = list(
