@@ -19,7 +19,8 @@ install_requires = [
     'line_profiler',
     'ijson',
     'future',
-    'pygments'
+    'pygments',
+    'requests'
 ]
 
 test_requirements = [
