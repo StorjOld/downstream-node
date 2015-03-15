@@ -541,7 +541,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
             'DROP TABLE IF EXISTS contracts,chunks,tokens,addresses,files')
         db.create_all()
         
-        self.assertEqual(db.session.query(models.Tokens).count(), 0)
+        self.assertEqual(db.session.query(models.Token).count(), 0)
 
         self.a0 = models.Address(address='0', crowdsale_balance=20000)
         a1 = models.Address(address='1', crowdsale_balance=20000)
