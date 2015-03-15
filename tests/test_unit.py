@@ -542,6 +542,7 @@ class TestDownstreamNodeStatus(unittest.TestCase):
         db.create_all()
         
         self.assertEqual(db.session.query(models.Token).count(), 0)
+        print('Token count correct during setup.')
 
         self.a0 = models.Address(address='0', crowdsale_balance=20000)
         a1 = models.Address(address='1', crowdsale_balance=20000)
