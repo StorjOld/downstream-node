@@ -276,10 +276,13 @@ def api_downstream_chunk_contract(token, size):
 
         def get_chunks():
             for db_contract in db_contracts:
-
                 chal = db_contract.challenge
 
-                tag = get_tag(db_contract.tag_path)
+                try:
+                    tag = get_tag(db_contract.tag_path)
+                except:
+                    print('Tag was not found, skipping contract.')
+                    continue
 
                 db.session.flush()
 
@@ -510,6 +513,8 @@ def api_downstream_tag(key, hash):
             binary_tag = f.read()
 
         # delete the tag
+        # this is obviously problematic because if the db does not delete
+        # the tag, then the tag wont be on file next time the db needs it
         os.remove(tag_path)
 
         return make_response(binary_tag)
